@@ -20,8 +20,51 @@ import { campaignEligible, hotspots } from "@/lib/sampleData";
 import valenciaSunset from "@/assets/valencia-sunset.jpg";
 import sevilleEvening from "@/assets/spotly-sevilla-noche-ref.jpg";
 import stagePhoto from "@/assets/spotly-live-stage.jpg";
+import lauraPhoto from "@/assets/spotly-laura.jpg";
+import mePhoto from "@/assets/spotly-me.jpg";
+import festivalPhoto from "@/assets/spotly-sevilla-festival.jpg";
+import beachPhoto from "@/assets/spotly-beach-club.jpg";
 
 export type MineSpot = { boosted: boolean; incognito: boolean; text: string; visibility: string } | null;
+
+/* ---------- Stories strip ---------- */
+const storyPeople = [
+  { name: "Cerca", img: sevilleEvening, live: true },
+  { name: "Ahora", img: stagePhoto, live: true },
+  { name: "Alicia", img: lauraPhoto, live: false },
+  { name: "Marcos", img: festivalPhoto, live: false },
+  { name: "Dani", img: beachPhoto, live: false },
+  { name: "Marta", img: valenciaSunset, live: false },
+];
+
+function StoriesStrip({ onOpenCreate }: { onOpenCreate: () => void }) {
+  const [viewed, setViewed] = useState<string[]>([]);
+  return (
+    <div className="flex gap-3 overflow-x-auto px-3 pb-2 pt-1 scrollbar-none" style={{ scrollbarWidth: "none" }}>
+      {/* Tu historia */}
+      <button onClick={onOpenCreate} className="flex shrink-0 flex-col items-center gap-1.5" aria-label="Crear tu historia">
+        <span className="relative grid h-16 w-16 place-items-center rounded-full border-2 border-dashed border-primary/60 bg-secondary">
+          <img src={mePhoto} alt="Tú" className="h-full w-full rounded-full object-cover opacity-60" />
+          <span className="absolute bottom-0 right-0 grid h-5 w-5 place-items-center rounded-full bg-primary text-primary-foreground shadow"><svg viewBox="0 0 16 16" className="h-3 w-3 fill-current"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg></span>
+        </span>
+        <span className="text-[11px] text-muted-foreground">Tu historia</span>
+      </button>
+      {/* Historias de otros */}
+      {storyPeople.map((p) => {
+        const seen = viewed.includes(p.name);
+        return (
+          <button key={p.name} onClick={() => { setViewed((v) => [...v, p.name]); toast(`Historia de ${p.name}`); }} className="flex shrink-0 flex-col items-center gap-1.5" aria-label={`Historia de ${p.name}`}>
+            <span className={`relative h-16 w-16 rounded-full p-[2.5px] ${seen ? "bg-secondary" : "bg-spot-gradient"}`}>
+              <img src={p.img} alt={p.name} className="h-full w-full rounded-full object-cover" />
+              {p.live && !seen && <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 rounded-full bg-live px-1.5 py-0 text-[8px] font-bold leading-4 text-white">LIVE</span>}
+            </span>
+            <span className={`text-[11px] ${seen ? "text-muted-foreground" : "font-semibold"}`}>{p.name}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 const waves = [5, 9, 14, 22, 13, 7, 19, 11, 25, 16, 9, 18, 27, 12, 7, 21, 15, 10, 23, 14, 8, 19, 26, 11, 6, 16, 24, 12, 7, 20, 13, 9, 17, 25, 11, 6, 15, 21, 9, 5];
 
@@ -175,6 +218,7 @@ export function HomeView({ mine, onBell }: { mine: MineSpot; onBell: () => void 
     <header className="sticky top-0 z-20 bg-background/95 px-3 pb-2 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))] backdrop-blur"><div className="grid grid-cols-[1fr_auto_1fr] items-center"><div className="flex min-w-0"><Button variant="ghost" size="icon" aria-label="Buscar con la voz" onClick={() => app.open("buscar")}><Search size={19} /></Button><Button variant="ghost" size="icon" aria-label="Muro de fotos por ciudades" onClick={() => app.open("ciudad")}><Compass size={18} /></Button></div><Logo className="justify-self-center" /><div className="flex justify-end"><Button variant="ghost" size="icon" aria-label="Chats de voz" onClick={() => app.open("chats")}><Mic size={19} /></Button><Button variant="ghost" size="icon" aria-label="Notificaciones" onClick={onBell} className="relative"><Bell size={19} /><span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-live" /></Button></div></div>
       <div className="mt-3 grid grid-cols-4 gap-1" role="tablist">{feedTabs.map((item) => <Button key={item} role="tab" aria-selected={filter === item} size="sm" variant={filter === item ? "default" : "secondary"} onClick={() => load(item)} className={filter === item ? "spot-active-pill h-8 rounded-full px-1 text-[11px] font-semibold text-foreground" : "h-8 rounded-full px-1 text-[11px] text-foreground/80"}>{item}</Button>)}</div></header>
     <main className="space-y-3 pb-32 pt-1">
+      <StoriesStrip onOpenCreate={() => app.open("crear")} />
       <NowStrip />
       <IncognitoExpiredNote />
       {phase === "loading" && <div className="space-y-3 px-3" aria-busy="true" aria-label="Cargando"><Skeleton className="h-72" /><Skeleton className="h-24" /><Skeleton className="h-56" /></div>}
