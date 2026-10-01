@@ -5,9 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Shell } from "./Extras";
 import lauraPhoto from "@/assets/spotly-laura.jpg";
 import mePhoto from "@/assets/spotly-me.jpg";
-import heartGif from "@/assets/spotly-corazon.gif.asset.json";
-import waveGif from "@/assets/spotly-onda.gif.asset.json";
-import sparkleGif from "@/assets/spotly-brillo.gif.asset.json";
 
 type Message = { id: number; who: "them" | "me"; kind: "voice" | "gif" | "image" | "reaction"; duration?: string; src?: string; value?: string };
 type Chat = { name: string; unread: boolean; messages: Message[] };
@@ -20,7 +17,12 @@ const samples: Chat[] = [
   { name: "Comunidad Triana", unread: true, messages: [{ id: 6, who: "them", kind: "voice", duration: "1:05" }] },
   { name: "Laura", unread: false, messages: [{ id: 7, who: "them", kind: "voice", duration: "0:09" }] },
 ];
-const gifs = [{ title: "Corazón", asset: heartGif }, { title: "Onda", asset: waveGif }, { title: "Brillos", asset: sparkleGif }];
+// GIFs como emojis inline (sin dependencia de CDN Lovable)
+const gifs = [
+  { title: "Corazón", emoji: "❤️", label: "Corazón" },
+  { title: "Onda", emoji: "🌊", label: "Onda" },
+  { title: "Brillos", emoji: "✨", label: "Brillos" },
+];
 
 function Waveform({ active = false }: { active?: boolean }) {
   return <span aria-hidden="true" className="flex h-7 min-w-0 flex-1 items-center justify-center gap-[2px] overflow-hidden">{Array.from({ length: 33 }, (_, i) => <span key={i} className={`voice-wave-line ${active ? "voice-wave-playing" : ""}`} style={{ height: `${22 + (i * 17 + i * i * 7) % 72}%`, animationDelay: `${i * 37}ms` }} />)}</span>;
@@ -122,14 +124,14 @@ export function VoiceChats({ onBack, onAudioWall }: { onBack: () => void; onAudi
     </main>
     <footer className="voice-chat-footer shrink-0 rounded-t-lg border border-primary/20 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3">
       {menu === "attach" && <div className="mb-3 grid grid-cols-3 gap-2"><Button variant="secondary" className="h-16 flex-col gap-1 border border-border text-xs" onClick={() => setMenu("gifs")}><Film size={20} className="text-primary"/> GIF</Button><Button variant="secondary" className="h-16 flex-col gap-1 border border-border text-xs" onClick={() => input.current?.click()}><ImagePlus size={20} className="text-primary"/> Imagen</Button><Button variant="secondary" className="h-16 flex-col gap-1 border border-border text-xs" onClick={() => setMenu("reactions")}><Smile size={20} className="text-primary"/> Reacción</Button></div>}
-      {menu === "gifs" && <div className="mb-3"><div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold">GIF de Spotly</span><Button variant="ghost" size="icon" aria-label="Cerrar GIF" className="h-7 w-7" onClick={() => setMenu(null)}><X size={16}/></Button></div><div className="grid grid-cols-3 gap-2">{gifs.map(gif => <Button key={gif.title} variant="secondary" className="h-20 p-1" aria-label={`Enviar GIF ${gif.title}`} onClick={() => append({ kind: "gif", src: gif.asset.url })}><img src={gif.asset.url} alt={gif.title} className="h-full w-full object-contain"/></Button>)}</div></div>}
+      {menu === "gifs" && <div className="mb-3"><div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold">Reacciones Spotly</span><Button variant="ghost" size="icon" aria-label="Cerrar GIF" className="h-7 w-7" onClick={() => setMenu(null)}><X size={16}/></Button></div><div className="grid grid-cols-3 gap-2">{gifs.map(gif => <Button key={gif.title} variant="secondary" className="h-20 p-1 flex-col gap-1" aria-label={`Enviar ${gif.label}`} onClick={() => append({ kind: "reaction", value: gif.emoji })}><span className="text-4xl leading-none">{gif.emoji}</span><span className="text-[10px] text-muted-foreground">{gif.label}</span></Button>)}</div></div>}
       {menu === "reactions" && <div className="mb-3 flex justify-around">{["❤️", "👏", "😂", "🔥", "🙌"].map(value => <Button key={value} variant="ghost" size="icon" aria-label={`Enviar reacción ${value}`} className="text-2xl" onClick={() => append({ kind: "reaction", value })}>{value}</Button>)}</div>}
       <input ref={input} type="file" accept="image/*" className="hidden" aria-label="Seleccionar imagen" onChange={event => choosePhoto(event.target.files?.[0])}/>
-      <p className="text-center text-xs text-muted-foreground">{recording ? `Grabando ${format(seconds)} · suelta para enviar` : "Mantén pulsado para hablar"}</p>
-      <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
-        <Button variant="icon" size="icon" aria-label={menu ? "Cerrar adjuntos" : "Añadir GIF, imagen o reacción"} className="h-11 w-11" onClick={() => setMenu(menu ? null : "attach")}>{menu ? <X size={20}/> : <Plus size={22}/>}</Button>
+      <p className="text-center text-xs text-muted-foreground">{recording ? `Hablando ${format(seconds)}...` : "Mantén pulsado para hablar"}</p>
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <Button variant="icon" size="icon" aria-label={menu ? "Cerrar adjuntos" : "Añadir GIF, imagen o reacción"} className="h-11 w-11 shrink-0" onClick={() => setMenu(menu ? null : "attach")}>{menu ? <X size={20}/> : <Plus size={22}/>}</Button>
         <Button variant="icon" size="icon" aria-label={recording ? "Soltar para enviar nota de voz" : "Mantener pulsado para grabar nota de voz"} className={`voice-chat-mic h-[70px] w-[70px] touch-none text-primary ${recording ? "spot-pulse" : ""}`} onPointerDown={event => { if (event.pointerType !== "mouse" || event.button === 0) { event.currentTarget.setPointerCapture(event.pointerId); void startRecording(); } }} onPointerUp={stopRecording} onPointerCancel={stopRecording} onKeyDown={event => { if ((event.key === " " || event.key === "Enter") && !event.repeat) { event.preventDefault(); if (recording) stopRecording(); else void startRecording(); } }}><Mic size={32}/></Button>
-        <Button variant="icon" size="icon" aria-label="Abrir GIF" className="ml-auto h-11 w-11" onClick={() => setMenu(menu === "gifs" ? null : "gifs")}><Film size={20}/></Button>
+        <Button variant="icon" size="icon" aria-label="Abrir reacciones GIF" className="h-11 w-11 shrink-0" onClick={() => setMenu(menu === "gifs" ? null : "gifs")}><Film size={20}/></Button>
       </div>
       <p className="mt-2 text-center text-[10px] text-muted-foreground">Conversación de ejemplo · tus envíos no se guardan al salir</p>
     </footer>
