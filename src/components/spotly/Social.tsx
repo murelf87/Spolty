@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { BadgeCheck, Calendar, CheckCircle2, ChevronRight, Play, Plus, Share2, EyeOff, MapPin, Mic, Music, Radio, ShieldCheck, Sparkles, Trophy, Users, Utensils } from "lucide-react";
+import { BadgeCheck, Calendar, CheckCircle2, ChevronLeft, Eye, EyeOff, Flame, Heart, MapPin, Pause, Play, Mic, Music, Radio, ShieldCheck, Sparkles, Trophy, Users, Utensils } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Shell } from "./Extras";
-import { useApp } from "./app-context";
-import { useStore } from "@/lib/store";
 import sevilleNight from "@/assets/seville-night.jpg";
 import valenciaSunset from "@/assets/valencia-sunset.jpg";
 import festival from "@/assets/spotly-sevilla-festival.jpg";
@@ -153,28 +151,11 @@ export function Communities({ onBack }: { onBack: () => void }) {
 
 /* ---------- Eventos locales ---------- */
 const events = [
-  { title: "Concierto flamenco en Triana", when: "Hoy · 21:00", place: "Sevilla · Triana", filter: "Hoy", img: stage, going: 48, org: "Peña Triana", dur: "0:22" },
-  { title: "Quedada de guitarras", when: "Hoy · 19:00", place: "Sevilla · Alameda", filter: "Hoy", img: festival, going: 17, org: "Laura", dur: "0:18" },
-  { title: "Mercado de productores", when: "Sábado · 10:00", place: "Sevilla · Alameda", filter: "Fin de semana", img: valenciaSunset, going: 92, org: "Mercado Alameda", dur: "0:31" },
-  { title: "Ruta al atardecer", when: "Domingo · 19:30", place: "Valencia · Malvarrosa", filter: "Fin de semana", img: beach, going: 35, org: "Carlos", dur: "0:25" },
-  { title: "Feria de barrio", when: "12 de octubre", place: "Sevilla · Macarena", filter: "Próximos", img: sevilleNight, going: 210, org: "Vecinos Macarena", dur: "0:40" },
+  { title: "Concierto flamenco en Triana", when: "Hoy · 21:00", place: "Sevilla · Triana", filter: "Hoy", img: stage },
+  { title: "Mercado de productores", when: "Sábado · 10:00", place: "Sevilla · Alameda", filter: "Fin de semana", img: valenciaSunset },
+  { title: "Ruta al atardecer", when: "Domingo · 19:30", place: "Valencia · Malvarrosa", filter: "Fin de semana", img: beach },
+  { title: "Feria de barrio", when: "12 de octubre", place: "Sevilla · Macarena", filter: "Próximos", img: festival },
 ];
-const eventTabs = ["Hoy", "Fin de semana", "Próximos"] as const;
-const bars = [6, 12, 8, 16, 10, 18, 7, 14, 20, 9, 15, 6, 12, 17, 8, 13, 5, 11, 16, 7];
-
-function AudioPill({ dur, org }: { dur: string; org: string }) {
-  const [on, setOn] = useState(false);
-  return (
-    <button onClick={() => setOn((v) => !v)} aria-label={on ? "Pausar presentación" : "Escuchar presentación del organizador"} className="flex w-full items-center gap-3 rounded-2xl border border-primary/25 bg-primary/10 p-2 pr-3 text-left">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-spot-gradient text-white shadow-glow">{on ? <span className="flex gap-0.5"><i className="h-3 w-0.5 rounded bg-white" /><i className="h-3 w-0.5 rounded bg-white" /></span> : <Play size={15} className="ml-0.5 fill-white" />}</span>
-      <span className="min-w-0 flex-1">
-        <span className="flex h-5 items-center gap-[2px]" aria-hidden>{bars.map((h, i) => <i key={i} style={{ height: h, animationDelay: `${i * 60}ms` }} className={`w-[3px] rounded-full ${on ? "spot-pulse bg-primary" : "bg-primary/45"}`} />)}</span>
-        <small className="block truncate text-[11px] text-muted-foreground">Escucha a {org}</small>
-      </span>
-      <span className="text-xs font-semibold tabular-nums text-primary">{dur}</span>
-    </button>
-  );
-}
 
 export function Events({ onBack }: { onBack: () => void }) {
   const [filter, setFilter] = useState("Hoy");
@@ -190,8 +171,8 @@ export function Events({ onBack }: { onBack: () => void }) {
         <p className="mt-4 flex items-center gap-2 text-xs text-primary"><Calendar size={13} />{detail.when}</p>
         <h2 className="mt-1 text-2xl font-bold">{detail.title}</h2>
         <p className="text-sm text-muted-foreground">{detail.place}</p>
-        <div className="mt-4 flex items-center gap-2"><div className="flex -space-x-2">{[lauraPhoto, beach, festival, stage].map((image,i) => <span key={image} className="relative h-8 w-8 rounded-full border-2 border-background"><img src={image} alt="" className="h-full w-full rounded-full object-cover"/>{i < 2 && <BadgeCheck size={11} aria-label="Asistente verificado de ejemplo" className="absolute -right-1 -top-1 rounded-full bg-background text-primary"/>}</span>)}</div><span className="text-xs text-muted-foreground">{detail.going + (isGoing ? 1 : 0)} asistirán · 2 distintivos de ejemplo</span></div>
-        <button onClick={() => toast("Reproduciendo la presentación de voz")} className="mt-4 flex w-full items-center gap-2 rounded-xl border border-border bg-secondary p-3 text-left text-sm"><span className="grid h-9 w-9 place-items-center rounded-full bg-primary text-primary-foreground"><Mic size={16} /></span>Escucha al organizador · {detail.dur}</button>
+        <div className="mt-4 flex items-center gap-2"><div className="flex -space-x-2">{[lauraPhoto, beach, festival, stage].map((image,i) => <span key={image} className="relative h-8 w-8 rounded-full border-2 border-background"><img src={image} alt="" className="h-full w-full rounded-full object-cover"/>{i < 2 && <BadgeCheck size={11} aria-label="Asistente verificado de ejemplo" className="absolute -right-1 -top-1 rounded-full bg-background text-primary"/>}</span>)}</div><span className="text-xs text-muted-foreground">{48 + (isGoing ? 1 : 0)} asistirán · 2 distintivos de ejemplo</span></div>
+        <button onClick={() => toast("Reproduciendo la presentación de voz")} className="mt-4 flex w-full items-center gap-2 rounded-xl border border-border bg-secondary p-3 text-left text-sm"><span className="grid h-9 w-9 place-items-center rounded-full bg-primary text-primary-foreground"><Mic size={16} /></span>Escucha al organizador · 0:22</button>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Button variant={isGoing ? "secondary" : "primary"} onClick={() => { setGoing((g) => isGoing ? g.filter((t) => t !== detail.title) : [...g, detail.title]); toast.success(isGoing ? "Has cancelado tu asistencia" : "¡Asistencia confirmada!"); }}>{isGoing ? "Ya asistes" : "Asistiré"}</Button>
           <Button variant="secondary" onClick={() => toast.success("Enlace del evento copiado")}>Compartir</Button>
@@ -211,44 +192,30 @@ export function Events({ onBack }: { onBack: () => void }) {
   }
   return (
     <Shell title="Eventos cerca" onBack={onBack}>
-      <button onClick={() => setCreating(1)} className="group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl bg-spot-gradient p-4 text-left text-white shadow-glow">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/20 backdrop-blur"><Mic size={20} /></span>
-        <span className="flex-1"><strong className="block text-sm">Crear evento con tu voz</strong><small className="text-xs text-white/80">Cuenta qué, dónde y cuándo en 30 s</small></span>
-        <Plus size={20} className="opacity-90" />
-      </button>
-      <p className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground"><MapPin size={12} className="text-primary" />Cerca de ti · Sevilla y alrededores</p>
-      <div role="tablist" className="mt-3 grid grid-cols-3 gap-1 rounded-2xl border border-border bg-secondary/60 p-1">
-        {eventTabs.map((f) => {
-          const n = events.filter((e) => e.filter === f).length;
-          return (
-            <button key={f} role="tab" aria-selected={filter === f} onClick={() => setFilter(f)} className={filter === f ? "spot-active-pill rounded-xl px-1 py-2 text-xs font-semibold" : "rounded-xl px-1 py-2 text-xs text-muted-foreground"}>
-              {f}<span className={filter === f ? "ml-1 opacity-80" : "ml-1 opacity-60"}>{n}</span>
-            </button>
-          );
-        })}
+      <Button className="mb-3 w-full" onClick={() => setCreating(1)}><Mic size={16} />Crear evento con tu voz</Button>
+      <div className="grid grid-cols-3 gap-1 rounded-xl bg-secondary p-1">
+        {["Hoy", "Fin de semana", "Próximos"].map((f) => (
+          <button key={f} onClick={() => setFilter(f)} className={filter === f ? "rounded-lg bg-primary px-1 py-2 text-xs font-semibold text-primary-foreground" : "px-1 py-2 text-xs text-muted-foreground"}>{f}</button>
+        ))}
       </div>
-      <div className="mt-4 space-y-4">
-        {list.length === 0 && <div className="rounded-2xl border border-dashed border-border py-10 text-center"><Calendar size={28} className="mx-auto text-muted-foreground" /><p className="mt-2 text-sm text-muted-foreground">No hay eventos en este periodo.</p></div>}
+      <div className="mt-4 space-y-3">
+        {list.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">No hay eventos en este periodo.</p>}
         {list.map((e) => {
           const isGoing = going.includes(e.title);
           return (
-            <article key={e.title} className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
-              <button className="relative block w-full text-left" onClick={() => setDetail(e)} aria-label={`Ver ${e.title}`}>
-                <img src={e.img} alt="" width={1024} height={640} loading="lazy" className="aspect-[16/10] w-full object-cover" />
-                <span className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-                <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1 text-[11px] font-semibold text-white backdrop-blur"><Calendar size={12} className="text-primary" />{e.when}</span>
-                <span className="absolute bottom-3 left-3 flex items-center gap-1 text-[11px] font-medium text-white/90"><MapPin size={12} />{e.place}</span>
-              </button>
-              <div className="space-y-3 p-4">
-                <button onClick={() => setDetail(e)} className="flex w-full items-center justify-between gap-2 text-left"><h3 className="text-base font-bold leading-snug">{e.title}</h3><ChevronRight size={18} className="shrink-0 text-muted-foreground" /></button>
-                <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Users size={13} className="text-primary" />{e.going + (isGoing ? 1 : 0)} asistirán</p>
-                <AudioPill dur={e.dur} org={e.org} />
-                <div className="flex gap-2">
-                  <Button className="flex-1" variant={isGoing ? "secondary" : "primary"} onClick={() => { setGoing((g) => isGoing ? g.filter((t) => t !== e.title) : [...g, e.title]); toast.success(isGoing ? "Has cancelado tu asistencia" : "¡Asistencia confirmada!"); }}>
-                    {isGoing ? <><CheckCircle2 size={16} />Ya asistes</> : "Asistiré"}
-                  </Button>
-                  <Button variant="outline" aria-label="Compartir evento" onClick={() => toast.success("Enlace del evento copiado")}><Share2 size={16} /></Button>
-                </div>
+            <article key={e.title} className="overflow-hidden rounded-2xl border border-border bg-card">
+              <button className="block w-full text-left" onClick={() => setDetail(e)}><img src={e.img} alt={e.title} width={1024} height={1280} loading="lazy" className="aspect-[16/9] w-full object-cover" /></button>
+              <div className="p-4">
+                <p className="flex items-center gap-2 text-xs text-primary"><Calendar size={13} />{e.when}</p>
+                <button onClick={() => setDetail(e)} className="mt-1 text-left font-semibold">{e.title} ›</button>
+                <p className="text-xs text-muted-foreground">{e.place}</p>
+                <button onClick={() => toast("Reproduciendo la presentación de voz")} className="mt-3 flex w-full items-center gap-2 rounded-xl border border-border bg-secondary p-2 text-left text-xs text-muted-foreground">
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground"><Mic size={15} /></span>
+                  Escucha al organizador · 0:22
+                </button>
+                <Button className="mt-3 w-full" variant={isGoing ? "secondary" : "primary"} onClick={() => { setGoing((g) => isGoing ? g.filter((t) => t !== e.title) : [...g, e.title]); toast.success(isGoing ? "Has cancelado tu asistencia" : "¡Asistencia confirmada!"); }}>
+                  {isGoing ? "Ya asistes" : "Asistiré"}
+                </Button>
               </div>
             </article>
           );
@@ -266,30 +233,126 @@ const places = [
   { name: "Cullera", people: "21", live: "0", img: beach },
 ];
 
-/* ---------- Privacidad ---------- */
+export function CityWall({ onBack, mine = false }: { onBack: () => void; mine?: boolean }) {
+  const [place, setPlace] = useState(places[0]!);
+  const [tab, setTab] = useState("Todos");
+  const [selectingCity, setSelectingCity] = useState(false);
+  const [selectedSpot, setSelectedSpot] = useState<number | null>(null);
+  const cityPhotos = [festival, valenciaSunset, sevilleNight, stage, beach, festival, valenciaSunset, sevilleNight, stage, beach, festival, valenciaSunset];
+  const photoCounts = ["1,2K", "842", "1,1K", "654", "854", "376", "924", "563", "717", "623", "448", "302"];
+  return (
+    <div className="fixed inset-0 z-40 mx-auto max-w-[520px] overflow-y-auto bg-background pb-20">
+      <header className="flex items-center gap-2 px-4 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]"><Button size="icon" variant="ghost" onClick={onBack} aria-label="Volver"><ChevronLeft /></Button><div><h1 className="text-xl font-bold">{place.name}</h1><p className="text-xs text-muted-foreground">{place.name === "Sevilla" ? "124K Spots · 83K personas" : `${place.people} Spots · ${place.people} personas`}</p></div><Button variant="ghost" size="sm" className="ml-auto text-xs" onClick={() => setSelectingCity(true)} aria-label="Elegir ciudad">⌄</Button></header>
+      <div className="mt-5 flex gap-1.5 overflow-x-auto px-4 pb-2">
+        {["Todos", "Fotos", "Vídeos", "Voz", "En directo"].map((t) => <Button key={t} size="sm" variant={tab === t ? "default" : "secondary"} onClick={() => setTab(t)} className={`shrink-0 rounded-full text-xs ${tab === t ? "spot-active-pill" : ""}`}>{t}</Button>)}
+      </div>
+      <div className="mt-1 grid grid-cols-3 gap-1.5 px-3">
+        {mine && place.name === "Sevilla" && <Button variant="ghost" onClick={() => setSelectedSpot(-1)} className="relative h-auto overflow-hidden rounded-lg p-0"><img src={valenciaSunset} alt="Tu Spot" className="aspect-[3/4] w-full object-cover" /><span className="absolute left-1 top-1 rounded bg-live px-1 text-[9px] font-bold text-primary-foreground">TÚ · NUEVO</span></Button>}
+        {cityPhotos.filter((_, i) => tab !== "En directo" || i % 3 === 0).filter((_, i) => tab !== "Voz" || i % 2 === 0).map((img, i) => <Button key={`${tab}-${i}`} variant="ghost" onClick={() => setSelectedSpot(i)} className="relative h-auto overflow-hidden rounded-lg border border-border p-0"><img src={place.name === "Sevilla" ? img : i % 3 === 0 ? place.img : img} alt={`Spot ${i + 1} en ${place.name}`} loading="lazy" className="aspect-[3/4] w-full object-cover" /><span className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-gradient-to-t from-background/90 to-transparent px-1.5 pb-1 pt-6 text-[10px]"><Heart size={11} fill="currentColor" className="text-live" />{photoCounts[i]} <Mic size={10} className="ml-auto" /></span></Button>)}
+      </div>
+      {selectingCity && <div className="fixed inset-0 z-50 flex items-end bg-background/80" onClick={() => setSelectingCity(false)}><div className="w-full rounded-t-xl bg-card p-4 pb-10" onClick={(e) => e.stopPropagation()}><p className="mb-3 text-sm font-bold">Ciudades y pueblos</p>{places.map((p) => <Button key={p.name} variant={p.name === place.name ? "default" : "ghost"} onClick={() => { setPlace(p); setTab("Todos"); setSelectingCity(false); }} className="mb-1 w-full justify-start">{p.name}</Button>)}</div></div>}
+      {selectedSpot !== null && <div className="fixed inset-0 z-50 flex items-end bg-background/80" onClick={() => setSelectedSpot(null)}><div className="mx-auto w-full max-w-[520px] rounded-t-2xl border-t border-primary bg-card p-4 pb-8" onClick={(e) => e.stopPropagation()}><img src={selectedSpot === -1 ? valenciaSunset : cityPhotos[selectedSpot % cityPhotos.length]} alt="Spot seleccionado" className="aspect-video w-full rounded-lg object-cover" /><p className="mt-3 font-semibold">{selectedSpot === -1 ? "Tu Spot" : `Spot en ${place.name}`}</p><p className="text-xs text-muted-foreground">{place.name} · Hace 5 min</p><div className="mt-3 flex gap-2"><Button onClick={() => toast("Reproduciendo Spot de voz")}><Mic size={16} />Escuchar Spot</Button><Button variant="secondary" onClick={() => setSelectedSpot(null)}>Cerrar</Button></div></div></div>}
+    </div>
+  );
+}
+
+/* ---------- Búsqueda por voz ---------- */
+const suggestions = ["Dónde hay música en directo esta noche", "Sitios tranquilos cerca del río", "Qué está pasando ahora en Triana"];
+
+export function VoiceSearch({ onBack }: { onBack: () => void }) {
+  const [openR, setOpenR] = useState<{ t: string; d: string } | null>(null); const [playR, setPlayR] = useState(false);
+  const [kind, setKind] = useState<"Lugares" | "Creadores">("Lugares");
+  const [onlyVerified, setOnlyVerified] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [query, setQuery] = useState("");
+  const [distance, setDistance] = useState(5);
+  const [when, setWhen] = useState("Ahora");
+  const results = query ? [
+    { t: "Sala Malandar · música en directo", d: "1,2 km · empieza a las 21:30" },
+    { t: "Terraza Alameda · ambiente tranquilo", d: "800 m · 14 personas ahora" },
+    { t: "Quedada abierta en Triana", d: "2,1 km · 6 en directo" },
+  ] : [];
+  return (
+    <Shell title="Buscar con la voz" onBack={onBack}>
+      <div className="rounded-2xl bg-spot-surface p-6 text-center">
+        <button onClick={() => { if (listening) { setListening(false); setQuery(suggestions[0]!); toast.success("Búsqueda entendida"); } else { setListening(true); setQuery(""); } }} className={listening ? "spot-pulse mx-auto grid h-28 w-28 place-items-center rounded-full bg-spot-gradient shadow-glow" : "mx-auto grid h-28 w-28 place-items-center rounded-full bg-spot-gradient"} aria-label={listening ? "Detener búsqueda por voz" : "Buscar con la voz"}>
+          <Mic size={46} />
+        </button>
+        <p className="mt-4 text-sm text-muted-foreground">{listening ? "Escuchando… pulsa otra vez al terminar" : query ? `«${query}»` : "Pulsa y di lo que buscas"}</p>
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-1 rounded-lg bg-secondary p-1">{(["Lugares", "Creadores"] as const).map(x => <Button key={x} size="sm" variant={kind===x?"default":"ghost"} onClick={()=>{setKind(x);setOpenR(null)}} className="rounded-md">{x}</Button>)}</div>
+      {kind === "Creadores" && <div className="mt-4"><Button size="sm" variant={onlyVerified?"default":"secondary"} onClick={()=>setOnlyVerified(v=>!v)} className="rounded-full"><BadgeCheck size={15}/>Solo verificados</Button><p className="mt-2 text-[11px] text-muted-foreground">Perfiles y sellos de ejemplo</p></div>}
+      <h3 className="mt-6 text-sm font-bold">Filtros</h3>
+      <label className="mt-2 block text-xs text-muted-foreground">Distancia: {distance} km
+        <input type="range" min={1} max={30} value={distance} onChange={(e) => setDistance(Number(e.target.value))} className="mt-2 w-full accent-[var(--primary)]" />
+      </label>
+      <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-secondary p-1">
+        {["Ahora", "Hoy", "Esta semana"].map((w) => <button key={w} onClick={() => setWhen(w)} className={when === w ? "rounded-lg bg-primary py-2 text-xs font-semibold text-primary-foreground" : "py-2 text-xs text-muted-foreground"}>{w}</button>)}
+      </div>
+
+      {kind === "Creadores" && <div className="mt-5 space-y-2">{[{name:"Laura",image:lauraPhoto,verified:true,topic:"Música · Sevilla",distance:"300 m"},{name:"Carlos",image:beach,verified:true,topic:"Deporte · Sevilla",distance:"450 m"},{name:"Marta",image:festival,verified:false,topic:"Gastronomía · Sevilla",distance:"1,2 km"}].filter(x=>!onlyVerified||x.verified).map(x=><Button key={x.name} variant="secondary" onClick={()=>setOpenR({t:x.name,d:`${x.topic} · ${x.distance}${x.verified?' · Verificado de ejemplo':''}`})} className="flex h-auto min-h-16 w-full justify-start gap-3 rounded-lg border border-border p-2 text-left"><img src={x.image} alt="" className="h-11 w-11 rounded-full object-cover"/><span className="min-w-0 flex-1"><strong className="flex items-center gap-1 text-sm">{x.name}{x.verified&&<BadgeCheck size={14} className="text-primary"/>}</strong><small className="block text-xs text-muted-foreground">{x.topic} · {x.distance}</small></span></Button>)}</div>}
+      {kind === "Lugares" && !query && (
+        <>
+          <h3 className="mt-6 text-sm font-bold">Prueba a decir</h3>
+          <div className="mt-2 space-y-2">
+            {suggestions.map((s) => <button key={s} onClick={() => setQuery(s)} className="w-full rounded-xl border border-border bg-card p-3 text-left text-sm hover:border-primary">«{s}»</button>)}
+          </div>
+        </>
+      )}
+
+      {kind === "Lugares" && query && (
+        <>
+          <h3 className="mt-6 text-sm font-bold">Resultados · {when} · {distance} km</h3>
+          <div className="mt-2 space-y-2">
+            {results.map((r) => (
+              <button key={r.t} onClick={() => setOpenR(r)} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-3 text-left">
+                <span className="grid h-10 w-10 place-items-center rounded-full bg-secondary text-primary"><Flame size={18} /></span>
+                <span className="flex-1"><strong className="block text-sm">{r.t}</strong><small className="text-muted-foreground">{r.d}</small></span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {openR && <div className="fixed inset-0 z-50 flex items-end bg-background/70 backdrop-blur-sm" onClick={() => { setOpenR(null); setPlayR(false); }}><div className="mx-auto w-full max-w-[520px] rounded-t-3xl border-t border-border bg-card p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted" />
+        <h3 className="text-lg font-bold">{openR.t}</h3><p className="text-sm text-muted-foreground">{openR.d}</p>
+        {kind === "Creadores" ? <><p className="mt-3 text-xs text-muted-foreground">Presentación de voz · ejemplo</p><Button variant="secondary" onClick={() => setPlayR(!playR)} className="mt-2 w-full justify-start"><span className="text-primary">{playR ? <Pause size={16}/> : <Play size={16}/>}</span>{playR ? "Pausar presentación" : "Escuchar presentación"}</Button><div className="mt-4 grid grid-cols-2 gap-2"><Button variant="secondary" onClick={() => toast("Seguimiento de ejemplo")}>Seguir</Button><Button onClick={() => toast("Mensaje de voz de ejemplo")}><Mic size={16}/>Mensaje de voz</Button></div></> : <><Button variant="secondary" onClick={() => setPlayR(!playR)} className="mt-4 w-full justify-start"><span className="text-primary">{playR ? <Pause size={16}/> : <Play size={16}/>}</span>{playR ? "Pausar ejemplo" : "Escuchar lo que se dice ahí"}</Button><div className="mt-4 grid grid-cols-2 gap-2"><Button variant="outline" onClick={() => toast("Ruta de ejemplo en el mapa")}><MapPin size={16} />Cómo llegar</Button><Button onClick={() => toast("Respuesta de voz de ejemplo")}><Mic size={16} />Responder</Button></div></>}
+      </div></div>}
+    </Shell>
+  );
+}
+
+/* ---------- Privacidad e incógnito ---------- */
 export function Privacy({ onBack }: { onBack: () => void }) {
-  const app = useApp();
-  const { incognito, blocked, perms } = useStore();
-  const [toggles, setToggles] = useState({ ubicacion: true, mensajes: true, escuchas: false, viaje: false, traduccion: false, transcripcion: false });
+  const [incognito, setIncognito] = useState<number | null>(null);
+  const [blockedOpen, setBlockedOpen] = useState(false); const [blocked, setBlocked] = useState(["Usuario_spam23", "Pedro R.", "Fiesta Promo SL"]);
+  const [toggles, setToggles] = useState({ ubicacion: true, mensajes: true, escuchas: false });
   const set = (k: keyof typeof toggles) => setToggles((t) => ({ ...t, [k]: !t[k] }));
   const labels: [keyof typeof toggles, string, string][] = [
     ["ubicacion", "Mostrar mi ubicación aproximada", "Nunca se muestra tu dirección exacta"],
     ["mensajes", "Permitir notas de voz de cualquiera", "Si lo desactivas, solo te escriben quienes sigues"],
     ["escuchas", "Mostrar quién escucha mis Spots", "Tu lista de oyentes será visible"],
   ];
-  const voiceLabels: [keyof typeof toggles, string, string][] = [
-    ["viaje", "Modo viaje", "Descubre Spots de la ciudad a la que viajas, sin cambiar tu zona real"],
-    ["traduccion", "Traducción de voz", "Escucha Spots en otro idioma (necesita servicio de traducción)"],
-    ["transcripcion", "Transcripción con IA", "Muestra el texto de las notas de voz (necesita servicio de transcripción)"],
-  ];
   return (
     <Shell title="Privacidad" onBack={onBack}>
-      <button onClick={() => app.open("incognito")} className="flex w-full items-center gap-3 rounded-2xl border border-accent/40 bg-card p-4 text-left">
-        <EyeOff className="text-accent" /><span className="flex-1"><strong className="block text-sm">Modo Incógnito</strong><small className="text-muted-foreground">{incognito.active ? "Activo · toca para gestionar" : "Oculta tu identidad pública por tiempo"}</small></span><span className="text-muted-foreground">›</span>
-      </button>
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="flex items-center gap-3">
+          {incognito ? <EyeOff className="text-accent" /> : <Eye className="text-primary" />}
+          <div className="flex-1">
+            <strong className="block text-sm">Modo incógnito</strong>
+            <small className="text-muted-foreground">{incognito ? `Activo durante ${incognito} h` : "Navega sin aparecer en el mapa"}</small>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {[1, 4, 24].map((h) => <button key={h} onClick={() => { setIncognito(h); toast.success(`Modo incógnito activado ${h} h`); }} className={incognito === h ? "rounded-xl bg-primary py-2 text-sm font-semibold text-primary-foreground" : "rounded-xl border border-border py-2 text-sm text-muted-foreground"}>{h} h</button>)}
+        </div>
+        {incognito && <Button variant="outline" className="mt-3 w-full" onClick={() => { setIncognito(null); toast("Modo incógnito desactivado"); }}>Desactivar</Button>}
+      </div>
+
       <div className="mt-4 space-y-2">
         {labels.map(([k, title, desc]) => (
-          <button key={k} role="switch" aria-checked={toggles[k]} onClick={() => set(k)} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left">
+          <button key={k} onClick={() => set(k)} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left">
             <span className="flex-1"><strong className="block text-sm">{title}</strong><small className="text-muted-foreground">{desc}</small></span>
             <span className={toggles[k] ? "h-6 w-11 rounded-full bg-primary p-1" : "h-6 w-11 rounded-full bg-secondary p-1"}>
               <span className={toggles[k] ? "block h-4 w-4 translate-x-5 rounded-full bg-primary-foreground transition" : "block h-4 w-4 rounded-full bg-muted-foreground transition"} />
@@ -297,23 +360,17 @@ export function Privacy({ onBack }: { onBack: () => void }) {
           </button>
         ))}
       </div>
-      <h3 className="mb-2 mt-5 text-sm font-bold">Voz y viajes <span className="ml-1 rounded-full bg-premium/20 px-2 py-0.5 text-[10px] font-bold text-premium">Vista previa</span></h3>
-      <div className="space-y-2">
-        {voiceLabels.map(([k, title, desc]) => (
-          <button key={k} role="switch" aria-checked={toggles[k]} onClick={() => { set(k); toast(!toggles[k] ? `${title} activado (preferencia guardada; el servicio se conectará con el backend)` : `${title} desactivado`); }} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left">
-            <span className="flex-1"><strong className="block text-sm">{title}</strong><small className="text-muted-foreground">{desc}</small></span>
-            <span className={toggles[k] ? "h-6 w-11 rounded-full bg-primary p-1" : "h-6 w-11 rounded-full bg-secondary p-1"}>
-              <span className={toggles[k] ? "block h-4 w-4 translate-x-5 rounded-full bg-primary-foreground transition" : "block h-4 w-4 rounded-full bg-muted-foreground transition"} />
-            </span>
-          </button>
-        ))}
-      </div>
+
       <div className="mt-5 flex items-start gap-3 rounded-xl border border-border bg-spot-surface p-4">
         <ShieldCheck className="shrink-0 text-primary" />
-        <p className="text-xs text-muted-foreground">Tus datos legales nunca se muestran. Spotly nunca comparte tu ubicación exacta ni tu identidad con los negocios.</p>
+        <p className="text-xs text-muted-foreground">Spotly nunca comparte tu ubicación exacta. Puedes bloquear y denunciar a cualquier persona desde su perfil.</p>
       </div>
-      <Button variant="outline" className="mt-4 w-full" onClick={() => app.open("permisos")}><MapPin size={18} />Permisos ({Object.values(perms).filter(Boolean).length}/4 activos)</Button>
-      <Button variant="outline" className="mt-2 w-full" onClick={() => app.open("seguridad")}><Users size={18} />Bloqueos y denuncias ({blocked.length})</Button>
+      <Button variant="outline" className="mt-4 w-full" onClick={() => setBlockedOpen(true)}><Users size={18} />Personas bloqueadas ({blocked.length})</Button>
+      {blockedOpen && <Shell title="Personas bloqueadas" onBack={() => setBlockedOpen(false)}>
+        {blocked.length ? <div className="divide-y divide-border rounded-xl border border-border bg-card px-4">{blocked.map((b) => <div key={b} className="flex items-center gap-3 py-3"><span className="grid h-10 w-10 place-items-center rounded-full bg-secondary font-bold">{b[0]}</span><span className="flex-1 text-sm">{b}</span><Button size="sm" variant="outline" onClick={() => { setBlocked(blocked.filter((x) => x !== b)); toast(`${b} desbloqueado`); }}>Desbloquear</Button></div>)}</div>
+          : <p className="py-16 text-center text-sm text-muted-foreground">No has bloqueado a nadie.</p>}
+        <p className="mt-4 text-xs text-muted-foreground">Las personas bloqueadas no pueden escucharte, enviarte notas de voz ni verte en el mapa.</p>
+      </Shell>}
     </Shell>
   );
 }

@@ -1,10 +1,5 @@
-import { PlaceBrowser } from "./Places";
 import { useState } from "react";
-import { ArrowLeft, BadgeCheck, Camera, Check, Flame, Globe, Heart, LayoutGrid, Layers, List, MapPin, Mic, Navigation, Play, SlidersHorizontal, Store, UserPlus, X } from "lucide-react";
-import { useApp } from "./app-context";
-import { useStore } from "@/lib/store";
-import { LocationOff } from "./Status";
-import { hotspots } from "@/lib/sampleData";
+import { ArrowLeft, BadgeCheck, Camera, Check, Heart, Layers, MapPin, Mic, Navigation, Play, SlidersHorizontal, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { Sheet } from "./Extras";
@@ -41,13 +36,7 @@ type Person = (typeof people)[number];
 
 export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => void; mine?: boolean }) {
   const [tab, setTab] = useState("Mapa");
-  const app = useApp();
-  const { perms, bizOffers } = useStore();
-  const [lay, setLay] = useState<"Todo" | "Spots" | "Hot Spots" | "Negocios" | "Ofertas">("Todo");
-  const show = (k: string) => lay === "Todo" || lay === k;
   const [layer, setLayer] = useState<"Oscuro" | "Satélite">("Oscuro");
-  const [onlineOnly, setOnlineOnly] = useState(false);
-  const onlinePin = (i: number) => !onlineOnly || i === 0 || i === 3;
   const [prov, setProv] = useState("Sevilla");
   const [town, setTown] = useState("Sevilla");
   const [picker, setPicker] = useState(false);
@@ -57,7 +46,6 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
   const [pin, setPin] = useState<number | null>(null);
   const [upload, setUpload] = useState(false);
   const [f, setF] = useState({ km: 5, when: "Ahora", only: [] as string[] });
-  const [grid, setGrid] = useState(false);
   const [peopleFilter, setPeopleFilter] = useState<"Cerca" | "Nuevos" | "Verificados" | "Online">("Cerca");
   const [place, setPlace] = useState<number | null>(null);
   const km = (d: string) => d.includes("km") ? parseFloat(d.replace(",", ".")) : parseFloat(d) / 1000;
@@ -71,29 +59,23 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
          <div className="mt-2 grid grid-cols-4 gap-1 rounded-xl bg-secondary p-1">
            {["Mapa", "Fotos", "Personas", "Eventos"].map((x) => <Button key={x} size="sm" variant={tab === x ? "default" : "ghost"} onClick={() => x === "Eventos" ? onOpen("eventos") : setTab(x)} className={tab === x ? "spot-active-pill rounded-lg text-xs" : "rounded-lg text-xs text-muted-foreground"}>{x}</Button>)}
          </div>
-         {tab === "Mapa" && <button role="switch" aria-checked={onlineOnly} onClick={() => setOnlineOnly(!onlineOnly)} className="mt-2 flex w-full items-center gap-3 rounded-xl border border-border bg-card px-3 py-2 text-left text-sm"><span className="flex-1 font-semibold">Mostrar solo en línea</span><span className={`relative h-6 w-11 rounded-full transition ${onlineOnly ? "bg-spot-gradient" : "bg-secondary"}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${onlineOnly ? "left-[22px]" : "left-0.5"}`} /></span></button>}
-         {tab === "Mapa" && <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">{(["Todo", "Spots", "Hot Spots", "Negocios", "Ofertas"] as const).map((l) => <Chip key={l} on={lay === l} onClick={() => setLay(l)}>{l}</Chip>)}</div>}
       </header>
 
-      {tab === "Mapa" && !perms.location && <div className="mx-4 mt-2"><LocationOff /></div>}
       {tab === "Mapa" && (
          <section className={`relative mx-4 mt-2 h-[min(72vh,680px)] overflow-hidden rounded-xl border border-border ${layer === "Oscuro" ? "bg-spot-surface" : "bg-secondary"}`}>
           {layer === "Satélite" && <img src={imgs[3]} alt="Vista satélite" className="absolute inset-0 h-full w-full object-cover opacity-50" />}
            {layer === "Oscuro" && <div className="spot-neon-map absolute inset-0" aria-hidden="true"><svg viewBox="0 0 360 620" preserveAspectRatio="xMidYMid slice" className="h-full w-full"><g fill="none" stroke="var(--spot-blue)" strokeWidth="1" opacity=".45"><path d="M-30 82 75 95 143 135 264 134 390 205M-20 180 82 196 170 181 250 205 390 252M-20 286 99 272 181 308 253 301 390 335M-20 430 76 407 165 442 256 415 390 458M-20 531 96 497 187 517 278 503 390 550M34-20 47 112 31 220 56 330 30 460 62 650M126-20 114 115 136 242 111 363 142 476 127 650M231-20 218 100 241 235 213 361 247 485 233 650M330-20 311 125 330 235 309 368 337 495 322 650"/><path stroke="var(--spot-fuchsia)" opacity=".8" strokeWidth="1.6" d="M-20 125 86 143 153 153 236 169 390 222M-20 360 77 355 157 386 243 379 390 402M94-20 96 97 82 196 100 272 76 407 96 497 95 650M280-20 272 134 250 205 253 301 256 415 278 503 265 650"/></g><g fill="var(--spot-blue)" opacity=".7"><circle cx="82" cy="196" r="2"/><circle cx="253" cy="301" r="2"/><circle cx="76" cy="407" r="2"/></g></svg></div>}
           {[88, 64, 42, 22].map((s) => <div key={s} className="spot-radar absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ width: `${s}%`, aspectRatio: "1" }} />)}
            {!mine && <div className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full border-2 border-accent shadow-glow"><img src={lauraPhoto} alt="Laura, perfil ilustrativo" className="h-full w-full object-cover" /></div>}
-           {show("Spots") && pins.map(([x, y, c, s], i) => onlinePin(i) && (
+           {pins.map(([x, y, c, s], i) => (
               <Button key={i} variant="ghost" aria-label="Ver Spot" onClick={() => setPin(i)} className="absolute flex h-auto -translate-x-1/2 -translate-y-full flex-col items-center p-0" style={{ left: `${x}%`, top: `${y}%` }}><span className={`relative rounded-full border-2 ${ring[c]} ${pin === i ? "ring-2 ring-primary" : ""}`} style={{ width: s + 12, height: s + 12 }}><img src={i === 0 ? lauraPhoto : imgs[i]} alt="" className={`h-full w-full rounded-full object-cover ${i === 0 ? "spot-pulse" : ""}`} />{i < 2 && <BadgeCheck size={14} className="absolute -right-1 -top-1 rounded-full bg-background text-primary" aria-label="Autor verificado de ejemplo" />}</span><span className={`-mt-0.5 h-2 w-2 rotate-45 ${dot[c]}`} /></Button>
           ))}
-          {show("Hot Spots") && hotspots.slice(0, 2).map((h, i) => <Button key={h.id} variant="ghost" aria-label={`Hot Spot: ${h.title}`} onClick={() => app.openHot(h.id)} className="absolute flex h-auto -translate-x-1/2 -translate-y-1/2 flex-col p-0" style={{ left: `${[55, 36][i]}%`, top: `${[40, 74][i]}%` }}><span className="spot-pulse grid h-12 w-12 place-items-center rounded-full border-2 border-live bg-live/30 shadow-glow"><Flame size={22} className="text-foreground" /></span><span className="mt-0.5 rounded-full bg-background/90 px-2 py-0.5 text-[9px] font-bold">{h.people} hablando</span></Button>)}
-          {!onlineOnly && (show("Negocios") || show("Ofertas")) && [["carmen", 68, 30, "Peluquería Carmen"], ["salax", 20, 55, "Sala X"]].map(([id, x, y, n]) => <Button key={id as string} variant="ghost" aria-label={`Negocio: ${n}`} onClick={() => app.openBiz(id as string)} className="absolute flex h-auto -translate-x-1/2 -translate-y-1/2 flex-col p-0" style={{ left: `${x}%`, top: `${y}%` }}><span className="grid h-10 w-10 place-items-center rounded-full border-2 border-primary bg-background/90"><Store size={18} className="text-primary" /></span>{(id === "salax" || bizOffers.length > 0) && show("Ofertas") && <span className="mt-0.5 rounded-full bg-live px-2 py-0.5 text-[9px] font-bold">OFERTA</span>}</Button>)}
             {mine && <Button variant="ghost" aria-label="Tu Spot" onClick={() => toast("Tu Spot · Hace 1 min · 1,2K vistas")} className="absolute left-1/2 top-1/2 h-auto -translate-x-1/2 -translate-y-1/2 flex-col p-0"><span className="h-24 w-24 overflow-hidden rounded-full border-[3px] border-accent shadow-glow"><img src={valenciaSunset} alt="" className="h-full w-full object-cover" /></span><span className="mt-1 rounded-full bg-background/90 px-3 py-1 text-[10px] font-bold text-foreground shadow-glow">TU SPOT</span></Button>}
           <div className="absolute right-3 top-3 flex flex-col gap-2">
             <Button size="icon" variant="secondary" aria-label="Cambiar capa" onClick={() => setLayer(layer === "Oscuro" ? "Satélite" : "Oscuro")}><Layers size={18} /></Button>
-            <Button size="icon" variant="secondary" aria-label="Mapa completo de España" onClick={() => app.open("espana")}><Globe size={18} /></Button>
-            <Button size="icon" variant="secondary" aria-label="Mi ubicación" onClick={() => (perms.location ? toast("Centrado en tu ubicación") : toast.error("Ubicación desactivada"))}><Navigation size={18} /></Button>
+            <Button size="icon" variant="secondary" aria-label="Mi ubicación" onClick={() => toast("Centrado en tu ubicación")}><Navigation size={18} /></Button>
           </div>
-           <Button size="sm" variant="secondary" onClick={() => setFilters(true)} className="absolute left-3 top-3 h-7 rounded-full bg-background/80 px-2 text-[10px] font-semibold backdrop-blur"><SlidersHorizontal size={12} className="text-primary" />{onlineOnly ? "2 en línea" : "8 en directo"} · {layer}</Button>
+           <Button size="sm" variant="secondary" onClick={() => setFilters(true)} className="absolute left-3 top-3 h-7 rounded-full bg-background/80 px-2 text-[10px] font-semibold backdrop-blur"><SlidersHorizontal size={12} className="text-primary" />8 en directo · {layer}</Button>
            {pin !== null ? (
             <div className="absolute inset-x-3 bottom-3 flex gap-3 rounded-xl border border-border bg-background/95 p-3 backdrop-blur">
               <img src={imgs[pin % imgs.length]} alt="" className="h-16 w-16 rounded-lg object-cover" />
@@ -102,7 +84,7 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
                <Button variant="ghost" size="icon" aria-label="Cerrar" onClick={() => setPin(null)} className="h-7 w-7"><X size={16} /></Button>
             </div>
            ) : (
-              <Button variant="secondary" onClick={() => mine ? toast("Tu Spot · Hace 1 min · 1,2K vistas") : onOpen("ciudad")} className="absolute inset-x-3 bottom-3 h-auto justify-start gap-3 rounded-xl border border-primary/50 bg-background/90 p-2 text-left backdrop-blur"><span className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-accent"><img src={mine ? valenciaSunset : imgs[0]} alt="" className="h-full w-full object-cover" /></span><span><strong className="block text-sm">{mine ? "Tu Spot" : town}</strong><span className="block text-xs text-muted-foreground">{mine ? "Hace 1 min · 1,2K vistas" : "324 personas cerca · A 450 m · Ver muro"}</span></span></Button>
+              <Button variant="secondary" onClick={() => mine ? toast("Tu Spot · Hace 1 min · 1,2K vistas") : onOpen("ciudad")} className="absolute inset-x-3 bottom-3 h-auto justify-start gap-3 rounded-xl border border-primary/50 bg-background/90 p-2 text-left backdrop-blur"><span className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-accent"><img src={mine ? valenciaSunset : imgs[0]} alt="" className="h-full w-full object-cover" /></span><span><strong className="block text-sm">{mine ? "Tu Spot" : town}</strong><span className="block text-xs text-muted-foreground">{mine ? "Hace 1 min · 1,2K vistas" : "246 personas cerca · 8 en directo · Ver muro"}</span></span></Button>
           )}
         </section>
       )}
@@ -111,7 +93,7 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
 
       {tab === "Fotos" && (
         <section className="p-4">
-          <div className="flex items-center justify-between"><p className="text-sm font-semibold">Fotos cerca de ti · {f.km} km</p><div className="flex gap-2"><Button size="sm" variant="secondary" onClick={() => app.openPhotoWall(town)}>Muro completo</Button><Button size="sm" onClick={() => setUpload(true)}><Camera size={16} />Subir</Button></div></div>
+          <div className="flex items-center justify-between"><p className="text-sm font-semibold">Fotos cerca de ti · {f.km} km</p><Button size="sm" onClick={() => setUpload(true)}><Camera size={16} />Subir</Button></div>
           <div className="mt-3 columns-2 gap-2">
             {shownPhotos.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">No hay fotos a {f.km} km. Amplía la distancia en Filtros.</p>}
             {shownPhotos.map((p) => { const i = photos.indexOf(p); return (
@@ -129,12 +111,7 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
           <div className="flex gap-1 overflow-x-auto">{(["Cerca", "Nuevos", "Verificados", "Online"] as const).map(x=><Button key={x} size="sm" variant={peopleFilter===x?"default":"secondary"} onClick={()=>setPeopleFilter(x)} className={peopleFilter===x?"spot-active-pill rounded-full text-xs":"rounded-full text-xs"}>{x}</Button>)}</div>
           <p className="text-[11px] text-muted-foreground">Personas y distintivos de ejemplo</p>
           {shownPeople.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">Nadie cumple estos filtros. Prueba a quitar alguno.</p>}
-          <div className="flex items-center justify-between"><span className="text-xs text-muted-foreground">{shownPeople.length} personas</span><div className="flex gap-1"><Button size="icon" variant={grid ? "secondary" : "default"} aria-label="Vista lista" aria-pressed={!grid} className="h-8 w-8" onClick={() => setGrid(false)}><List size={15} /></Button><Button size="icon" variant={grid ? "default" : "secondary"} aria-label="Vista cuadrícula" aria-pressed={grid} className="h-8 w-8" onClick={() => setGrid(true)}><LayoutGrid size={15} /></Button></div></div>
-          {grid ? <div className="grid grid-cols-3 gap-2">{shownPeople.map((p) => (
-            <button key={p.n} onClick={() => setPerson(p)} className="flex flex-col items-center rounded-xl border border-border bg-card p-2 text-center">
-              <div className="relative h-16 w-16 rounded-full bg-spot-gradient p-[2px]"><img src={p.image} alt="" className="h-full w-full rounded-full object-cover"/>{p.live && <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card bg-live" />}</div>
-              <strong className="mt-1 flex max-w-full items-center gap-0.5 text-xs"><span className="truncate">{p.n}</span>{p.v && <BadgeCheck size={12} className="shrink-0 text-primary" />}</strong><small className="text-[10px] text-muted-foreground">{p.d}</small>
-            </button>))}</div> : shownPeople.map((p) => (
+          {shownPeople.map((p) => (
             <button key={p.n} onClick={() => setPerson(p)} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-3 text-left">
               <div className="relative h-12 w-12 shrink-0 rounded-full bg-spot-gradient p-[2px]"><img src={p.image} alt="" className="h-full w-full rounded-full object-cover"/>{p.live && <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card bg-live" />}</div>
               <div className="flex-1"><p className="flex items-center gap-1 font-semibold">{p.n}{p.v && <BadgeCheck size={14} className="text-primary" />}</p><p className="text-xs text-muted-foreground">{p.d} · {p.i}</p></div>
@@ -158,7 +135,11 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
 
       {picker && (
         <Modal title="Elige zona" onClose={() => setPicker(false)}>
-          <PlaceBrowser selected={town} onPick={(n, p) => { setProv(p.n); setTown(n); setPicker(false); toast.success(`Explorando ${n}`); }} />
+          <p className="text-xs font-semibold text-muted-foreground">PROVINCIA</p>
+          <div className="mt-2 flex flex-wrap gap-2">{Object.keys(geo).map((p) => <Chip key={p} on={prov === p} onClick={() => { setProv(p); setTown(geo[p]![0]!); }}>{p}</Chip>)}</div>
+          <p className="mt-4 text-xs font-semibold text-muted-foreground">MUNICIPIO</p>
+          <div className="mt-2 flex flex-wrap gap-2">{(geo[prov] ?? []).map((t) => <Chip key={t} on={town === t} onClick={() => setTown(t)}>{t}</Chip>)}</div>
+          <Button className="mt-5 w-full" onClick={() => { setPicker(false); toast.success(`Explorando ${town}`); }}>Ver {town}</Button>
         </Modal>
       )}
 

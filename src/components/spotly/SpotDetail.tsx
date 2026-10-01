@@ -2,7 +2,6 @@ import { useState } from "react";
 import { ChevronLeft, Heart, MapPin, Mic, Pause, Play, Share2, UserPlus, Check } from "lucide-react";
 import { toast } from "sonner";
 import { NewFollowers } from "./LocalAd";
-import { VoiceReply } from "./Voice";
 import { Button } from "@/components/ui/button";
 import festival from "@/assets/spotly-sevilla-festival.jpg";
 import stage from "@/assets/spotly-live-stage.jpg";
@@ -26,7 +25,7 @@ export type SpotInfo = { name: string; city: string; ago: string; text: string; 
 
 export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () => void; onAuthor: () => void }) {
   const [play, setPlay] = useState<string | null>(null);
-  const [replying, setReplying] = useState(false);
+  const [rec, setRec] = useState(false);
   const [mine, setMine] = useState(0);
   const [liked, setLiked] = useState(false);
   const replies = [["Laura", beach, "0:12", "3 min"], ["Carlos", stage, "0:08", "10 min"], ["María", festival, "0:21", "25 min"]] as const;
@@ -49,9 +48,8 @@ export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () 
       </div>
     </div>
     <div className="fixed inset-x-0 bottom-0 border-t border-border bg-card/95 p-4 text-center backdrop-blur">
-      <p className="mb-2 text-xs text-muted-foreground">Responde con tu voz</p>
-      <button aria-label="Grabar respuesta" onClick={() => setReplying(true)} className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-spot-gradient shadow-glow"><Mic size={24} /></button>
-      {replying && <VoiceReply name={s.name} onClose={() => setReplying(false)} onSent={() => setMine(mine + 1)} />}
+      <p className="mb-2 text-xs text-muted-foreground">{rec ? "Grabando… toca para enviar" : "Responde con tu voz"}</p>
+      <button aria-label={rec ? "Enviar respuesta de voz" : "Grabar respuesta"} onClick={() => { if (rec) { setMine(mine + 1); toast("Respuesta de voz enviada"); } setRec(!rec); }} className={(rec ? "spot-pulse " : "") + "mx-auto grid h-14 w-14 place-items-center rounded-full bg-spot-gradient shadow-glow"}><Mic size={24} /></button>
     </div>
   </div>;
 }

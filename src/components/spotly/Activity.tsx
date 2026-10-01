@@ -26,7 +26,7 @@ export function ActivityView() {
   const [list, setList] = useState(init);
   const [fol, setFol] = useState<number[]>([]);
   const [playing, setPlaying] = useState<number | null>(null);
-  const shown = list.filter((n) => tab === "Todas" || (tab === "Eventos" ? n.k === "evento" || n.k === "hito" : tab === "Menciones" ? n.group === "Menciones" : n.group === tab));
+  const shown = list.filter((n) => tab === "Todas" || (tab === "Me gusta" ? n.k === "like" : tab === "Comentarios" ? n.k === "voz" : n.group === tab));
   const unread = list.filter((n) => !n.read).length;
 
   const row = (n: N) => {
@@ -66,7 +66,7 @@ export function ActivityView() {
        <div className="flex items-center justify-center">
          <h1 className="text-base font-bold">Notificaciones{unread > 0 && <span className="sr-only"> · {unread} sin leer</span>}</h1>
       </div>
-       <div className="mt-4 grid grid-cols-4 gap-1">{["Todas", "Menciones", "Seguidores", "Eventos"].map((x) => <Button key={x} size="sm" variant={tab === x ? "default" : "secondary"} onClick={() => setTab(x)} className={`h-8 min-w-0 rounded-full px-1 text-[10px] ${tab === x ? "spot-active-pill" : "text-foreground"}`}>{x}</Button>)}</div>
+       <div className="mt-4 grid grid-cols-4 gap-1">{["Todas", "Me gusta", "Comentarios", "Seguidores"].map((x) => <Button key={x} size="sm" variant={tab === x ? "default" : "secondary"} onClick={() => setTab(x)} className={`h-8 min-w-0 rounded-full px-1 text-[10px] ${tab === x ? "spot-active-pill" : "text-foreground"}`}>{x}</Button>)}</div>
       {shown.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">Nada por aquí todavía</p>}
        {today.length > 0 && <div className="mt-5 space-y-0">{today.map(row)}</div>}
        {before.length > 0 && <div className="space-y-0">{before.map(row)}</div>}
