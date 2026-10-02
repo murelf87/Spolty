@@ -18,8 +18,9 @@
     body::before {
       content: "";
       position: fixed; inset: 0;
-      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124,58,237,0.18) 0%, transparent 70%),
-                  radial-gradient(ellipse 60% 40% at 80% 100%, rgba(59,130,246,0.12) 0%, transparent 60%);
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124,58,237,0.22) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(59,130,246,0.14) 0%, transparent 60%);
       pointer-events: none;
       z-index: 0;
     }
@@ -36,18 +37,17 @@
     .phone {
       position: relative;
       width: min(390px, calc(100vw - 40px));
-      /* Mantener proporción iPhone 15 Pro: 390×844 */
       aspect-ratio: 390 / 844;
       max-height: calc(100vh - 40px);
       border-radius: 52px;
-      background: #1a1a2e;
+      background: #000;
       box-shadow:
-        0 0 0 1px rgba(255,255,255,0.08),
+        0 0 0 1px rgba(255,255,255,0.10),
         0 0 0 10px #111118,
-        0 0 0 11px rgba(255,255,255,0.06),
+        0 0 0 11px rgba(255,255,255,0.07),
         0 0 0 13px #0d0d15,
-        0 30px 80px rgba(0,0,0,0.8),
-        0 0 60px rgba(124,58,237,0.15);
+        0 30px 80px rgba(0,0,0,0.85),
+        0 0 60px rgba(124,58,237,0.18);
       overflow: hidden;
       flex-shrink: 0;
     }
@@ -56,15 +56,15 @@
     .phone::before {
       content: "";
       position: absolute;
-      top: 14px; left: 50%; transform: translateX(-50%);
-      width: 120px; height: 34px;
-      background: #0d0d15;
+      top: 12px; left: 50%; transform: translateX(-50%);
+      width: 126px; height: 36px;
+      background: #000;
       border-radius: 20px;
-      z-index: 100;
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.04);
+      z-index: 200;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.05);
     }
 
-    /* Barra lateral izquierda (botones volumen) */
+    /* Botones volumen izquierda */
     .phone::after {
       content: "";
       position: absolute;
@@ -75,7 +75,7 @@
       box-shadow: 0 44px 0 #1c1c2e, 0 88px 0 #1c1c2e;
     }
 
-    /* Barra lateral derecha (botón power) */
+    /* Botón power derecha */
     .power-btn {
       position: absolute;
       right: -13px; top: 180px;
@@ -85,24 +85,14 @@
       z-index: 100;
     }
 
-    /* La app vive aquí */
-    #root {
-      position: absolute;
-      inset: 0;
-      border-radius: 52px;
-      overflow: hidden;
-      /* Simular safe-area-inset-top del notch */
-      --safe-top: 50px;
-    }
-
-    /* Barra de estado (hora + iconos) */
+    /* Barra de estado encima de todo */
     .status-bar {
       position: absolute;
       top: 0; left: 0; right: 0;
       height: 50px;
       display: flex; align-items: flex-end; justify-content: space-between;
       padding: 0 28px 8px;
-      z-index: 999;
+      z-index: 150;          /* por encima de la app, debajo del notch (200) */
       pointer-events: none;
     }
     .status-bar .time {
@@ -112,53 +102,101 @@
     .status-bar .icons {
       display: flex; align-items: center; gap: 6px;
     }
-    .status-bar .icons svg {
-      fill: rgba(255,255,255,0.9);
-    }
+    .status-bar .icons svg { fill: rgba(255,255,255,0.9); }
 
-    /* Indicador home */
+    /* Home indicator */
     .home-bar {
       position: absolute;
       bottom: 8px; left: 50%; transform: translateX(-50%);
       width: 134px; height: 5px;
       background: rgba(255,255,255,0.35);
       border-radius: 3px;
-      z-index: 999;
+      z-index: 150;
       pointer-events: none;
     }
 
-    /* ── Overrides críticos: confinar la app dentro del frame ── */
-
-    /* El shell principal (max-w-[520px] min-h-screen) debe llenarse exactamente */
-    #root > div {
-      min-height: 100% !important;
-      height: 100% !important;
-      max-width: 100% !important;
-      overflow: hidden !important;
-    }
-
-    /* El nav bottom es "fixed" en la app → convertirlo en absolute relativo al #root */
-    /* Usamos containment para que "fixed" quede relativo al contenedor */
+    /* ─── El #root ocupa EXACTAMENTE el interior del iPhone ─── */
     #root {
+      position: absolute;
+      inset: 0;
+      border-radius: 52px;
+      overflow: hidden;
+      /*
+       * contain:layout hace que position:fixed dentro de la app
+       * quede relativo al #root en lugar del viewport real
+       */
       contain: layout;
     }
 
-    /* La barra de navegación fija de la app queda anclada al fondo del frame */
-    #root nav[aria-label="Navegación principal"],
-    #root nav.fixed {
-      position: absolute !important;
-      left: 0 !important; right: 0 !important; bottom: 0 !important;
-      max-width: 100% !important;
+    /* ─── Forzar el safe-area-inset-top = 50px en modo preview ─── */
+    /*
+     * env(safe-area-inset-top) devuelve 0 en escritorio.
+     * Sobrescribimos los patrones max(Xrem, calc(env(safe-area-inset-top)+Y))
+     * con valores concretos que respetan el notch fake de 50px.
+     */
+
+    /* Splash: logo y contenido principal */
+    #root .spot-splash > div:first-of-type {
+      margin-top: 58px !important;
     }
 
-    /* Splash y pantallas fullscreen también deben ser absolutas */
+    /* Todos los elementos fixed dentro del root = absolute dentro del frame */
     #root .fixed {
       position: absolute !important;
     }
 
-    /* Safe area del notch fake: padding top en el contenido principal */
-    #root > div > div:first-child {
-      padding-top: 50px !important;
+    /* Shell principal: quitar min-h-screen, forzar altura 100% del frame */
+    #root > div {
+      min-height: 100% !important;
+      height: 100% !important;
+      max-width: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+    }
+
+    /* Área de scroll del contenido (lo que hay entre header y nav) */
+    #root > div > div {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    /* Nav bottom: pegado al fondo del frame */
+    #root nav[aria-label="Navegación principal"] {
+      position: absolute !important;
+      inset-inline: 0 !important;
+      bottom: 0 !important;
+      max-width: 100% !important;
+      flex-shrink: 0 !important;
+    }
+
+    /* Headers fijos de cada vista */
+    #root header,
+    #root [class*="sticky top-0"],
+    #root .sticky {
+      position: sticky !important;
+      top: 50px !important;
+    }
+
+    /* Welcome: mover contenido principal debajo del notch */
+    #root .spot-welcome > div[class*="mt-"] {
+      margin-top: 120px !important;
+    }
+
+    /* Botón "Saltar todo" en Welcome: debajo del notch */
+    #root .spot-welcome > button[aria-label*="Saltar"] {
+      top: 54px !important;
+    }
+
+    /* Splash: el div de contenido principal (logo + texto) */
+    #root .spot-splash > div[class*="mt-"] {
+      margin-top: 62px !important;
+    }
+
+    /* Cualquier botón de "Saltar" posicionado con top */
+    #root [aria-label*="Saltar"] {
+      top: 54px !important;
     }
   </style>
   <script type="module" crossorigin>var nM=Object.create,Wp=Object.defineProperty,cM=Object.getOwnPropertyDescriptor,lM=Object.getOwnPropertyNames,iM=Object.getPrototypeOf,V2=Object.prototype.hasOwnProperty,oM=(a,t,n)=>()=>{if(n)throw n[0];try{return a&&(t=a(a=0)),t}catch(l){throw n=[l],l}},Be=(a,t)=>()=>(t||(a((t={exports:{}}).exports,t),a=null),t.exports),pM=(a,t)=>{let n={};for(var l in a)Wp(n,l,{get:a[l],enumerable:!0});return t||Wp(n,Symbol.toStringTag,{value:"Module"}),n},sM=(a,t,n,l)=>{if(t&&typeof t=="object"||typeof t=="function")for(var o=lM(t),p=0,s=o.length,d;p<s;p++)d=o[p],!V2.call(a,d)&&d!==n&&Wp(a,d,{get:(m=>t[m]).bind(null,d),enumerable:!(l=cM(t,d))||l.enumerable});return a},k2=(a,t,n)=>(n=a!=null?nM(iM(a)):{},sM(t||!a||!a.__esModule||!V2.call(a,"default")?Wp(n,"default",{value:a,enumerable:!0}):n,a));(function(){const t=document.createElement("link").relList;if(t&&t.supports&&t.supports("modulepreload"))return;for(const o of document.querySelectorAll('link[rel="modulepreload"]'))l(o);new MutationObserver(o=>{for(const p of o)if(p.type==="childList")for(const s of p.addedNodes)s.tagName==="LINK"&&s.rel==="modulepreload"&&l(s)}).observe(document,{childList:!0,subtree:!0});function n(o){const p={};return o.integrity&&(p.integrity=o.integrity),o.referrerPolicy&&(p.referrerPolicy=o.referrerPolicy),o.crossOrigin==="use-credentials"?p.credentials="include":o.crossOrigin==="anonymous"?p.credentials="omit":p.credentials="same-origin",p}function l(o){if(o.ep)return;o.ep=!0;const p=n(o);fetch(o.href,p)}})();var uM=Be((a=>{function t(b,E){var _=b.length;b.push(E);A:for(;0<_;){var oA=_-1>>>1,eA=b[oA];if(0<o(eA,E))b[oA]=E,b[_]=eA,_=oA;else break A}}function n(b){return b.length===0?null:b[0]}function l(b){if(b.length===0)return null;var E=b[0],_=b.pop();if(_!==E){b[0]=_;A:for(var oA=0,eA=b.length,MA=eA>>>1;oA<MA;){var UA=2*(oA+1)-1,sA=b[UA],lA=UA+1,T=b[lA];if(0>o(sA,_))lA<eA&&0>o(T,sA)?(b[oA]=T,b[lA]=_,oA=lA):(b[oA]=sA,b[UA]=_,oA=UA);else if(lA<eA&&0>o(T,_))b[oA]=T,b[lA]=_,oA=lA;else break A}}return E}function o(b,E){var _=b.sortIndex-E.sortIndex;return _!==0?_:b.id-E.id}if(a.unstable_now=void 0,typeof performance=="object"&&typeof performance.now=="function"){var p=performance;a.unstable_now=function(){return p.now()}}else{var s=Date,d=s.now();a.unstable_now=function(){return s.now()-d}}var m=[],S=[],N=1,V=null,K=3,x=!1,y=!1,U=!1,g=!1,W=typeof setTimeout=="function"?setTimeout:null,z=typeof clearTimeout=="function"?clearTimeout:null,O=typeof setImmediate<"u"?setImmediate:null;function H(b){for(var E=n(S);E!==null;){if(E.callback===null)l(S);else if(E.startTime<=b)l(S),E.sortIndex=E.expirationTime,t(m,E);else break;E=n(S)}}function P(b){if(U=!1,H(b),!y)if(n(m)!==null)y=!0,Q||(Q=!0,D());else{var E=n(S);E!==null&&G(P,E.startTime-b)}}var Q=!1,I=-1,X=5,tA=-1;function pA(){return g?!0:!(a.unstable_now()-tA<X)}function v(){if(g=!1,Q){var b=a.unstable_now();tA=b;var E=!0;try{A:{y=!1,U&&(U=!1,z(I),I=-1),x=!0;var _=K;try{a:{for(H(b),V=n(m);V!==null&&!(V.expirationTime>b&&pA());){var oA=V.callback;if(typeof oA=="function"){V.callback=null,K=V.priorityLevel;var eA=oA(V.expirationTime<=b);if(b=a.unstable_now(),typeof eA=="function"){V.callback=eA,H(b),E=!0;break a}V===n(m)&&l(m),H(b)}else l(m);V=n(m)}if(V!==null)E=!0;else{var MA=n(S);MA!==null&&G(P,MA.startTime-b),E=!1}}break A}finally{V=null,K=_,x=!1}}}finally{E?D():Q=!1}}}var D;if(typeof O=="function")D=function(){O(v)};else if(typeof MessageChannel<"u"){var iA=new MessageChannel,Z=iA.port2;iA.port1.onmessage=v,D=function(){Z.postMessage(null)}}else D=function(){W(v,0)};function G(b,E){I=W(function(){b(a.unstable_now())},E)}a.unstable_IdlePriority=5,a.unstable_ImmediatePriority=1,a.unstable_LowPriority=4,a.unstable_NormalPriority=3,a.unstable_Profiling=null,a.unstable_UserBlockingPriority=2,a.unstable_cancelCallback=function(b){b.callback=null},a.unstable_forceFrameRate=function(b){0>b||125<b?console.error("forceFrameRate takes a positive int between 0 and 125, forcing frame rates higher than 125 fps is not supported"):X=0<b?Math.floor(1e3/b):5},a.unstable_getCurrentPriorityLevel=function(){return K},a.unstable_next=function(b){switch(K){case 1:case 2:case 3:var E=3;break;default:E=K}var _=K;K=E;try{return b()}finally{K=_}},a.unstable_requestPaint=function(){g=!0},a.unstable_runWithPriority=function(b,E){switch(b){case 1:case 2:case 3:case 4:case 5:break;default:b=3}var _=K;K=b;try{return E()}finally{K=_}},a.unstable_scheduleCallback=function(b,E,_){var oA=a.unstable_now();switch(typeof _=="object"&&_!==null?(_=_.delay,_=typeof _=="number"&&0<_?oA+_:oA):_=oA,b){case 1:var eA=-1;break;case 2:eA=250;break;case 5:eA=1073741823;break;case 4:eA=1e4;break;default:eA=5e3}return eA=_+eA,b={id:N++,callback:E,priorityLevel:b,startTime:_,expirationTime:eA,sortIndex:-1},_>oA?(b.sortIndex=_,t(S,b),n(m)===null&&b===n(S)&&(U?(z(I),I=-1):U=!0,G(P,_-oA))):(b.sortIndex=eA,t(m,b),y||x||(y=!0,Q||(Q=!0,D()))),b},a.unstable_shouldYield=pA,a.unstable_wrapCallback=function(b){var E=K;return function(){var _=K;K=E;try{return b.apply(this,arguments)}finally{K=_}}}})),jM=Be(((a,t)=>{t.exports=uM()})),dM=Be((a=>{var t=Symbol.for("react.transitional.element"),n=Symbol.for("react.portal"),l=Symbol.for("react.fragment"),o=Symbol.for("react.strict_mode"),p=Symbol.for("react.profiler"),s=Symbol.for("react.consumer"),d=Symbol.for("react.context"),m=Symbol.for("react.forward_ref"),S=Symbol.for("react.suspense"),N=Symbol.for("react.memo"),V=Symbol.for("react.lazy"),K=Symbol.for("react.activity"),x=Symbol.for("react.view_transition"),y=Symbol.iterator;function U(T){return T===null||typeof T!="object"?null:(T=y&&T[y]||T["@@iterator"],typeof T=="function"?T:null)}var g={isMounted:function(){return!1},enqueueForceUpdate:function(){},enqueueReplaceState:function(){},enqueueSetState:function(){}},W=Object.assign,z={};function O(T,f,uA){this.props=T,this.context=f,this.refs=z,this.updater=uA||g}O.prototype.isReactComponent={},O.prototype.setState=function(T,f){if(typeof T!="object"&&typeof T!="function"&&T!=null)throw Error("takes an object of state variables to update or a function which returns an object of state variables.");this.updater.enqueueSetState(this,T,f,"setState")},O.prototype.forceUpdate=function(T){this.updater.enqueueForceUpdate(this,T,"forceUpdate")};function H(){}H.prototype=O.prototype;function P(T,f,uA){this.props=T,this.context=f,this.refs=z,this.updater=uA||g}var Q=P.prototype=new H;Q.constructor=P,W(Q,O.prototype),Q.isPureReactComponent=!0;var I=Array.isArray;function X(){}var tA={H:null,A:null,T:null,S:null},pA=Object.prototype.hasOwnProperty;function v(T,f,uA){var dA=uA.ref;return{$$typeof:t,type:T,key:f,ref:dA!==void 0?dA:null,props:uA}}function D(T,f){return v(T.type,f,T.props)}function iA(T){return typeof T=="object"&&T!==null&&T.$$typeof===t}function Z(T){var f={"=":"=0",":":"=2"};return"$"+T.replace(/[=:]/g,function(uA){return f[uA]})}var G=/\/+/g;function b(T,f){return typeof T=="object"&&T!==null&&T.key!=null?Z(""+T.key):f.toString(36)}function E(T){switch(T.status){case"fulfilled":return T.value;case"rejected":throw T.reason;default:switch(typeof T.status=="string"?T.then(X,X):(T.status="pending",T.then(function(f){T.status==="pending"&&(T.status="fulfilled",T.value=f)},function(f){T.status==="pending"&&(T.status="rejected",T.reason=f)})),T.status){case"fulfilled":return T.value;case"rejected":throw T.reason}}throw T}function _(T,f,uA,dA,$){var kA=typeof T;(kA==="undefined"||kA==="boolean")&&(T=null);var TA=!1;if(T===null)TA=!0;else switch(kA){case"bigint":case"string":case"number":TA=!0;break;case"object":switch(T.$$typeof){case t:case n:TA=!0;break;case V:return TA=T._init,_(TA(T._payload),f,uA,dA,$)}}if(TA)return $=$(T),TA=dA===""?"."+b(T,0):dA,I($)?(uA="",TA!=null&&(uA=TA.replace(G,"$&/")+"/"),_($,f,uA,"",function(XA){return XA})):$!=null&&(iA($)&&($=D($,uA+($.key==null||T&&T.key===$.key?"":(""+$.key).replace(G,"$&/")+"/")+TA)),f.push($)),1;TA=0;var jA=dA===""?".":dA+":";if(I(T))for(var NA=0;NA<T.length;NA++)dA=T[NA],kA=jA+b(dA,NA),TA+=_(dA,f,uA,kA,$);else if(NA=U(T),typeof NA=="function")for(T=NA.call(T),NA=0;!(dA=T.next()).done;)dA=dA.value,kA=jA+b(dA,NA++),TA+=_(dA,f,uA,kA,$);else if(kA==="object"){if(typeof T.then=="function")return _(E(T),f,uA,dA,$);throw f=String(T),Error("Objects are not valid as a React child (found: "+(f==="[object Object]"?"object with keys {"+Object.keys(T).join(", ")+"}":f)+"). If you meant to render a collection of children, use an array instead.")}return TA}function oA(T,f,uA){if(T==null)return T;var dA=[],$=0;return _(T,dA,"","",function(kA){return f.call(uA,kA,$++)}),dA}function eA(T){if(T._status===-1){var f=T._result,uA=f();uA.then(function(dA){(T._status===0||T._status===-1)&&(T._status=1,T._result=dA,uA.status===void 0&&(uA.status="fulfilled",uA.value=dA))},function(dA){(T._status===0||T._status===-1)&&(T._status=2,T._result=dA,uA.status===void 0&&(uA.status="rejected",uA.reason=dA))}),T._status===-1&&(T._status=0,T._result=uA)}if(T._status===1)return T._result.default;throw T._result}var MA=typeof reportError=="function"?reportError:function(T){if(typeof window=="object"&&typeof window.ErrorEvent=="function"){var f=new window.ErrorEvent("error",{bubbles:!0,cancelable:!0,message:typeof T=="object"&&T!==null&&typeof T.message=="string"?String(T.message):String(T),error:T});if(!window.dispatchEvent(f))return}else if(typeof process=="object"&&typeof process.emit=="function"){process.emit("uncaughtException",T);return}console.error(T)};function UA(T){var f=tA.T,uA={};uA.types=f!==null?f.types:null,tA.T=uA;try{var dA=T(),$=tA.S;$!==null&&$(uA,dA),typeof dA=="object"&&dA!==null&&typeof dA.then=="function"&&dA.then(X,MA)}catch(kA){MA(kA)}finally{f!==null&&uA.types!==null&&(f.types=uA.types),tA.T=f}}function sA(T){var f=tA.T;if(f!==null){var uA=f.types;uA===null?f.types=[T]:uA.indexOf(T)===-1&&uA.push(T)}else UA(sA.bind(null,T))}var lA={map:oA,forEach:function(T,f,uA){oA(T,function(){f.apply(this,arguments)},uA)},count:function(T){var f=0;return oA(T,function(){f++}),f},toArray:function(T){return oA(T,function(f){return f})||[]},only:function(T){if(!iA(T))throw Error("React.Children.only expected to receive a single React element child.");return T}};a.Activity=K,a.Children=lA,a.Component=O,a.Fragment=l,a.Profiler=p,a.PureComponent=P,a.StrictMode=o,a.Suspense=S,a.ViewTransition=x,a.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE=tA,a.__COMPILER_RUNTIME={__proto__:null,c:function(T){return tA.H.useMemoCache(T)}},a.addTransitionType=sA,a.cache=function(T){return function(){return T.apply(null,arguments)}},a.cacheSignal=function(){return null},a.cloneElement=function(T,f,uA){if(T==null)throw Error("The argument must be a React element, but you passed "+T+".");var dA=W({},T.props),$=T.key;if(f!=null)for(kA in f.key!==void 0&&($=""+f.key),f)!pA.call(f,kA)||kA==="key"||kA==="__self"||kA==="__source"||kA==="ref"&&f.ref===void 0||(dA[kA]=f[kA]);var kA=arguments.length-2;if(kA===1)dA.children=uA;else if(1<kA){for(var TA=Array(kA),jA=0;jA<kA;jA++)TA[jA]=arguments[jA+2];dA.children=TA}return v(T.type,$,dA)},a.createContext=function(T){return T={$$typeof:d,_currentValue:T,_currentValue2:T,_threadCount:0,Provider:null,Consumer:null},T.Provider=T,T.Consumer={$$typeof:s,_context:T},T},a.createElement=function(T,f,uA){var dA,$={},kA=null;if(f!=null)for(dA in f.key!==void 0&&(kA=""+f.key),f)pA.call(f,dA)&&dA!=="key"&&dA!=="__self"&&dA!=="__source"&&($[dA]=f[dA]);var TA=arguments.length-2;if(TA===1)$.children=uA;else if(1<TA){for(var jA=Array(TA),NA=0;NA<TA;NA++)jA[NA]=arguments[NA+2];$.children=jA}if(T&&T.defaultProps)for(dA in TA=T.defaultProps,TA)$[dA]===void 0&&($[dA]=TA[dA]);return v(T,kA,$)},a.createRef=function(){return{current:null}},a.forwardRef=function(T){return{$$typeof:m,render:T}},a.isValidElement=iA,a.lazy=function(T){return{$$typeof:V,_payload:{_status:-1,_result:T},_init:eA}},a.memo=function(T,f){return{$$typeof:N,type:T,compare:f===void 0?null:f}},a.startTransition=UA,a.unstable_useCacheRefresh=function(){return tA.H.useCacheRefresh()},a.use=function(T){return tA.H.use(T)},a.useActionState=function(T,f,uA){return tA.H.useActionState(T,f,uA)},a.useCallback=function(T,f){return tA.H.useCallback(T,f)},a.useContext=function(T){return tA.H.useContext(T)},a.useDebugValue=function(){},a.useDeferredValue=function(T,f){return tA.H.useDeferredValue(T,f)},a.useEffect=function(T,f){return tA.H.useEffect(T,f)},a.useEffectEvent=function(T){return tA.H.useEffectEvent(T)},a.useId=function(){return tA.H.useId()},a.useImperativeHandle=function(T,f,uA){return tA.H.useImperativeHandle(T,f,uA)},a.useInsertionEffect=function(T,f){return tA.H.useInsertionEffect(T,f)},a.useLayoutEffect=function(T,f){return tA.H.useLayoutEffect(T,f)},a.useMemo=function(T,f){return tA.H.useMemo(T,f)},a.useOptimistic=function(T,f){return tA.H.useOptimistic(T,f)},a.useReducer=function(T,f,uA){return tA.H.useReducer(T,f,uA)},a.useRef=function(T){return tA.H.useRef(T)},a.useState=function(T){return tA.H.useState(T)},a.useSyncExternalStore=function(T,f,uA){return tA.H.useSyncExternalStore(T,f,uA)},a.useTransition=function(){return tA.H.useTransition()},a.version="19.3.0"})),oo=Be(((a,t)=>{t.exports=dM()})),mM=Be((a=>{var t=oo();function n(V){var K="https://react.dev/errors/"+V;if(1<arguments.length){K+="?args[]="+encodeURIComponent(arguments[1]);for(var x=2;x<arguments.length;x++)K+="&args[]="+encodeURIComponent(arguments[x])}return"Minified React error #"+V+"; visit "+K+" for the full message or use the non-minified dev environment for full errors and additional helpful warnings."}function l(){}var o={d:{f:l,r:function(){throw Error(n(522))},D:l,C:l,L:l,m:l,X:l,S:l,M:l},p:0,findDOMNode:null},p=Symbol.for("react.portal"),s=Symbol.for("react.recoverable"),d=Symbol.for("react.optimistic_key");function m(V,K,x){var y=3<arguments.length&&arguments[3]!==void 0?arguments[3]:null;return{$$typeof:p,key:y==null?null:y===d?d:""+y,children:V,containerInfo:K,implementation:x}}var S=t.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;function N(V,K){if(V==="font")return"";if(typeof K=="string")return K==="use-credentials"?K:""}a.__DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE=o,a.browser=function(V){return{$$typeof:s,_reason:V}},a.createPortal=function(V,K){var x=2<arguments.length&&arguments[2]!==void 0?arguments[2]:null;if(!K||K.nodeType!==1&&K.nodeType!==9&&K.nodeType!==11)throw Error(n(299));return m(V,K,null,x)},a.flushSync=function(V){var K=S.T,x=o.p;try{if(S.T=null,o.p=2,V)return V()}finally{S.T=K,o.p=x,o.d.f()}},a.preconnect=function(V,K){typeof V=="string"&&(K?(K=K.crossOrigin,K=typeof K=="string"?K==="use-credentials"?K:"":void 0):K=null,o.d.C(V,K))},a.prefetchDNS=function(V){typeof V=="string"&&o.d.D(V)},a.preinit=function(V,K){if(typeof V=="string"&&K&&typeof K.as=="string"){var x=K.as,y=N(x,K.crossOrigin),U=typeof K.integrity=="string"?K.integrity:void 0,g=typeof K.fetchPriority=="string"?K.fetchPriority:void 0;x==="style"?o.d.S(V,typeof K.precedence=="string"?K.precedence:void 0,{crossOrigin:y,integrity:U,fetchPriority:g}):x==="script"&&o.d.X(V,{crossOrigin:y,integrity:U,fetchPriority:g,nonce:typeof K.nonce=="string"?K.nonce:void 0})}},a.preinitModule=function(V,K){if(typeof V=="string")if(typeof K=="object"&&K!==null){if(K.as==null||K.as==="script"){var x=N(K.as,K.crossOrigin);o.d.M(V,{crossOrigin:x,integrity:typeof K.integrity=="string"?K.integrity:void 0,nonce:typeof K.nonce=="string"?K.nonce:void 0,fetchPriority:typeof K.fetchPriority=="string"?K.fetchPriority:void 0})}}else K??o.d.M(V)},a.preload=function(V,K){if(typeof V=="string"&&typeof K=="object"&&K!==null&&typeof K.as=="string"){var x=K.as,y=N(x,K.crossOrigin);o.d.L(V,x,{crossOrigin:y,integrity:typeof K.integrity=="string"?K.integrity:void 0,nonce:typeof K.nonce=="string"?K.nonce:void 0,type:typeof K.type=="string"?K.type:void 0,fetchPriority:typeof K.fetchPriority=="string"?K.fetchPriority:void 0,referrerPolicy:typeof K.referrerPolicy=="string"?K.referrerPolicy:void 0,imageSrcSet:typeof K.imageSrcSet=="string"?K.imageSrcSet:void 0,imageSizes:typeof K.imageSizes=="string"?K.imageSizes:void 0,media:typeof K.media=="string"?K.media:void 0})}},a.preloadModule=function(V,K){if(typeof V=="string")if(K){var x=N(K.as,K.crossOrigin);o.d.m(V,{as:typeof K.as=="string"&&K.as!=="script"?K.as:void 0,crossOrigin:x,integrity:typeof K.integrity=="string"?K.integrity:void 0,nonce:typeof K.nonce=="string"?K.nonce:void 0,fetchPriority:typeof K.fetchPriority=="string"?K.fetchPriority:void 0})}else o.d.m(V)},a.requestFormReset=function(V){o.d.r(V)},a.unstable_batchedUpdates=function(V,K){return V(K)},a.useFormState=function(V,K,x){return S.H.useFormState(V,K,x)},a.useFormStatus=function(){return S.H.useHostTransitionStatus()},a.version="19.3.0"})),N2=Be(((a,t)=>{function n(){if(!(typeof __REACT_DEVTOOLS_GLOBAL_HOOK__>"u"||typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE!="function"))try{__REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE(n)}catch(l){console.error(l)}}n(),t.exports=mM()})),SM=Be((a=>{var t=jM(),n=oo(),l=N2();function o(A){var r="https://react.dev/errors/"+A;if(1<arguments.length){r+="?args[]="+encodeURIComponent(arguments[1]);for(var c=2;c<arguments.length;c++)r+="&args[]="+encodeURIComponent(arguments[c])}return"Minified React error #"+A+"; visit "+r+" for the full message or use the non-minified dev environment for full errors and additional helpful warnings."}function p(A){return!(!A||A.nodeType!==1&&A.nodeType!==9&&A.nodeType!==11)}function s(A){for(var r=A,c=r;c&&!c.alternate;)r=c,(r.flags&4098)!==0&&(A=r.return),c=r.return;for(;r.return;)r=r.return;return r.tag===3?A:null}function d(A){if(A.tag===13){var r=A.memoizedState;if(r===null&&(A=A.alternate,A!==null&&(r=A.memoizedState)),r!==null)return r.dehydrated}return null}function m(A){if(A.tag===31){var r=A.memoizedState;if(r===null&&(A=A.alternate,A!==null&&(r=A.memoizedState)),r!==null)return r.dehydrated}return null}function S(A){if(s(A)!==A)throw Error(o(188))}function N(A){var r=A.alternate;if(!r){if(r=s(A),r===null)throw Error(o(188));return r!==A?null:A}for(var c=A,i=r;;){var u=c.return;if(u===null)break;var j=u.alternate;if(j===null){if(i=u.return,i!==null){c=i;continue}break}if(u.child===j.child){for(j=u.child;j;){if(j===c)return S(u),A;if(j===i)return S(u),r;j=j.sibling}throw Error(o(188))}if(c.return!==i.return)c=u,i=j;else{for(var k=!1,M=u.child;M;){if(M===c){k=!0,c=u,i=j;break}if(M===i){k=!0,i=u,c=j;break}M=M.sibling}if(!k){for(M=j.child;M;){if(M===c){k=!0,c=j,i=u;break}if(M===i){k=!0,i=j,c=u;break}M=M.sibling}if(!k)throw Error(o(189))}}if(c.alternate!==i)throw Error(o(190))}if(c.tag!==3)throw Error(o(188));return c.stateNode.current===c?A:r}function V(A){var r=A.tag;if(r===5||r===26||r===27||r===6)return A;for(A=A.child;A!==null;){if(r=V(A),r!==null)return r;A=A.sibling}return null}function K(A,r,c,i,u,j){for(;A!==null;){if((A.tag===5||A.tag===27||A.tag===6)&&c(A,i,u,j)||(A.tag!==22||A.memoizedState===null)&&(r||A.tag!==5&&A.tag!==27)&&K(A.child,r,c,i,u,j))return!0;A=A.sibling}return!1}function x(A){for(A=A.return;A!==null;){if(A.tag===3||A.tag===5||A.tag===27)return A;A=A.return}return null}function y(A){var r=!1;for(A=A.return;A!==null&&(A.tag===4&&(r=!0),!(A.tag===3||A.tag===5||A.tag===27));)A=A.return;return r}function U(A){var r=[null,null],c=x(A);return c===null||g(r,A,c.child,{foundSelf:!1}),r}function g(A,r,c,i){for(;c!==null;){if(c===r)i.foundSelf=!0;else if(c.tag===5||c.tag===27||c.tag===6){if(i.foundSelf)return A[1]=c,!0;A[0]=c}else if((c.tag!==22||c.memoizedState===null)&&g(A,r,c.child,i))return!0;c=c.sibling}return!1}function W(A){switch(A.tag){case 5:case 27:case 6:return A.stateNode;case 3:return A.stateNode.containerInfo;default:throw Error(o(559))}}var z=null,O=null;function H(A,r,c){return A===c?!0:A===r?(z=A,!0):!1}function P(A,r,c){return A===c?(O=A,!1):A===r?(O!==null&&(z=A),!0):!1}function Q(A){if(A===null)return null;do A=A===null?null:A.return;while(A&&A.tag!==5&&A.tag!==27&&A.tag!==3);return A||null}function I(A,r,c){for(var i=0,u=A;u;u=c(u))i++;u=0;for(var j=r;j;j=c(j))u++;for(;0<i-u;)A=c(A),i--;for(;0<u-i;)r=c(r),u--;for(;i--;){if(A===r||r!==null&&A===r.alternate)return A;A=c(A),r=c(r)}return null}var X=Object.assign,tA=Symbol.for("react.element"),pA=Symbol.for("react.transitional.element"),v=Symbol.for("react.portal"),D=Symbol.for("react.fragment"),iA=Symbol.for("react.strict_mode"),Z=Symbol.for("react.profiler"),G=Symbol.for("react.consumer"),b=Symbol.for("react.context"),E=Symbol.for("react.forward_ref"),_=Symbol.for("react.suspense"),oA=Symbol.for("react.suspense_list"),eA=Symbol.for("react.memo"),MA=Symbol.for("react.lazy"),UA=Symbol.for("react.activity"),sA=Symbol.for("react.legacy_hidden"),lA=Symbol.for("react.memo_cache_sentinel"),T=Symbol.for("react.view_transition"),f=Symbol.for("react.recoverable"),uA=Symbol.iterator;function dA(A){return A===null||typeof A!="object"?null:(A=uA&&A[uA]||A["@@iterator"],typeof A=="function"?A:null)}var $=Symbol.for("react.client.reference");function kA(A){if(A==null)return null;if(typeof A=="function")return A.$$typeof===$?null:A.displayName||A.name||null;if(typeof A=="string")return A;switch(A){case D:return"Fragment";case Z:return"Profiler";case iA:return"StrictMode";case _:return"Suspense";case oA:return"SuspenseList";case UA:return"Activity";case T:return"ViewTransition"}if(typeof A=="object")switch(A.$$typeof){case v:return"Portal";case b:return A.displayName||"Context";case G:return(A._context.displayName||"Context")+".Consumer";case E:var r=A.render;return A=A.displayName,A||(A=r.displayName||r.name||"",A=A!==""?"ForwardRef("+A+")":"ForwardRef"),A;case eA:return r=A.displayName||null,r!==null?r:kA(A.type)||"Memo";case MA:r=A._payload,A=A._init;try{return kA(A(r))}catch{}}return null}var TA=Array.isArray,jA=n.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE,NA=l.__DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE,XA={pending:!1,data:null,method:null,action:null},ye=[],fa=-1;function Va(A){return{current:A}}function VA(A){0>fa||(A.current=ye[fa],ye[fa]=null,fa--)}function OA(A,r){fa++,ye[fa]=A.current,A.current=r}var ja=Va(null),Wa=Va(null),cA=Va(null),ZA=Va(null);function _A(A,r){switch(OA(cA,r),OA(Wa,A),OA(ja,null),r.nodeType){case 9:case 11:A=(A=r.documentElement)&&(A=A.namespaceURI)?US(A):0;break;default:if(A=r.tagName,r=r.namespaceURI)r=US(r),A=WS(r,A);else switch(A){case"svg":A=1;break;case"math":A=2;break;default:A=0}}VA(ja),OA(ja,A)}function te(){VA(ja),VA(Wa),VA(cA)}function QA(A){var r=A.memoizedState;r!==null&&(wc._currentValue=r.memoizedState,OA(ZA,A)),r=ja.current;var c=WS(r,A.type);r!==c&&(OA(Wa,A),OA(ja,c))}function FA(A){Wa.current===A&&(VA(ja),VA(Wa)),ZA.current===A&&(VA(ZA),wc._currentValue=XA)}var wa,xt;function de(A){if(wa===void 0)try{throw Error()}catch(c){var r=c.stack.trim().match(/\n( *(at )?)/);wa=r&&r[1]||"",xt=-1<c.stack.indexOf(`
@@ -207,20 +245,32 @@ ${U}`}var Fa=class extends Error{constructor({message:a,code:t,cause:n,name:l}){
     <div class="phone">
       <div class="power-btn"></div>
 
-      <!-- Barra de estado falsa -->
+      <!-- Barra de estado falsa — encima de la app -->
       <div class="status-bar">
         <span class="time">9:41</span>
         <div class="icons">
           <!-- Señal -->
-          <svg width="17" height="12" viewBox="0 0 17 12"><rect x="0" y="3" width="3" height="9" rx="1"/><rect x="4.5" y="2" width="3" height="10" rx="1"/><rect x="9" y="1" width="3" height="11" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg>
+          <svg width="17" height="12" viewBox="0 0 17 12">
+            <rect x="0"    y="3" width="3" height="9"  rx="1"/>
+            <rect x="4.5"  y="2" width="3" height="10" rx="1"/>
+            <rect x="9"    y="1" width="3" height="11" rx="1"/>
+            <rect x="13.5" y="0" width="3" height="12" rx="1"/>
+          </svg>
           <!-- WiFi -->
-          <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 10.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm-3.5-3.5a5 5 0 017 0M1 4a9 9 0 0114 0" stroke="rgba(255,255,255,0.9)" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12">
+            <path d="M8 10.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm-3.5-3.5a5 5 0 017 0M1 4a9 9 0 0114 0"
+              stroke="rgba(255,255,255,0.9)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+          </svg>
           <!-- Batería -->
-          <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0" y="1" width="21" height="10" rx="2.5" stroke="rgba(255,255,255,0.5)" stroke-width="1" fill="none"/><rect x="22" y="4" width="2.5" height="4" rx="1" fill="rgba(255,255,255,0.4)"/><rect x="1.5" y="2.5" width="17" height="7" rx="1.5" fill="rgba(255,255,255,0.9)"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12">
+            <rect x="0"   y="1" width="21"  height="10" rx="2.5" stroke="rgba(255,255,255,0.5)" stroke-width="1" fill="none"/>
+            <rect x="22"  y="4" width="2.5" height="4"  rx="1"   fill="rgba(255,255,255,0.4)"/>
+            <rect x="1.5" y="2.5" width="17" height="7" rx="1.5" fill="rgba(255,255,255,0.9)"/>
+          </svg>
         </div>
       </div>
 
-      <!-- App React -->
+      <!-- App React monta aquí -->
       <div id="root"></div>
 
       <!-- Home indicator -->
