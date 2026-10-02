@@ -1,10 +1,15 @@
 import { createContext, useContext } from "react";
 
-/** true cuando la app se renderiza dentro del frame de preview (iPhone mock) */
-export const PreviewCtx = createContext(false);
+/**
+ * En el build de preview, VITE_PREVIEW_MODE="1" se define en vite.preview.config.ts.
+ * En produccion, la variable no existe → isPreview = false.
+ * Esto se resuelve en TIEMPO DE COMPILACION — no hay overhead en runtime.
+ */
+const IS_PREVIEW = import.meta.env.VITE_PREVIEW_MODE === "1";
 
-/** Hook: devuelve "absolute" en modo preview, "fixed" en produccion */
+export const PreviewCtx = createContext(IS_PREVIEW);
+
 export const usePreview = () => useContext(PreviewCtx);
 
-/** Helper: devuelve la clase de posicion correcta segun el modo */
-export const usePos = () => useContext(PreviewCtx) ? "absolute" : "fixed";
+/** "absolute" en preview, "fixed" en produccion */
+export const usePos = () => (IS_PREVIEW ? "absolute" : "fixed");
