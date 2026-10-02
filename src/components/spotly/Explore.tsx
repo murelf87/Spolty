@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePos } from "@/lib/preview-context";
 import { ArrowLeft, BadgeCheck, Camera, Check, Heart, Layers, MapPin, Mic, Navigation, Play, SlidersHorizontal, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -174,8 +175,9 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const pos = usePos();
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-background/70 backdrop-blur-sm" onClick={onClose}>
+    <div className={pos + " inset-0 z-50 flex items-end bg-background/70 backdrop-blur-sm"} onClick={onClose}>
       <div className="mx-auto w-full max-w-[520px] rounded-t-3xl border-t border-border bg-card p-5 pb-8" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between"><h3 className="font-bold">{title}</h3><button aria-label="Cerrar" onClick={onClose}><X size={18} /></button></div>
         {children}
@@ -185,28 +187,57 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 }
 
 function PhotoDetail({ p, img, onBack }: { p: Photo; img: string; onBack: () => void }) {
+  const pos = usePos();
   const [liked, setLiked] = useState(false);
+  const [saved, setSaved] = useState(false);
   return (
-    <div className="fixed inset-0 z-50 mx-auto max-w-[520px] overflow-y-auto bg-background">
-      <div className="relative"><img src={img} alt={p.t} className="aspect-[3/4] w-full object-cover" />
-        <Button variant="secondary" size="icon" className="absolute left-3 top-3" aria-label="Volver" onClick={onBack}><ArrowLeft /></Button></div>
-      <div className="p-4">
-        <h2 className="text-xl font-bold">{p.t}</h2>
-        <p className="flex items-center gap-1 text-sm text-muted-foreground"><MapPin size={14} className="text-primary" />{p.p} · {p.d} · por {p.u}</p>
-        <div className="mt-4 flex gap-2">
-          <Button variant={liked ? "default" : "secondary"} onClick={() => setLiked(!liked)}><Heart size={16} fill={liked ? "currentColor" : "none"} />{p.l + (liked ? 1 : 0)}</Button>
-          <Button variant="secondary" onClick={() => toast(`Escuchando la voz de ${p.u}`)}><Play size={16} />Escuchar</Button>
-          <Button variant="secondary" aria-label="Responder con voz" onClick={() => toast.success("Respuesta de voz enviada")}><Mic size={16} /></Button>
+    <div className={pos + " inset-0 z-50 mx-auto flex max-w-[520px] flex-col overflow-hidden bg-black"}>
+      {/* Foto fullscreen */}
+      <div className="relative w-full bg-black" style={{ aspectRatio: "9/14", maxHeight: "68vh" }}>
+        <img src={img} alt={p.t} className="h-full w-full object-cover" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
+        {/* Botón atrás */}
+        <button onClick={onBack} aria-label="Volver" className="absolute left-3 grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white" style={{ top: "max(2.75rem, calc(env(safe-area-inset-top) + 0.5rem))" }}><ArrowLeft size={20} /></button>
+        {/* Acciones laterales derecha */}
+        <div className="absolute bottom-24 right-3 flex flex-col items-center gap-5">
+          <button onClick={() => setLiked(!liked)} aria-label="Me gusta" className="flex flex-col items-center gap-1">
+            <Heart size={28} className={liked ? "text-accent" : "text-white"} fill={liked ? "currentColor" : "none"} />
+            <span className="text-xs font-bold text-white">{p.l + (liked ? 1 : 0)}</span>
+          </button>
+          <button onClick={() => toast(`Escuchando la voz de ${p.u}`)} aria-label="Escuchar" className="flex flex-col items-center gap-1">
+            <Play size={26} className="text-white" />
+            <span className="text-xs font-bold text-white">Escuchar</span>
+          </button>
+          <button onClick={() => toast.success("Respuesta de voz enviada")} aria-label="Responder con voz" className="flex flex-col items-center gap-1">
+            <Mic size={26} className="text-white" />
+            <span className="text-xs font-bold text-white">Voz</span>
+          </button>
+          <button onClick={() => { setSaved(!saved); toast(saved ? "Quitada de guardados" : "Guardada"); }} aria-label="Guardar" className="flex flex-col items-center gap-1">
+            <Navigation size={26} className={saved ? "text-primary" : "text-white"} />
+            <span className="text-xs font-bold text-white">Enviar</span>
+          </button>
         </div>
+        {/* Chip ciudad */}
+        <div className="absolute bottom-5 left-3 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
+          <MapPin size={12} />{p.p} · {p.d}
+        </div>
+      </div>
+
+      {/* Info scrollable */}
+      <div className="flex-1 overflow-y-auto bg-background px-4 pb-6 pt-4">
+        <h2 className="text-xl font-bold">{p.t}</h2>
+        <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground"><MapPin size={14} className="text-primary" />{p.p} · {p.d} · por {p.u}</p>
+        <p className="mt-3 text-sm text-muted-foreground">Foto con audio de {p.u}. Escucha el contexto y responde con tu voz.</p>
       </div>
     </div>
   );
 }
 
 function PersonDetail({ p, onBack }: { p: Person; onBack: () => void }) {
+  const pos = usePos();
   const [follow, setFollow] = useState(false);
   return (
-    <div className="fixed inset-0 z-50 mx-auto max-w-[520px] overflow-y-auto bg-background">
+    <div className={pos + " inset-0 z-50 mx-auto max-w-[520px] overflow-y-auto bg-background"}>
       <div className="bg-spot-surface px-4 pb-6 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))] text-center">
         <div className="text-left"><Button variant="ghost" size="icon" aria-label="Volver" onClick={onBack}><ArrowLeft /></Button></div>
         <div className="mx-auto h-24 w-24 rounded-full bg-spot-gradient p-[3px] shadow-glow"><img src={p.image} alt={p.n} className="h-full w-full rounded-full object-cover"/></div>

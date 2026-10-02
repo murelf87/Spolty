@@ -3,6 +3,7 @@ import { AlertTriangle, Check, Clock, EyeOff, Flag, Ghost, Mic, ShieldCheck, Use
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AudioRow, BottomSheet, IncognitoTag, Screen, Toggle, Trust } from "./kit";
+import { usePos } from "@/lib/preview-context";
 import { Checkout } from "./Credits";
 import { useApp } from "./app-context";
 import { VoiceReply } from "./Voice";
@@ -89,6 +90,7 @@ export function IncognitoSheet({ onClose }: { onClose: () => void }) {
 
 /** Pastilla persistente sobre la barra inferior mientras el Incógnito está activo. */
 export function IncognitoBanner({ onOpen }: { onOpen: () => void }) {
+  const pos = usePos();
   const { incognito: inc } = useStore();
   const now = useNow();
   const remaining = inc.until && now ? inc.until - now : null;
@@ -101,7 +103,7 @@ export function IncognitoBanner({ onOpen }: { onOpen: () => void }) {
   if (!inc.active) return null;
   const ending = !inc.permanent && remaining !== null && remaining <= incognitoWarnMinutes * 60_000;
   return (
-    <button onClick={onOpen} className={"fixed inset-x-3 bottom-[78px] z-30 mx-auto flex max-w-[496px] items-center gap-2 rounded-full border px-4 py-2 text-left text-xs shadow-glow backdrop-blur " + (ending ? "border-live bg-live/20" : "border-accent/60 bg-card/95")} aria-label="Gestionar Incógnito">
+    <button onClick={onOpen} className={pos + " inset-x-3 bottom-[78px] z-30 mx-auto flex max-w-[496px] items-center gap-2 rounded-full border px-4 py-2 text-left text-xs shadow-glow backdrop-blur " + (ending ? "border-live bg-live/20" : "border-accent/60 bg-card/95")} aria-label="Gestionar Incógnito">
       <Ghost size={16} className={ending ? "text-live" : "text-accent"} />
       <span className="min-w-0 flex-1 truncate font-semibold">{inc.permanent ? "Incógnito permanente" : ending ? `Tu Incógnito termina en ${Math.max(1, Math.ceil((remaining ?? 0) / 60000))} min` : `Incógnito activo · ${remaining === null ? "—" : fmtRemaining(remaining)}`}</span>
       <span className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold text-primary-foreground">{ending ? "EXTENDER" : "GESTIONAR"}</span>

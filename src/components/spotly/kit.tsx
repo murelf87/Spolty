@@ -1,17 +1,19 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { usePos } from "@/lib/preview-context";
 import { Ghost, Loader2, ShieldCheck, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /** Hoja inferior reutilizable (modales, selectores, confirmaciones). */
 export function BottomSheet({ title, onClose, children, z = 60, footer }: { title?: string | undefined; onClose: () => void; children: ReactNode; z?: number; footer?: ReactNode }) {
+  const pos = usePos();
   useEffect(() => {
     const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 flex items-end bg-background/75 backdrop-blur-sm" style={{ zIndex: z }} onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
-      <div className="mx-auto flex max-h-[92vh] w-full max-w-[520px] flex-col rounded-t-3xl border-t border-border bg-card" onClick={(e) => e.stopPropagation()}>
+    <div className={pos + " inset-0 flex items-end bg-background/75 backdrop-blur-sm"} style={{ zIndex: z }} onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
+      <div className="mx-auto flex w-full max-w-[520px] flex-col rounded-t-3xl border-t border-border bg-card" style={{ maxHeight: "calc(100vh - env(safe-area-inset-top) - 2rem)" }} onClick={(e) => e.stopPropagation()}>
         <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-muted" />
         {title && <div className="flex items-center justify-between px-5 pb-1 pt-3"><h3 className="text-lg font-bold">{title}</h3><Button variant="ghost" size="icon" aria-label="Cerrar" onClick={onClose}><X size={18} /></Button></div>}
         <div className="overflow-y-auto px-5 pb-4 pt-2">{children}</div>
@@ -88,8 +90,9 @@ export function AudioRow({ name, img, dur, ago, seed = 1, right }: { name: strin
 
 /** Cabecera de pantalla completa con botón atrás. */
 export function Screen({ title, onBack, children, footer, z = 50, sub }: { title: string; onBack: () => void; children: ReactNode; footer?: ReactNode; z?: number; sub?: string }) {
+  const pos = usePos();
   return (
-    <div className="fixed inset-0 mx-auto flex max-w-[520px] flex-col bg-background" style={{ zIndex: z }}>
+    <div className={pos + " inset-0 mx-auto flex max-w-[520px] flex-col bg-background"} style={{ zIndex: z }}>
       <header className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 pb-2 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]">
         <Button variant="ghost" size="icon" aria-label="Volver" onClick={onBack}><svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg></Button>
         <div className="min-w-0"><h2 className="truncate text-base font-bold">{title}</h2>{sub && <p className="truncate text-[11px] text-muted-foreground">{sub}</p>}</div>

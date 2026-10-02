@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BadgeCheck, Bookmark, Camera, ChevronRight, Compass, Flame, Heart, Image as ImageIcon, List, LayoutGrid, MapPin, MessageCircle, Mic, MoreHorizontal, Music, Plus, Search, Share2, SlidersHorizontal, Tag, Users, CalendarPlus, X, Check } from "lucide-react";
+import { BadgeCheck, Bookmark, Camera, ChevronLeft, ChevronRight, Compass, Flame, Heart, Image as ImageIcon, List, LayoutGrid, MapPin, MessageCircle, Mic, MoreHorizontal, Music, Plus, Search, Share2, SlidersHorizontal, Tag, Users, CalendarPlus, X, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AudioRow, BottomSheet, Chip, Screen, StateCard, Trust } from "./kit";
@@ -10,6 +10,7 @@ import { SpainMap, spainCities } from "./SpainMap";
 import { PlaceBrowser } from "./Places";
 import { isCapital, municipiosOf, norm, provinceOfPlace, searchPlaces, type Province } from "@/lib/geo";
 import { toggleFollow, useStore } from "@/lib/store";
+import { usePos } from "@/lib/preview-context";
 import festival from "@/assets/spotly-sevilla-festival.jpg";
 import stage from "@/assets/spotly-live-stage.jpg";
 import beach from "@/assets/spotly-beach-club.jpg";
@@ -296,6 +297,7 @@ function FiltersSheet({ value, onClose, onApply }: { value: Filters; onClose: ()
 
 /* ---------- Detalle de foto (lámina 12) ---------- */
 function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; onMore: (t: string) => void }) {
+  const pos = usePos();
   const { following } = useStore();
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -309,20 +311,65 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
     try { if (navigator.share) { await navigator.share({ title: p.caption, url: `https://spotly.app/foto/${p.id}` }); return; } await navigator.clipboard?.writeText(`https://spotly.app/foto/${p.id}`); toast("Enlace copiado"); } catch { toast("Enlace copiado"); }
   };
   return (
-    <Screen title={p.caption} sub={`${p.town} · a ${fmtKm(p.dist)} · hace ${p.mins} min`} onBack={onClose} z={62}
-      footer={<div className="flex items-center justify-center gap-3"><Button className="h-12 w-12 rounded-full bg-spot-gradient text-foreground shadow-glow" aria-label="Comentar con voz" onClick={() => setReply(true)}><Mic size={22} /></Button><span className="text-xs text-muted-foreground">Pulsa para comentar con voz</span></div>}>
-      <div className="relative overflow-hidden rounded-2xl"><img src={p.img} alt={p.caption} className="aspect-[4/5] w-full object-cover" />
-        <div className="absolute bottom-3 right-3 flex flex-col items-center gap-3">{([[Heart, fmtN(p.likes + (liked ? 1 : 0)), () => setLiked(!liked), liked ? "text-accent" : "", "Me gusta"], [MessageCircle, `${comments.length + 98}`, () => setReply(true), "", "Comentar"], [Share2, "Enviar", share, "", "Compartir"], [Bookmark, "", () => { setSaved(!saved); toast(saved ? "Quitada de guardados" : "Guardada"); }, saved ? "text-primary" : "", "Guardar"]] as const).map(([I, l, f, c, a]) => <button key={a} onClick={f} aria-label={a} className="flex flex-col items-center gap-0.5 rounded-full bg-background/60 p-2 text-[10px] backdrop-blur"><I size={22} className={c} fill={(a === "Me gusta" && liked) || (a === "Guardar" && saved) ? "currentColor" : "none"} />{l}</button>)}</div></div>
-      <div className="mt-3 flex items-center gap-3"><img src={p.img} alt="" className="h-11 w-11 rounded-full object-cover ring-2 ring-primary/50" /><span className="min-w-0 flex-1"><strong className="flex items-center gap-1 text-sm">{p.mine ? "Tú" : p.author}{p.verified && <BadgeCheck size={14} className="text-primary" />}</strong><button onClick={() => onMore(p.town)} className="flex items-center gap-1 text-xs text-primary"><MapPin size={12} />{p.town} · Ver más fotos</button></span>
-        {!p.mine && <Button size="sm" variant={follows ? "secondary" : "default"} onClick={() => { toggleFollow(p.author); toast(follows ? `Dejaste de seguir a ${p.author}` : `Sigues a ${p.author}`); }}>{follows ? "Siguiendo" : "Seguir"}</Button>}
-        <Button variant="ghost" size="icon" aria-label="Más opciones" onClick={() => setMenu(true)}><MoreHorizontal size={18} /></Button></div>
-      <div className="mt-3"><AudioRow name={p.mine ? "Tu voz" : p.author} dur={p.dur} seed={p.id + 1} /></div>
-      <p className="mt-2 text-sm">{p.caption}. Siempre es un plan perfecto.</p>
-      {comments.map((c, i) => <p key={i} className="mt-2 rounded-xl bg-secondary/60 p-2.5 text-sm"><strong>Tú</strong> · {c}</p>)}
-      {gate && <div className="mt-3">{gate}</div>}
+    <div className={pos + " inset-0 z-[62] mx-auto flex max-w-[520px] flex-col overflow-hidden bg-black"}>
+      {/* Foto fullscreen */}
+      <div className="relative w-full flex-1 bg-black" style={{ maxHeight: "68vh" }}>
+        <img src={p.img} alt={p.caption} className="h-full w-full object-cover" style={{ aspectRatio: "9/14" }} />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
+        {/* Botón atrás */}
+        <button onClick={onClose} aria-label="Volver" className="absolute left-3 grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white" style={{ top: "max(2.75rem, calc(env(safe-area-inset-top) + 0.5rem))" }}><ChevronLeft size={22} /></button>
+        {/* Botón más opciones */}
+        <button onClick={() => setMenu(true)} aria-label="Más opciones" className="absolute right-3 grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white" style={{ top: "max(2.75rem, calc(env(safe-area-inset-top) + 0.5rem))" }}><MoreHorizontal size={20} /></button>
+        {/* Acciones laterales derecha */}
+        <div className="absolute bottom-24 right-3 flex flex-col items-center gap-5">
+          <button onClick={() => setLiked(!liked)} aria-label="Me gusta" className="flex flex-col items-center gap-1">
+            <Heart size={28} className={liked ? "text-accent" : "text-white"} fill={liked ? "currentColor" : "none"} />
+            <span className="text-xs font-bold text-white">{fmtN(p.likes + (liked ? 1 : 0))}</span>
+          </button>
+          <button onClick={() => setReply(true)} aria-label="Comentar" className="flex flex-col items-center gap-1">
+            <MessageCircle size={26} className="text-white" />
+            <span className="text-xs font-bold text-white">{comments.length + 98}</span>
+          </button>
+          <button onClick={share} aria-label="Compartir" className="flex flex-col items-center gap-1">
+            <Share2 size={26} className="text-white" />
+            <span className="text-xs font-bold text-white">Enviar</span>
+          </button>
+          <button onClick={() => { setSaved(!saved); toast(saved ? "Quitada de guardados" : "Guardada"); }} aria-label="Guardar" className="flex flex-col items-center gap-1">
+            <Bookmark size={26} className={saved ? "text-primary" : "text-white"} fill={saved ? "currentColor" : "none"} />
+            <span className="text-xs font-bold text-white">{fmtN(56 + (saved ? 1 : 0))}</span>
+          </button>
+        </div>
+        {/* Chip ciudad */}
+        <button onClick={() => onMore(p.town)} className="absolute bottom-5 left-3 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
+          <MapPin size={12} />{p.town} · Ver más <ChevronRight size={12} />
+        </button>
+      </div>
+
+      {/* Info + audio scrollable */}
+      <div className="flex-1 overflow-y-auto bg-background px-4 pb-24 pt-4">
+        <div className="flex items-center gap-3">
+          <img src={p.img} alt="" className="h-11 w-11 rounded-full object-cover ring-2 ring-primary/50" />
+          <span className="min-w-0 flex-1">
+            <strong className="flex items-center gap-1 text-sm">{p.mine ? "Tú" : p.author}{p.verified && <BadgeCheck size={14} className="text-primary" />}</strong>
+            <span className="text-xs text-muted-foreground">{p.town} · {fmtKm(p.dist)} · hace {p.mins} min</span>
+          </span>
+          {!p.mine && <Button size="sm" variant={follows ? "secondary" : "default"} onClick={() => { toggleFollow(p.author); toast(follows ? `Dejaste de seguir a ${p.author}` : `Sigues a ${p.author}`); }}>{follows ? "Siguiendo" : "Seguir"}</Button>}
+        </div>
+        <div className="mt-3"><AudioRow name={p.mine ? "Tu voz" : p.author} dur={p.dur} seed={p.id + 1} /></div>
+        <p className="mt-2 text-sm">{p.caption}. Siempre es un plan perfecto.</p>
+        {comments.map((c, i) => <p key={i} className="mt-2 rounded-xl bg-secondary/60 p-2.5 text-sm"><strong>Tú</strong> · {c}</p>)}
+        {gate && <div className="mt-3">{gate}</div>}
+      </div>
+
+      {/* Footer voz */}
+      <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-3 border-t border-border bg-background/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
+        <Button className="h-12 w-12 rounded-full bg-spot-gradient text-foreground shadow-glow" aria-label="Comentar con voz" onClick={() => setReply(true)}><Mic size={22} /></Button>
+        <span className="text-xs text-muted-foreground">Pulsa para comentar con voz</span>
+      </div>
+
       {reply && <VoiceReply name={p.author} onClose={() => setReply(false)} />}
       {menu && <BottomSheet onClose={() => setMenu(false)} z={70}>{["Copiar enlace", "No me interesa", "Denunciar foto"].map((a) => <button key={a} className={"block w-full rounded-xl px-3 py-3 text-left text-sm hover:bg-secondary " + (a.startsWith("Den") ? "text-live" : "")} onClick={() => { setMenu(false); toast(a === "Denunciar foto" ? "Gracias. Revisaremos esta foto." : a === "Copiar enlace" ? "Enlace copiado" : "Verás menos fotos así"); }}>{a}</button>)}</BottomSheet>}
-    </Screen>
+    </div>
   );
 }
 

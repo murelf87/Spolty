@@ -3,6 +3,7 @@ import { ChevronLeft, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useApp } from "./app-context";
 import { toggleFollow, useStore } from "@/lib/store";
+import { usePos } from "@/lib/preview-context";
 import beach from "@/assets/spotly-beach-club.jpg";
 import stage from "@/assets/spotly-live-stage.jpg";
 import festival from "@/assets/spotly-sevilla-festival.jpg";
@@ -10,9 +11,10 @@ import festival from "@/assets/spotly-sevilla-festival.jpg";
 /* Últimos seguidores reales: cada persona decidió seguir voluntariamente. */
 const people = [["Carlos", "Sevilla · Hace 2 min", stage], ["Sofía", "Triana · Hace 4 min", beach], ["Javi", "Cerca de ti · Hace 6 min", festival], ["Ana", "Sevilla · Hace 8 min", beach], ["Miguel", "A 3 km · Hace 10 min", stage]] as const;
 export function NewFollowers({ onClose }: { onClose: () => void }) {
+  const pos = usePos();
   const { following } = useStore();
   const [, force] = useState(0);
-  return <div className="fixed inset-0 z-[70] overflow-y-auto bg-background">
+  return <div className={pos + " inset-0 z-[70] overflow-y-auto bg-background"}>
     <header className="flex items-center gap-2 p-3 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]"><Button variant="ghost" size="icon" aria-label="Volver" onClick={onClose}><ChevronLeft /></Button><h2 className="text-lg font-bold">Últimos seguidores</h2></header>
     <div className="space-y-2 px-4 pb-8">{people.map(([n, s, img]) => { const on = following.includes(n); return <div key={n} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3"><img src={img} alt="" className="h-11 w-11 rounded-full object-cover" /><div className="flex-1"><p className="text-sm font-semibold">{n} <span className="text-primary">✦</span></p><p className="text-xs text-muted-foreground">{s}</p></div><button onClick={() => { toggleFollow(n); force((x) => x + 1); }} className={"min-h-9 rounded-full px-4 py-1.5 text-xs font-semibold " + (on ? "border border-border" : "bg-spot-gradient")}>{on ? "Siguiendo" : "Seguir"}</button></div>; })}</div>
   </div>;
