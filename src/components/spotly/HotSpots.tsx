@@ -75,7 +75,7 @@ export function HotSpotView({ id, onBack }: { id: string; onBack: () => void }) 
       </div>
 
       {/* Contenido scrollable */}
-      <div className="flex-1 overflow-y-auto bg-background px-4 pb-24 pt-4">
+      <div className="flex-1 overflow-y-auto bg-background px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-4">
         <div className="grid grid-cols-4 gap-2 text-center">{[[`${h.people}`, "personas"], [`${h.photos}`, "fotos"], [`${h.audios}`, "audios"], [`${h.startedMin} min`, "de inicio"]].map(([v, l]) => <div key={l} className="rounded-xl border border-border bg-card py-2"><strong className="block text-sm">{v}</strong><small className="text-[10px] text-muted-foreground">{l}</small></div>)}</div>
 
       <div className="mt-4 rounded-2xl border border-primary/40 bg-primary/5 p-4">

@@ -53,7 +53,7 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
   const shownPeople = people.filter((p) => km(p.d) <= f.km && (!f.only.includes("Verificados") || p.v) && (!f.only.includes("En directo") || p.live) && (peopleFilter !== "Verificados" || p.v) && (peopleFilter !== "Online" || p.live));
 
   return (
-    <main className="min-h-screen pb-24">
+    <main className="min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))]">
        <header className="px-4 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]">
          <Button variant="secondary" onClick={() => onOpen("buscar")} className="flex h-10 w-full justify-start gap-2 rounded-full border border-border bg-secondary text-left"><Mic size={16} className="text-primary" /><span className="text-sm text-muted-foreground">Sevilla</span></Button>
          <div className="mt-2 grid grid-cols-4 gap-1 rounded-xl bg-secondary p-1">
@@ -66,7 +66,7 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
           {layer === "Satélite" && <img src={imgs[3]} alt="Vista satélite" className="absolute inset-0 h-full w-full object-cover opacity-50" />}
            {layer === "Oscuro" && <div className="spot-neon-map absolute inset-0" aria-hidden="true"><svg viewBox="0 0 360 620" preserveAspectRatio="xMidYMid slice" className="h-full w-full"><g fill="none" stroke="var(--spot-blue)" strokeWidth="1" opacity=".45"><path d="M-30 82 75 95 143 135 264 134 390 205M-20 180 82 196 170 181 250 205 390 252M-20 286 99 272 181 308 253 301 390 335M-20 430 76 407 165 442 256 415 390 458M-20 531 96 497 187 517 278 503 390 550M34-20 47 112 31 220 56 330 30 460 62 650M126-20 114 115 136 242 111 363 142 476 127 650M231-20 218 100 241 235 213 361 247 485 233 650M330-20 311 125 330 235 309 368 337 495 322 650"/><path stroke="var(--spot-fuchsia)" opacity=".8" strokeWidth="1.6" d="M-20 125 86 143 153 153 236 169 390 222M-20 360 77 355 157 386 243 379 390 402M94-20 96 97 82 196 100 272 76 407 96 497 95 650M280-20 272 134 250 205 253 301 256 415 278 503 265 650"/></g><g fill="var(--spot-blue)" opacity=".7"><circle cx="82" cy="196" r="2"/><circle cx="253" cy="301" r="2"/><circle cx="76" cy="407" r="2"/></g></svg></div>}
           {[88, 64, 42, 22].map((s) => <div key={s} className="spot-radar absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ width: `${s}%`, aspectRatio: "1" }} />)}
-           {!mine && <div className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full border-2 border-accent shadow-glow"><img src={lauraPhoto} alt="Laura, perfil ilustrativo" className="h-full w-full object-cover" /></div>}
+           {!mine && <button onClick={() => setPerson(people[0]!)} aria-label="Ver perfil de Laura" className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full border-2 border-accent shadow-glow"><img src={lauraPhoto} alt="Laura, perfil ilustrativo" className="h-full w-full object-cover" /></button>}
            {pins.map(([x, y, c, s], i) => (
               <Button key={i} variant="ghost" aria-label="Ver Spot" onClick={() => setPin(i)} className="absolute flex h-auto -translate-x-1/2 -translate-y-full flex-col items-center p-0" style={{ left: `${x}%`, top: `${y}%` }}><span className={`relative rounded-full border-2 ${ring[c]} ${pin === i ? "ring-2 ring-primary" : ""}`} style={{ width: s + 12, height: s + 12 }}><img src={i === 0 ? lauraPhoto : imgs[i]} alt="" className={`h-full w-full rounded-full object-cover ${i === 0 ? "spot-pulse" : ""}`} />{i < 2 && <BadgeCheck size={14} className="absolute -right-1 -top-1 rounded-full bg-background text-primary" aria-label="Autor verificado de ejemplo" />}</span><span className={`-mt-0.5 h-2 w-2 rotate-45 ${dot[c]}`} /></Button>
           ))}
@@ -233,7 +233,7 @@ function PhotoDetail({ p, img, onBack }: { p: Photo; img: string; onBack: () => 
 function PersonDetail({ p, onBack }: { p: Person; onBack: () => void }) {
   const [follow, setFollow] = useState(false);
   return (
-    <div className="fixed inset-0 z-50 mx-auto max-w-[520px] overflow-y-auto bg-background">
+    <div className="fixed inset-0 z-50 mx-auto max-w-[520px] overflow-y-auto bg-background pb-[max(1.5rem,env(safe-area-inset-bottom))]">
       <div className="bg-spot-surface px-4 pb-6 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))] text-center">
         <div className="text-left"><Button variant="ghost" size="icon" aria-label="Volver" onClick={onBack}><ArrowLeft /></Button></div>
         <div className="mx-auto h-24 w-24 rounded-full bg-spot-gradient p-[3px] shadow-glow"><img src={p.image} alt={p.n} className="h-full w-full rounded-full object-cover"/></div>

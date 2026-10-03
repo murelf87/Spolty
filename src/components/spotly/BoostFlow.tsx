@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Clock, Crosshair, Droplet, Flame, Heart, Sparkle, UserRound, Globe, Landmark, MapPin, Play, Users, Zap, Ghost, TrendingUp, Eye, UserPlus, BarChart3, Check, ShieldCheck, X, Mic, AudioLines } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import festival from "@/assets/spotly-sevilla-festival.jpg";
 import { boostAreas, boostLevels, boostRadii, eur, topNowPriceEur, commerce } from "@/lib/spotlyConfig";
@@ -58,7 +59,7 @@ export function BoostFlow({ onBack, onDone, preview }: { onBack: () => void; onD
   if (step === 0) return <Frame title="Publicar tu Spot" onBack={back} cta="Continuar" reference onCta={() => boost ? setStep(1) : onDone(false)}>
     <div className="boost-preview relative overflow-hidden rounded-lg">{preview ? <img src={preview} alt="Vista previa de tu Spot" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center bg-card text-primary"><AudioLines size={72}/></div>}<Button variant="ghost" aria-label="Ver vista previa del Spot" onClick={() => setPreviewOpen(true)} className="absolute inset-0 h-full w-full rounded-none bg-transparent hover:bg-background/10"><span className="grid h-[72px] w-[72px] place-items-center rounded-full border-2 border-accent bg-background/75 shadow-glow"><Play size={32} fill="currentColor" /></span></Button><Button variant="secondary" onClick={onBack} className="absolute bottom-2 right-2 h-8 rounded-full border-border bg-background/80 px-3 text-xs text-foreground">Editar</Button></div>
     <p className="pt-2 text-[15px] font-semibold">¿Cómo quieres publicar?</p>
-    <Row tone="public" onClick={() => undefined} icon={<Users size={20} fill="currentColor" />} title={<>Público <span className="font-normal">(Gratis)</span></>} sub="Para todos en Spotly" />
+    <Row tone="public" onClick={() => incog ? app.open("incognito") : toast("Publicarás en abierto: gratis y visible para todos en Spotly")} icon={<Users size={20} fill="currentColor" />} title={<>Público <span className="font-normal">(Gratis)</span></>} sub="Para todos en Spotly" />
     <Row tone={incog ? "violet" : undefined} onClick={() => app.open("incognito")} icon={<Ghost size={20} fill="currentColor" />} title="Modo Incógnito" sub={incog ? "Activo · toca para gestionar" : "Oculta tu identidad"} right={<Toggle on={incog} />} />
     {incog && <Row active={incognito.protectVoice} icon={<ShieldCheck size={18}/>} title="Voz protegida" sub={incognito.protectVoice ? "Se transformará antes de publicar" : "Sin proteger · cámbialo en Incógnito"} onClick={() => app.open("incognito")} right={<ChevronRight size={20}/>} />}
     <Row tone={boost ? "pink" : undefined} onClick={() => setBoost(!boost)} icon={<Sparkle size={24} fill="currentColor" />} title={<>Impulsar <span className="font-normal text-xs">(más alcance)</span></>} sub="Aparece más veces en el scroll" right={<Toggle on={boost} />} />

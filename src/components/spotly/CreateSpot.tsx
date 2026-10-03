@@ -78,7 +78,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
       boosted ? "Impulsado: más distribución, sin visitas garantizadas" : "Publicar es gratis. Puedes impulsarlo más tarde",
       "Puede llegar a ser un Hot Spot si otras personas lo confirman",
     ];
-    return <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background px-6 pb-10 pt-[max(5rem,calc(env(safe-area-inset-top)+2rem))] text-center">
+    return <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background px-6 pb-[max(2.5rem,calc(env(safe-area-inset-bottom)+1rem))] pt-[max(5rem,calc(env(safe-area-inset-top)+2rem))] text-center">
       <div className="mx-auto grid h-24 w-24 shrink-0 place-items-center rounded-full bg-spot-gradient shadow-glow"><Check size={46} /></div>
       <h2 className="mt-7 text-3xl font-bold">¡Publicado!</h2><p className="mt-2 text-sm text-muted-foreground">Tu Spot ya está en Spotly</p>
       <div className="mx-auto mt-8 w-full max-w-sm space-y-3 text-left text-sm">{list.map((x) => <p key={x} className="flex items-center gap-3"><Check size={16} className="shrink-0 text-primary" />{x}</p>)}</div>
@@ -95,7 +95,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
       <Button variant="ghost" size="icon" onClick={step === 0 ? onClose : () => setStep((s) => s - 1)} aria-label={step === 0 ? "Cerrar" : "Volver"}>{step === 0 ? <X /> : <ChevronLeft />}</Button>
       <h2 className="font-bold">{step === 3 ? "Tu Spot está listo" : ""}</h2><span className="w-10" />
     </header>
-    <main className="mx-auto max-w-md p-5">
+    <main className="mx-auto max-w-md p-5 pb-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))]">
       {step === 0 && <>
         {/* Story-style top strip */}
         <div className="-mx-5 -mt-5 flex gap-3 overflow-x-auto px-5 pt-4 pb-5 scrollbar-none" style={{scrollbarWidth:"none"}}>
@@ -162,7 +162,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
 
         {/* Extras row */}
         <div className="mt-3 grid grid-cols-3 gap-2">
-          {([[Ghost, "Incógnito", "text-accent", () => setIncogOpen(true)], [Rocket, "Impulsar", "text-premium", () => setBoostOpen(true)], [Users, "Evento", "text-primary", () => toast("Próximamente")]] as const).map(([I, l, c, f]) => (
+          {([[Ghost, "Incógnito", "text-accent", () => setIncogOpen(true)], [Rocket, "Impulsar", "text-premium", () => setBoostOpen(true)], [Users, "Evento", "text-primary", () => { onClose(); app.open("crear-evento"); }]] as const).map(([I, l, c, f]) => (
             <button key={l} onClick={f} className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card py-4">
               <I size={20} className={c} />
               <span className="text-[11px] font-semibold">{l}</span>
@@ -175,7 +175,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
 
       {step === 1 && (gateCam
         ? <div className="mt-6 space-y-3">{gateCam}<Button variant="secondary" className="w-full" onClick={() => { setHasMedia(true); setStep(2); }}><ImageIcon size={16} />Usar una foto de la galería</Button><Button variant="ghost" className="w-full" onClick={() => { setHasMedia(false); setStep(2); }}>Publicar solo con voz</Button></div>
-        : <div className="-mx-5 -mt-5 flex min-h-[calc(100vh-64px)] flex-col bg-background">
+        : <div className="-mx-5 flex min-h-[calc(100vh_-_4.5rem_-_max(2.75rem,calc(env(safe-area-inset-top)_+_0.5rem))_-_max(1.25rem,calc(env(safe-area-inset-bottom)_+_0.75rem)))] flex-col bg-background">
           <div className="relative mx-3 mt-2 flex-1 overflow-hidden rounded-3xl"><img src={valenciaSunset} alt="Vista de cámara" className="absolute inset-0 h-full w-full object-cover" />
             <div className="absolute inset-x-0 top-0 flex items-center justify-between p-3">{([[X, "Cerrar cámara", () => setStep(0)], [Zap, "Flash", () => setFlash(!flash)], [Music, "Añadir música", () => toast("Música de ejemplo añadida")], [RefreshCw, "Cambiar cámara", () => setFront(!front)]] as const).map(([I, l, f], i) => <button key={i} aria-label={l} onClick={f} className={"grid h-10 w-10 place-items-center rounded-full bg-background/50 backdrop-blur " + (i === 1 && flash ? "text-premium" : "")}><I size={18} /></button>)}</div>
             {front && <span className="absolute left-1/2 top-16 -translate-x-1/2 rounded-full bg-background/60 px-3 py-1 text-xs">Cámara frontal</span>}

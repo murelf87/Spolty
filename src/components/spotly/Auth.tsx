@@ -54,7 +54,7 @@ function friendly(e: unknown): { msg: string; code: "creds" | "unconfirmed" | "e
 
 function Shell({ onBack, children, back = true }: { onBack?: (() => void) | undefined; children: ReactNode; back?: boolean }) {
   return (
-    <div className="fixed inset-0 z-50 mx-auto flex max-w-[520px] flex-col overflow-y-auto bg-background px-6 pb-8 pt-[max(1.25rem,env(safe-area-inset-top))]">
+    <div className="fixed inset-0 z-50 mx-auto flex max-w-[520px] flex-col overflow-y-auto bg-background px-6 pb-[max(2rem,calc(env(safe-area-inset-bottom)+1rem))] pt-[max(1.25rem,env(safe-area-inset-top))]">
       <div className="flex items-center justify-between">
         {back && onBack ? <button aria-label="Volver" onClick={onBack} className="-ml-1 grid h-10 w-10 place-items-center rounded-full"><ArrowLeft size={22} /></button> : <span className="h-10 w-10" />}
         <Logo compact />

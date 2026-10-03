@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Chip, Screen, SponsoredTag, StateCard, Trust } from "./kit";
 import { Checkout } from "./Credits";
 import { useApp } from "./app-context";
+import { AuthorProfile } from "./SpotDetail";
 import { useGate } from "./Voice";
 import { fmtRemaining, setProfilePromo, toggleFollow, useNow, useStore } from "@/lib/store";
 import { boostRadii, eur, eurToCredits, promoIntensities } from "@/lib/spotlyConfig";
@@ -84,10 +85,12 @@ export function SuggestedPeople({ onBack }: { onBack: () => void }) {
 export function PeopleStrip() {
   const app = useApp();
   const { following } = useStore();
-  return (
+  const [profile, setProfile] = useState<string | null>(null);
+  return (<>
     <section className="mx-3 rounded-xl border border-border bg-card p-3">
       <div className="mb-2 flex items-center justify-between"><h3 className="text-sm font-bold">Voces de tu ciudad</h3><button onClick={() => app.open("personas")} className="text-xs text-primary">Ver más ›</button></div>
-      <div className="flex gap-3 overflow-x-auto pb-1">{people.slice(0, 5).map((p, i) => <div key={p.name} className="flex w-24 shrink-0 flex-col items-center text-center"><img src={p.img} alt="" className="h-16 w-16 rounded-full object-cover ring-2 ring-primary/50" /><strong className="mt-1 flex items-center gap-0.5 text-xs">{p.name}<BadgeCheck size={11} className="text-primary" /></strong>{i === 1 && <SponsoredTag label="Promocionado" />}<Button size="sm" variant={following.includes(p.name) ? "secondary" : "default"} className="mt-1 h-8 px-3 text-[11px]" onClick={() => { toggleFollow(p.name); toast(following.includes(p.name) ? "Dejaste de seguir" : `Sigues a ${p.name}`); }}>{following.includes(p.name) ? "Siguiendo" : "Seguir"}</Button></div>)}</div>
+      <div className="flex gap-3 overflow-x-auto pb-1">{people.slice(0, 5).map((p, i) => <div key={p.name} className="flex w-24 shrink-0 flex-col items-center text-center"><button onClick={() => setProfile(p.name)} aria-label={`Ver perfil de ${p.name}`} className="flex flex-col items-center"><img src={p.img} alt="" className="h-16 w-16 rounded-full object-cover ring-2 ring-primary/50" /><strong className="mt-1 flex items-center gap-0.5 text-xs">{p.name}<BadgeCheck size={11} className="text-primary" /></strong></button>{i === 1 && <SponsoredTag label="Promocionado" />}<Button size="sm" variant={following.includes(p.name) ? "secondary" : "default"} className="mt-1 h-8 px-3 text-[11px]" onClick={() => { toggleFollow(p.name); toast(following.includes(p.name) ? "Dejaste de seguir" : `Sigues a ${p.name}`); }}>{following.includes(p.name) ? "Siguiendo" : "Seguir"}</Button></div>)}</div>
     </section>
-  );
+    {profile && <AuthorProfile name={profile} onClose={() => setProfile(null)} />}
+  </>);
 }

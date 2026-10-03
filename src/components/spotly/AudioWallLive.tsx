@@ -11,8 +11,12 @@ const rooms: Record<Filter, { title: string; area: string; listeners: number; im
   Tendencias: { title: "La noche en Sevilla · En directo", area: "Sevilla", listeners: 1234, image: 3 },
 };
 
-function Portrait({ person, className = "" }: { person: number; className?: string }) {
-  return <span className={`audio-wall-portrait ${className}`}><img src={portraits} alt="" width={1024} height={1024} className={`audio-wall-crop audio-wall-crop-${person}`} /></span>;
+const speakers = ["Álex", "Noa", "Dani", "Sam"];
+
+function Portrait({ person, className = "", onClick, selected = false }: { person: number; className?: string; onClick?: () => void; selected?: boolean }) {
+  const img = <img src={portraits} alt="" width={1024} height={1024} className={`audio-wall-crop audio-wall-crop-${person}`} />;
+  if (!onClick) return <span className={`audio-wall-portrait ${className}`}>{img}</span>;
+  return <button type="button" onClick={onClick} aria-pressed={selected} aria-label={`Escuchar a ${speakers[person]}`} className={`audio-wall-portrait ${className} ${selected ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}>{img}</button>;
 }
 
 export function AudioWallLive({ onBack }: { onBack: () => void }) {
@@ -21,7 +25,10 @@ export function AudioWallLive({ onBack }: { onBack: () => void }) {
   const [muted, setMuted] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const room = rooms[filter];
+  const [speaker, setSpeaker] = useState<number | null>(null);
+  const base = rooms[filter];
+  const room = speaker === null ? base : { ...base, title: `${speakers[speaker]} está hablando · En directo`, listeners: 40 + speaker * 23, image: speaker };
+  const pick = (p: number) => { setSpeaker(speaker === p ? null : p); setJoined(false); };
   const visible = !query || `${room.title} ${room.area}`.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"));
 
   return <div className="fixed inset-0 z-50 mx-auto flex w-full max-w-[520px] flex-col overflow-y-auto bg-background px-2 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))] text-foreground">
@@ -34,19 +41,19 @@ export function AudioWallLive({ onBack }: { onBack: () => void }) {
       </header>
       {searchOpen && <div className="mt-2 flex items-center gap-2 rounded-lg border border-border bg-card px-3"><Search size={16} className="text-muted-foreground" /><input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar salas" aria-label="Buscar salas" className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" /><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setQuery(""); setSearchOpen(false); }} aria-label="Cerrar búsqueda"><X size={16} /></Button></div>}
       <div className="mt-3 grid shrink-0 grid-cols-3 gap-1.5" role="tablist" aria-label="Filtrar salas">
-        {(["En directo", "Cerca", "Tendencias"] as const).map(name => <Button key={name} role="tab" aria-selected={filter === name} variant="secondary" className={`h-9 min-w-0 rounded-full border px-1 text-xs ${filter === name ? "spot-active-pill border-primary text-foreground" : "border-border bg-card/80 text-foreground/85"}`} onClick={() => { setFilter(name); setJoined(false); }}>{name}</Button>)}
+        {(["En directo", "Cerca", "Tendencias"] as const).map(name => <Button key={name} role="tab" aria-selected={filter === name} variant="secondary" className={`h-9 min-w-0 rounded-full border px-1 text-xs ${filter === name ? "spot-active-pill border-primary text-foreground" : "border-border bg-card/80 text-foreground/85"}`} onClick={() => { setFilter(name); setJoined(false); setSpeaker(null); }}>{name}</Button>)}
       </div>
       {visible ? <>
         <div className="audio-wall-stage relative mx-auto mt-3 min-h-[260px] w-full max-w-[370px] flex-1" aria-label="Personas en el Audio Wall">
           <span className="audio-wall-link audio-wall-link-a" /><span className="audio-wall-link audio-wall-link-b" /><span className="audio-wall-link audio-wall-link-c" /><span className="audio-wall-link audio-wall-link-d" />
-          <Portrait person={0} className="audio-wall-person audio-wall-p1" /><Portrait person={1} className="audio-wall-person audio-wall-p2" />
-          <Portrait person={2} className="audio-wall-person audio-wall-p3" /><Portrait person={3} className="audio-wall-person audio-wall-p4" /><Portrait person={0} className="audio-wall-person audio-wall-p5" />
+          <Portrait person={0} className="audio-wall-person audio-wall-p1" onClick={() => pick(0)} selected={speaker === 0} /><Portrait person={1} className="audio-wall-person audio-wall-p2" onClick={() => pick(1)} selected={speaker === 1} />
+          <Portrait person={2} className="audio-wall-person audio-wall-p3" onClick={() => pick(2)} selected={speaker === 2} /><Portrait person={3} className="audio-wall-person audio-wall-p4" onClick={() => pick(3)} selected={speaker === 3} /><Portrait person={0} className="audio-wall-person audio-wall-p5" onClick={() => pick(0)} selected={speaker === 0} />
           <span className="audio-wall-note audio-wall-note-a"><Headphones size={17} /></span><span className="audio-wall-note audio-wall-note-b"><Headphones size={17} /></span>
           <span className="audio-wall-note audio-wall-note-c"><Headphones size={18} /></span>
           <span className="audio-wall-center" aria-hidden="true"><Mic size={39} /></span>
         </div>
         <div className="audio-wall-room mt-2 flex shrink-0 items-center gap-3 rounded-2xl border border-primary/50 p-2.5">
-          <Portrait person={room.image} className="h-[88px] w-[76px] shrink-0 rounded-xl border-0" />
+          <Portrait person={room.image} className="h-[88px] w-[76px] shrink-0 rounded-xl border-0" onClick={() => setJoined(true)} selected={joined} />
           <div className="min-w-0 flex-1"><p className="flex items-center gap-1.5 text-xs font-semibold"><Users size={14} className="text-primary" />{room.listeners.toLocaleString("es-ES")} escuchando</p><p className="mt-0.5 truncate text-xs text-muted-foreground">{room.title}</p>
             <Button onClick={() => setJoined(!joined)} className="mt-2 h-9 w-full rounded-full bg-spot-gradient font-bold text-foreground">{joined ? "Salir de la sala" : "Unirte"}</Button>
           </div>

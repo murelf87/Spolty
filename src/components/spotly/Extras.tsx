@@ -10,7 +10,7 @@ import { lovable } from "@/integrations/lovable";
 
 export type Sheet =
   | "wallet" | "chats" | "audio-wall" | "verificacion" | "local" | "comunidades" | "eventos" | "ciudad" | "buscar" | "privacidad"
-  | "incognito" | "impulso" | "promo-perfil" | "personas" | "hotspot" | "permisos" | "seguridad" | "fotos" | "historial" | "espana"
+  | "incognito" | "impulso" | "promo-perfil" | "personas" | "hotspot" | "permisos" | "seguridad" | "fotos" | "historial" | "espana" | "crear-evento"
   | null;
 
 export function Shell({ title, onBack, children }: { title: string; onBack: () => void; children: React.ReactNode }) {

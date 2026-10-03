@@ -157,11 +157,11 @@ const events = [
   { title: "Feria de barrio", when: "12 de octubre", place: "Sevilla · Macarena", filter: "Próximos", img: festival },
 ];
 
-export function Events({ onBack }: { onBack: () => void }) {
+export function Events({ onBack, create = false }: { onBack: () => void; create?: boolean }) {
   const [filter, setFilter] = useState("Hoy");
   const [going, setGoing] = useState<string[]>([]);
   const [detail, setDetail] = useState<(typeof events)[number] | null>(null);
-  const [creating, setCreating] = useState(0);
+  const [creating, setCreating] = useState(create ? 1 : 0);
   const list = events.filter((e) => e.filter === filter);
   if (detail) {
     const isGoing = going.includes(detail.title);
@@ -197,7 +197,7 @@ export function Events({ onBack }: { onBack: () => void }) {
         </div>
 
         {/* Info scrollable */}
-        <div className="flex-1 overflow-y-auto bg-background px-4 pb-28 pt-4">
+        <div className="flex-1 overflow-y-auto bg-background px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-4">
           <p className="flex items-center gap-2 text-xs text-primary"><Calendar size={13} />{detail.when}</p>
           <h2 className="mt-1 text-2xl font-bold">{detail.title}</h2>
           <p className="text-sm text-muted-foreground">{detail.place}</p>
@@ -276,7 +276,7 @@ export function CityWall({ onBack, mine = false }: { onBack: () => void; mine?: 
   const cityPhotos = [festival, valenciaSunset, sevilleNight, stage, beach, festival, valenciaSunset, sevilleNight, stage, beach, festival, valenciaSunset];
   const photoCounts = ["1,2K", "842", "1,1K", "654", "854", "376", "924", "563", "717", "623", "448", "302"];
   return (
-    <div className="fixed inset-0 z-40 mx-auto max-w-[520px] overflow-y-auto bg-background pb-20">
+    <div className="fixed inset-0 z-40 mx-auto max-w-[520px] overflow-y-auto bg-background pb-[calc(5rem+env(safe-area-inset-bottom))]">
       <header className="flex items-center gap-2 px-4 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]"><Button size="icon" variant="ghost" onClick={onBack} aria-label="Volver"><ChevronLeft /></Button><div><h1 className="text-xl font-bold">{place.name}</h1><p className="text-xs text-muted-foreground">{place.name === "Sevilla" ? "124K Spots · 83K personas" : `${place.people} Spots · ${place.people} personas`}</p></div><Button variant="ghost" size="sm" className="ml-auto text-xs" onClick={() => setSelectingCity(true)} aria-label="Elegir ciudad">⌄</Button></header>
       <div className="mt-5 flex gap-1.5 overflow-x-auto px-4 pb-2">
         {["Todos", "Fotos", "Vídeos", "Voz", "En directo"].map((t) => <Button key={t} size="sm" variant={tab === t ? "default" : "secondary"} onClick={() => setTab(t)} className={`shrink-0 rounded-full text-xs ${tab === t ? "spot-active-pill" : ""}`}>{t}</Button>)}

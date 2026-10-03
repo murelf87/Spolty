@@ -2,6 +2,11 @@ import { useState, useRef, useEffect } from "react";
 import { ArrowLeft, Bookmark, Check, ChevronRight, Heart, ListMusic, MapPin, Mic, MoreHorizontal, Pause, Play, RotateCcw, RotateCw, Share2, UserPlus, X, AlignJustify, Music, Map, Flag, BellOff, Navigation } from "lucide-react";
 import { toast } from "sonner";
 import { NewFollowers } from "./LocalAd";
+import { useApp } from "./app-context";
+import { BottomSheet } from "./kit";
+import { MediaViewer } from "./MediaViewer";
+import { sampleMedia } from "@/lib/media";
+import { addReport, toggleFollow, useStore } from "@/lib/store";
 import { VoiceReply } from "./Voice";
 import { Button } from "@/components/ui/button";
 import festival from "@/assets/spotly-sevilla-festival.jpg";
@@ -41,6 +46,16 @@ const AUDIO_COMMENTS = [
   { id: "c6", name: "David",   img: stage,      ago: "Hace 2 h", dur: "0:18", likes: 9,  text: "La mejor ciudad del mundo 🔥" },
   { id: "c7", name: "Elena",   img: beach,      ago: "Hace 3 h", dur: "0:09", likes: 4,  text: "Ambiente único, se vive de otra forma." },
 ];
+const MORE_COMMENTS = [
+  { id: "c8",  name: "Pablo",  img: festival,   ago: "Hace 3 h", dur: "0:14", likes: 3, text: "Mañana me paso por allí 🙌" },
+  { id: "c9",  name: "Irene",  img: lauraPhoto, ago: "Hace 4 h", dur: "0:11", likes: 6, text: "Qué bonito se escucha desde el puente" },
+  { id: "c10", name: "Sergio", img: stage,      ago: "Hace 5 h", dur: "0:22", likes: 2, text: "¿Hasta qué hora dura esto?" },
+];
+const EXTRA_TAGS = [["🌙", "Noche"], ["🎶", "Música en vivo"], ["📍", "Plan cerca"]];
+const copyLink = async (path: string) => {
+  const url = `https://spotly.app/${path}`;
+  try { if (navigator.share) { await navigator.share({ url }); return; } await navigator.clipboard?.writeText(url); toast("Enlace copiado"); } catch { toast("Enlace copiado"); }
+};
 const MORE_SPOTS = [
   { title: "Atardecer en Triana", author: "Laura", dur: "0:58", img: festival },
   { title: "Puente de Triana",    author: "Laura", dur: "0:42", img: stage },
@@ -61,7 +76,7 @@ const ALSO_LISTENED = [
 ];
 
 /* ── Fila comentario de audio ── */
-function AudioCommentRow({ c, playing, onPlay }: { c: typeof AUDIO_COMMENTS[0]; playing: boolean; onPlay: () => void }) {
+function AudioCommentRow({ c, playing, onPlay, onMore }: { c: typeof AUDIO_COMMENTS[0]; playing: boolean; onPlay: () => void; onMore: () => void }) {
   const [liked, setLiked] = useState(false);
   return (
     <div className="flex items-start gap-3 py-3 border-b border-border/40 last:border-0">
@@ -70,7 +85,7 @@ function AudioCommentRow({ c, playing, onPlay }: { c: typeof AUDIO_COMMENTS[0]; 
         <div className="flex items-center gap-1">
           <span className="text-sm font-semibold">{c.name}</span>
           <span className="text-xs text-muted-foreground">· {c.ago}</span>
-          <button className="ml-auto text-muted-foreground"><MoreHorizontal size={15} /></button>
+          <button onClick={onMore} aria-label={`Opciones del comentario de ${c.name}`} className="ml-auto grid h-8 w-8 place-items-center rounded-full text-muted-foreground"><MoreHorizontal size={15} /></button>
         </div>
         {/* player pill */}
         <div className="mt-1.5 flex items-center gap-2 rounded-full bg-[#1a1a2e] px-2 py-1.5">
@@ -129,6 +144,9 @@ function OptionsSheet({ onClose, city, name }: { onClose: () => void; city: stri
 function CommentsPanel({ onClose }: { onClose: () => void }) {
   const [playing, setPlaying] = useState<string | null>(null);
   const [replying, setReplying] = useState(false);
+  const [more, setMore] = useState(false);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const list = more ? [...AUDIO_COMMENTS, ...MORE_COMMENTS] : AUDIO_COMMENTS;
   return (
     <div className="fixed inset-0 z-[70]" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
@@ -138,17 +156,17 @@ function CommentsPanel({ onClose }: { onClose: () => void }) {
         {/* header */}
         <div className="flex items-center justify-between px-4 py-3 shrink-0">
           <span className="text-base font-bold">Comentarios de audio <span className="ml-1 font-normal text-muted-foreground">24</span></span>
-          <button onClick={onClose}><X size={20} /></button>
+          <button onClick={onClose} aria-label="Cerrar comentarios" className="grid h-9 w-9 place-items-center rounded-full"><X size={20} /></button>
         </div>
         {/* lista */}
         <div className="flex-1 overflow-y-auto px-4 min-h-0">
-          {AUDIO_COMMENTS.map(c => (
-            <AudioCommentRow key={c.id} c={c} playing={playing === c.id} onPlay={() => setPlaying(playing === c.id ? null : c.id)} />
+          {list.map(c => (
+            <AudioCommentRow key={c.id} c={c} playing={playing === c.id} onPlay={() => setPlaying(playing === c.id ? null : c.id)} onMore={() => setMenuFor(c.name)} />
           ))}
           {/* escuchar más */}
-          <button className="flex w-full items-center justify-center gap-2 rounded-full border border-border py-3 my-3 text-sm text-muted-foreground">
+          {!more && <button onClick={() => setMore(true)} className="flex w-full items-center justify-center gap-2 rounded-full border border-border py-3 my-3 text-sm text-muted-foreground">
             <AlignJustify size={16} className="text-primary" /> Escuchar más comentarios
-          </button>
+          </button>}
           {/* mini-playlist */}
           <div className="rounded-2xl bg-secondary/50 p-3 mb-4">
             <p className="text-xs font-semibold mb-2.5 text-muted-foreground">Reproduciendo todos los audios (12)</p>
@@ -175,15 +193,51 @@ function CommentsPanel({ onClose }: { onClose: () => void }) {
         </div>
         <div className="h-[env(safe-area-inset-bottom,0px)] shrink-0" />
         {replying && <VoiceReply name="este Spot" onClose={() => setReplying(false)} />}
+        {menuFor && <BottomSheet title={`Comentario de ${menuFor}`} onClose={() => setMenuFor(null)} z={80}>
+          <button onClick={() => { setMenuFor(null); setReplying(true); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm hover:bg-secondary"><Mic size={18} className="text-primary" />Responder con tu voz</button>
+          <button onClick={() => { void copyLink(`comentario/${menuFor.toLowerCase()}`); setMenuFor(null); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm hover:bg-secondary"><Share2 size={18} className="text-primary" />Copiar enlace</button>
+          <button onClick={() => { addReport(`Comentario de voz de ${menuFor}`, "Denunciado desde los comentarios"); toast("Gracias. Revisaremos este comentario."); setMenuFor(null); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-live hover:bg-secondary"><Flag size={18} />Denunciar comentario</button>
+        </BottomSheet>}
       </div>
     </div>
+  );
+}
+
+/* ── Personas que también escucharon ── */
+function ListenersSheet({ onClose, onPerson }: { onClose: () => void; onPerson: (name: string) => void }) {
+  const { following } = useStore();
+  return (
+    <BottomSheet title="Personas que también escucharon" onClose={onClose} z={70}>
+      <div className="space-y-1">
+        {ALSO_LISTENED.map((p) => {
+          const on = following.includes(p.name);
+          return (
+            <div key={p.name} className="flex items-center gap-3 py-2">
+              <button onClick={() => onPerson(p.name)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                <img src={p.img} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
+                <span className="truncate text-sm font-semibold">{p.name}</span>
+              </button>
+              <Button size="sm" variant={on ? "secondary" : "default"} className="shrink-0 rounded-full" onClick={() => { toggleFollow(p.name); toast(on ? `Dejaste de seguir a ${p.name}` : `Sigues a ${p.name}`); }}>{on ? "Siguiendo" : "Seguir"}</Button>
+            </div>
+          );
+        })}
+      </div>
+    </BottomSheet>
   );
 }
 
 /* ── SpotDetail principal ── */
 export type SpotInfo = { name: string; city: string; ago: string; text: string; img: string; dur: string; dist: string };
 
-export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () => void; onAuthor: () => void }) {
+export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onClose: () => void; onAuthor: () => void }) {
+  const app = useApp();
+  const [s,           setSpot]        = useState(initial);
+  const [person,      setPerson]      = useState<string | null>(null);
+  const [listeners,   setListeners]   = useState(false);
+  const [allTags,     setAllTags]     = useState(false);
+  const scroller = useRef<HTMLDivElement | null>(null);
+  const openSpot = (next: SpotInfo) => { setSpot(next); setPlaying(false); setProgress(0); scroller.current?.scrollTo({ top: 0 }); };
+  const toCity = () => { onClose(); app.openPhotoWall(s.city); };
   const [playing,     setPlaying]     = useState(false);
   const [progress,    setProgress]    = useState(0);
   const [liked,       setLiked]       = useState(false);
@@ -206,7 +260,7 @@ export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () 
   const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
+    <div ref={scroller} className="fixed inset-0 z-50 overflow-y-auto bg-background">
       {/* ── FOTO con acciones laterales ── */}
       <div className="relative w-full bg-black" style={{ aspectRatio: "9/14", maxHeight: "68vh" }}>
         <img src={s.img} alt={s.text} className="h-full w-full object-cover" />
@@ -230,7 +284,7 @@ export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () 
             <Heart size={28} fill={liked ? "#ff4d6d" : "none"} className={liked ? "text-[#ff4d6d]" : "text-white"} />
             <span className="text-xs font-bold text-white drop-shadow">{128 + (liked ? 1 : 0)}</span>
           </button>
-          <button onClick={() => toast("Enlace copiado")} className="flex flex-col items-center gap-1">
+          <button onClick={() => void copyLink(`spot/${encodeURIComponent(s.text.slice(0, 24))}`)} aria-label="Compartir" className="flex flex-col items-center gap-1">
             <Navigation size={26} className="text-white" />
             <span className="text-xs font-bold text-white drop-shadow">24</span>
           </button>
@@ -241,13 +295,13 @@ export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () 
         </div>
 
         {/* 📍 Chip ciudad — esquina inferior izquierda de la foto */}
-        <button className="absolute left-3 bottom-5 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
+        <button onClick={toCity} aria-label={`Ver más de ${s.city}`} className="absolute left-3 bottom-5 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
           <MapPin size={12} />{s.city} <ChevronRight size={12} />
         </button>
       </div>
 
       {/* ── CONTENIDO DEBAJO DE LA FOTO ── */}
-      <div className="px-4 pt-4 pb-32 space-y-5 bg-background">
+      <div className="px-4 pt-4 pb-[calc(8rem+env(safe-area-inset-bottom))] space-y-5 bg-background">
 
         {/* Título grande */}
         <div>
@@ -323,25 +377,25 @@ export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () 
 
         {/* ── Tags ── */}
         <div className="flex flex-wrap gap-2">
-          {[["🌅", "Atardecer"], ["👥", "Ambiente"], ["🎵", "Sevilla"]].map(([emoji, label]) => (
+          {[["🌅", "Atardecer"], ["👥", "Ambiente"], ["🎵", s.city], ...(allTags ? EXTRA_TAGS : [])].map(([emoji, label]) => (
             <button key={label}
               className="flex items-center gap-1.5 rounded-full border border-border bg-secondary px-3.5 py-1.5 text-xs font-medium"
               onClick={() => toast(`#${label}`)}>
               {emoji} {label}
             </button>
           ))}
-          <button className="rounded-full border border-border bg-secondary px-3.5 py-1.5 text-xs font-medium">···</button>
+          <button onClick={() => setAllTags(!allTags)} aria-label={allTags ? "Ver menos etiquetas" : "Ver más etiquetas"} className="rounded-full border border-border bg-secondary px-3.5 py-1.5 text-xs font-medium">{allTags ? "−" : "···"}</button>
         </div>
 
         {/* ── Más sonidos de Sevilla ── */}
         <section>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-[15px] font-bold">Más sonidos de {s.city}</h3>
-            <button className="flex items-center gap-0.5 text-xs text-primary font-medium">Ver todos <ChevronRight size={13} /></button>
+            <button onClick={toCity} className="flex items-center gap-0.5 text-xs text-primary font-medium">Ver todos <ChevronRight size={13} /></button>
           </div>
           <div className="grid grid-cols-4 gap-2">
             {MORE_SPOTS.map((sp, i) => (
-              <div key={sp.title}>
+              <button key={sp.title} onClick={() => openSpot({ name: sp.author, city: s.city, ago: `${i + 1} h`, text: sp.title, img: sp.img, dur: sp.dur, dist: "a 300 m" })} aria-label={`Escuchar ${sp.title}`} className="text-left">
                 <div className="relative aspect-square rounded-xl overflow-hidden" style={i === 0 ? { outline: "2px solid #7c3aed" } : {}}>
                   <img src={sp.img} alt={sp.title} className="h-full w-full object-cover" />
                   <div className="absolute inset-0 bg-black/35" />
@@ -353,7 +407,7 @@ export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () 
                   </div>
                 </div>
                 <p className="mt-1 text-[10px] text-muted-foreground leading-tight line-clamp-2">{sp.title}</p>
-              </div>
+              </button>
             ))}
           </div>
         </section>
@@ -362,17 +416,17 @@ export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () 
         <section>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-[15px] font-bold">Personas que también escucharon</h3>
-            <button className="flex items-center gap-0.5 text-xs text-primary font-medium">Ver todos <ChevronRight size={13} /></button>
+            <button onClick={() => setListeners(true)} className="flex items-center gap-0.5 text-xs text-primary font-medium">Ver todos <ChevronRight size={13} /></button>
           </div>
           <div className="flex gap-4">
             {ALSO_LISTENED.map(p => (
-              <div key={p.name} className="flex flex-col items-center gap-1 shrink-0">
+              <button key={p.name} onClick={() => setPerson(p.name)} aria-label={`Ver perfil de ${p.name}`} className="flex flex-col items-center gap-1 shrink-0">
                 <div className="relative">
                   <img src={p.img} alt={p.name} className="h-13 w-13 rounded-full object-cover border-2 border-border" style={{ height: 52, width: 52 }} />
                   <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold text-white" style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>+</span>
                 </div>
                 <span className="text-[10px] text-muted-foreground">{p.name}</span>
-              </div>
+              </button>
             ))}
           </div>
         </section>
@@ -381,11 +435,11 @@ export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () 
         <section>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-[15px] font-bold">Más de {s.name}</h3>
-            <button className="flex items-center gap-0.5 text-xs text-primary font-medium">Ver todos <ChevronRight size={13} /></button>
+            <button onClick={onAuthor} className="flex items-center gap-0.5 text-xs text-primary font-medium">Ver todos <ChevronRight size={13} /></button>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            {MORE_LAURA.map(sp => (
-              <div key={sp.title}>
+            {MORE_LAURA.map((sp, i) => (
+              <button key={sp.title} onClick={() => openSpot({ ...s, ago: `${i + 2} d`, text: sp.title, img: sp.img, dur: sp.dur })} aria-label={`Escuchar ${sp.title}`} className="text-left">
                 <div className="relative aspect-square rounded-xl overflow-hidden">
                   <img src={sp.img} alt={sp.title} className="h-full w-full object-cover" />
                   <div className="absolute inset-0 bg-black/30" />
@@ -397,7 +451,7 @@ export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () 
                   </div>
                 </div>
                 <p className="mt-1 text-[10px] text-muted-foreground leading-tight">{sp.title}</p>
-              </div>
+              </button>
             ))}
           </div>
         </section>
@@ -421,22 +475,27 @@ export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () 
       {replying && <VoiceReply name={s.name} onClose={() => setReplying(false)} />}
       {options  && <OptionsSheet name={s.name} city={s.city} onClose={() => setOptions(false)} />}
       {comments && <CommentsPanel onClose={() => setComments(false)} />}
+      {listeners && <ListenersSheet onClose={() => setListeners(false)} onPerson={(n) => { setListeners(false); setPerson(n); }} />}
+      {person && <AuthorProfile name={person} onClose={() => setPerson(null)} />}
     </div>
   );
 }
 
 /* ── AuthorProfile ── */
+const AUTHOR_SPOTS = [festival, stage, beach, stage, beach, festival];
+
 export function AuthorProfile({ name, onClose }: { name: string; onClose: () => void }) {
+  const [viewer, setViewer] = useState<number | null>(null);
   const [follow, setFollow] = useState(false);
   const [play,   setPlay]   = useState(false);
   const [list,   setList]   = useState(false);
   if (list) return <NewFollowers onClose={() => setList(false)} />;
   return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto bg-background pb-10">
+    <div className="fixed inset-0 z-[60] overflow-y-auto bg-background pb-[max(2.5rem,calc(env(safe-area-inset-bottom)+1rem))]">
       <div className="relative h-40">
         <img src={stage} alt="" className="h-full w-full object-cover" />
         <span className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
-        <Button variant="icon" size="icon" aria-label="Volver" onClick={onClose} className="absolute left-3 top-3 bg-background/75"><ArrowLeft /></Button>
+        <Button variant="icon" size="icon" aria-label="Volver" onClick={onClose} className="absolute left-3 top-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] bg-background/75"><ArrowLeft /></Button>
       </div>
       <div className="-mt-12 px-4 text-center">
         <img src={beach} alt="" className="relative mx-auto h-24 w-24 rounded-full border-4 border-background object-cover" />
@@ -464,11 +523,15 @@ export function AuthorProfile({ name, onClose }: { name: string; onClose: () => 
         </div>
         <h3 className="mt-6 text-left text-sm font-bold">Sus Spots</h3>
         <div className="mt-2 grid grid-cols-3 gap-1">
-          {[festival, stage, beach, stage, beach, festival].map((p, i) => (
-            <img key={i} src={p} alt="" className="aspect-square w-full rounded-md object-cover" />
+          {AUTHOR_SPOTS.map((p, i) => (
+            <button key={i} onClick={() => setViewer(i)} aria-label={`Ver Spot ${i + 1} de ${name}`} className="overflow-hidden rounded-md"><img src={p} alt="" className="aspect-square w-full rounded-md object-cover" /></button>
           ))}
         </div>
       </div>
+      {viewer !== null && <MediaViewer start={viewer} onClose={() => setViewer(null)} items={AUTHOR_SPOTS.map((img, k) => {
+        const m = sampleMedia.find((x) => x.img === img);
+        return { kind: "foto" as const, src: img, caption: m?.caption ?? `Spot de ${name}`, place: m?.place ?? "Sevilla", likes: (m?.likes ?? 120) + k * 7 };
+      })} />}
     </div>
   );
 }

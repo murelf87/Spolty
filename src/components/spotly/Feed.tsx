@@ -513,7 +513,7 @@ export function HomeView({ mine, onBell }: { mine: MineSpot; onBell: () => void 
     </header>
 
     {/* ── MAIN ── */}
-    <main className="pb-32 pt-1">
+    <main className="pb-[calc(8rem+env(safe-area-inset-bottom))] pt-1">
       {/* Historias */}
       <div className="pt-1 pb-3">
         <StoriesStrip onOpenCreate={() => app.create()} />

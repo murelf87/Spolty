@@ -62,7 +62,7 @@ export function ActivityView() {
 
   const today = shown.filter((n) => n.today), before = shown.filter((n) => !n.today);
   return (
-    <main className="px-4 pb-24 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]">
+    <main className="px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]">
        <div className="flex items-center justify-center">
          <h1 className="text-base font-bold">Notificaciones{unread > 0 && <span className="sr-only"> · {unread} sin leer</span>}</h1>
       </div>

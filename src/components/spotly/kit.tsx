@@ -94,7 +94,7 @@ export function Screen({ title, onBack, children, footer, z = 50, sub }: { title
         <Button variant="ghost" size="icon" aria-label="Volver" onClick={onBack}><svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg></Button>
         <div className="min-w-0"><h2 className="truncate text-base font-bold">{title}</h2>{sub && <p className="truncate text-[11px] text-muted-foreground">{sub}</p>}</div>
       </header>
-      <main className="flex-1 overflow-y-auto px-4 pb-6 pt-3">{children}</main>
+      <main className={"flex-1 overflow-y-auto px-4 pt-3 " + (footer ? "pb-6" : "pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.5rem))]")}>{children}</main>
       {footer && <footer className="shrink-0 border-t border-border bg-background/95 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">{footer}</footer>}
     </div>
   );

@@ -114,7 +114,7 @@ export function Index() {
       <DesktopSidebars tab={tab} goTo={goTo} onCreate={() => setCreating(true)} onOpenHot={(id) => setHotId(id)} onPlace={(c) => actions.openPhotoWall(c)} />
       <div className="mx-auto min-h-screen w-full max-w-[520px] overflow-hidden bg-background text-foreground shadow-2xl sm:border-x sm:border-border">
         {content}
-        <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto grid min-[1100px]:hidden h-[68px] max-w-[520px] grid-cols-5 items-center border-t border-border bg-background/95 px-2 backdrop-blur" aria-label="Navegación principal">
+        <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto grid min-[1100px]:hidden h-[calc(68px+env(safe-area-inset-bottom))] max-w-[520px] grid-cols-5 items-center border-t border-border bg-background/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur" aria-label="Navegación principal">
           {navItems.slice(0, 2).map(([id, Icon, label]) => <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? "page" : undefined} className={tab === id ? "grid place-items-center gap-1 text-primary" : "grid place-items-center gap-1 text-muted-foreground"}><Icon size={21} /><span className="text-[10px]">{id === "explorar" ? "Mapa" : label}</span></button>)}
           <button onClick={() => setCreating(true)} className="spot-create-button mx-auto grid h-14 w-14 -translate-y-3 place-items-center rounded-full bg-spot-gradient shadow-glow" aria-label="Crear Spot"><span className="text-4xl font-light leading-none">+</span></button>
           {navItems.slice(2).map(([id, Icon, label]) => <button key={id} onClick={() => id === "actividad" ? setSheet("chats") : setTab(id)} className={tab === id && id !== "actividad" ? "grid place-items-center gap-1 text-primary" : "grid place-items-center gap-1 text-muted-foreground"}>{id === "actividad" ? <Mic size={21} /> : <Icon size={21} />}<span className="text-[10px]">{id === "actividad" ? "Chats" : label}</span></button>)}
@@ -131,6 +131,7 @@ export function Index() {
         {sheet === "local" && <LocalDashboard onBack={close} />}
         {sheet === "comunidades" && <Communities onBack={close} />}
         {sheet === "eventos" && <Events onBack={close} />}
+        {sheet === "crear-evento" && <Events onBack={close} create />}
         {(sheet === "ciudad" || sheet === "fotos") && <PhotoWall onBack={close} initialPlace={photoPlace} />}
         {sheet === "buscar" && <VoiceSearch onBack={close} />}
         {sheet === "privacidad" && <Privacy onBack={close} />}

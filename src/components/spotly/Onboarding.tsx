@@ -67,7 +67,7 @@ export function Onboarding({ onDone, onBack }: { onDone: () => void; onBack?: ((
   const shown = cities.includes(city) ? cities : [city, ...cities];
 
   return (
-    <div className="fixed inset-0 z-50 mx-auto flex max-w-[520px] flex-col overflow-hidden bg-background px-5 pb-6 pt-5">
+    <div className="fixed inset-0 z-50 mx-auto flex max-w-[520px] flex-col overflow-hidden bg-background px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,calc(env(safe-area-inset-top)+0.5rem))]">
       {s === 0 ? (
         <div className="flex items-center justify-between">
           <button aria-label="Atrás" onClick={() => onBack?.()} className={onBack ? "" : "invisible"}><ChevronLeft /></button>

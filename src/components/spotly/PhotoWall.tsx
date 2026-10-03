@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BadgeCheck, Bookmark, Camera, ChevronLeft, ChevronRight, Compass, Flame, Heart, Image as ImageIcon, List, LayoutGrid, MapPin, MessageCircle, Mic, MoreHorizontal, Music, Plus, Search, Share2, SlidersHorizontal, Tag, Users, CalendarPlus, X, Check } from "lucide-react";
+import { BadgeCheck, Bookmark, Camera, ChevronLeft, ChevronRight, Compass, Flame, Heart, Image as ImageIcon, List, LayoutGrid, MapPin, MessageCircle, Mic, MoreHorizontal, Music, Play, Plus, Search, Share2, SlidersHorizontal, Tag, Users, CalendarPlus, X, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AudioRow, BottomSheet, Chip, Screen, StateCard, Trust } from "./kit";
@@ -10,6 +10,7 @@ import { SpainMap, spainCities } from "./SpainMap";
 import { PlaceBrowser } from "./Places";
 import { isCapital, municipiosOf, norm, provinceOfPlace, searchPlaces, type Province } from "@/lib/geo";
 import { toggleFollow, useStore } from "@/lib/store";
+import { videoFor } from "@/lib/media";
 import festival from "@/assets/spotly-sevilla-festival.jpg";
 import stage from "@/assets/spotly-live-stage.jpg";
 import beach from "@/assets/spotly-beach-club.jpg";
@@ -305,6 +306,9 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
   const [comments, setComments] = useState<string[]>([]);
   const gate = useGate({ verified: true, online: true });
   const follows = following.includes(p.author);
+  const clip = p.type !== "Fotos" ? videoFor(p.img) : undefined;
+  const [paused, setPaused] = useState(false);
+  const togglePlay = (v: HTMLVideoElement) => { if (v.paused) { void v.play().catch(() => undefined); setPaused(false); } else { v.pause(); setPaused(true); } };
   const share = async () => {
     try { if (navigator.share) { await navigator.share({ title: p.caption, url: `https://spotly.app/foto/${p.id}` }); return; } await navigator.clipboard?.writeText(`https://spotly.app/foto/${p.id}`); toast("Enlace copiado"); } catch { toast("Enlace copiado"); }
   };
@@ -312,8 +316,11 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
     <div className="fixed inset-0 z-[62] mx-auto flex max-w-[520px] flex-col overflow-hidden bg-black">
       {/* Foto fullscreen */}
       <div className="relative w-full flex-1 bg-black" style={{ maxHeight: "68vh" }}>
-        <img src={p.img} alt={p.caption} className="h-full w-full object-cover" style={{ aspectRatio: "9/14" }} />
+        {clip
+          ? <video src={clip} poster={p.img} autoPlay muted loop playsInline aria-label={p.caption} onClick={(e) => togglePlay(e.currentTarget)} className="h-full w-full cursor-pointer object-cover" style={{ aspectRatio: "9/14" }} />
+          : <img src={p.img} alt={p.caption} className="h-full w-full object-cover" style={{ aspectRatio: "9/14" }} />}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
+        {clip && paused && <span className="pointer-events-none absolute left-1/2 top-1/2 grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-black/55 text-white"><Play size={30} fill="currentColor" /></span>}
         {/* Botón atrás */}
         <button onClick={onClose} aria-label="Volver" className="absolute left-3 grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white" style={{ top: "max(2.75rem, calc(env(safe-area-inset-top) + 0.5rem))" }}><ChevronLeft size={22} /></button>
         {/* Botón más opciones */}
@@ -344,7 +351,7 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
       </div>
 
       {/* Info + audio scrollable */}
-      <div className="flex-1 overflow-y-auto bg-background px-4 pb-24 pt-4">
+      <div className="flex-1 overflow-y-auto bg-background px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-4">
         <div className="flex items-center gap-3">
           <img src={p.img} alt="" className="h-11 w-11 rounded-full object-cover ring-2 ring-primary/50" />
           <span className="min-w-0 flex-1">

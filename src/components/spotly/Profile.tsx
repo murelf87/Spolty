@@ -1,20 +1,43 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ArrowLeft, BadgeCheck, Bookmark, Calendar, Heart, Lock, Store, Users, Wallet as WalletIcon, Check, Crown, Grid3x3, Mic, Pause, Pencil, Play, Settings, Square, Waves, X, Image as ImageIcon, Video } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Shell, type Sheet } from "./Extras";
-import sevilleNight from "@/assets/seville-night.jpg";
-import valenciaSunset from "@/assets/valencia-sunset.jpg";
-
-import festival from "@/assets/spotly-sevilla-festival.jpg";
-import stage from "@/assets/spotly-live-stage.jpg";
-import beach from "@/assets/spotly-beach-club.jpg";
+import { BottomSheet } from "./kit";
+import { MediaViewer, type MediaItem } from "./MediaViewer";
+import { AuthorProfile, SpotDetail, type SpotInfo } from "./SpotDetail";
 import mePhoto from "@/assets/spotly-me.jpg";
 import lauraPhoto from "@/assets/spotly-laura.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { sampleMedia, type SampleMedia } from "@/lib/media";
+import { toggleFollow, useStore } from "@/lib/store";
 
-const imgs = [festival, beach, stage, valenciaSunset, sevilleNight, festival];
+/* Contenido del perfil (demo): cada miniatura abre su Spot, su foto o su vídeo. */
+type GridTab = "Spots" | "Fotos" | "Vídeos" | "Guardados";
+const pick = (...idx: number[]) => idx.map((i) => sampleMedia[i % sampleMedia.length]!);
+const grid: Record<GridTab, SampleMedia[]> = {
+  Spots: pick(3, 1, 0, 2, 5, 4),
+  Fotos: pick(2, 5, 6, 0, 7, 4),
+  Vídeos: pick(0, 1, 2, 3, 4, 5),
+  Guardados: pick(7, 2, 3, 0, 5, 6),
+};
+const savedAuthors = ["Laura", "Carlos", "Marta", "Javi", "Ana", "Dani"];
+const agos = ["2 h", "5 h", "1 día", "2 días", "3 días", "1 sem"];
+const toSpot = (m: SampleMedia, i: number, author?: string): SpotInfo => ({
+  name: author ?? "Tú", city: m.place.split(", ").pop() ?? "Sevilla", ago: agos[i % agos.length]!, text: m.caption, img: m.img, dur: `0:${18 + ((i * 7) % 30)}`, dist: m.place,
+});
+const toMedia = (m: SampleMedia, kind: MediaItem["kind"]): MediaItem =>
+  kind === "video" ? { kind, src: m.video, poster: m.img, caption: m.caption, place: m.place, likes: m.likes } : { kind, src: m.img, caption: m.caption, place: m.place, likes: m.likes };
+const likesLabel = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace(".0", "").replace(".", ",")}K` : String(n));
+const people = [
+  { name: "Laura", img: lauraPhoto, sub: "Música · Fotografía" },
+  { name: "Carlos", img: sampleMedia[2]!.img, sub: "Deporte · Playa" },
+  { name: "Marta", img: sampleMedia[3]!.img, sub: "Gastronomía" },
+  { name: "Javi", img: sampleMedia[0]!.img, sub: "Eventos · Barrio" },
+  { name: "Ana", img: sampleMedia[5]!.img, sub: "Cultura · Arte" },
+  { name: "Dani", img: sampleMedia[6]!.img, sub: "Moda · Triana" },
+];
 const wall0 = [
   { u: "Laura", d: "0:18", t: "Hace 5 min", l: 12 },
   { u: "Carlos", d: "0:32", t: "Hace 20 min", l: 8 },
@@ -35,29 +58,51 @@ export function ProfileView({ onOpen, accountEmail }: { onOpen: (s: Sheet) => vo
   const [badgesOpen, setBadgesOpen] = useState(false);
   const [rec, setRec] = useState(false);
   const [settings, setSettings] = useState(false);
+  const [viewer, setViewer] = useState<{ items: MediaItem[]; start: number } | null>(null);
+  const [spot, setSpot] = useState<{ s: SpotInfo; author: string | null } | null>(null);
+  const [author, setAuthor] = useState<string | null>(null);
+  const [list, setList] = useState<"Seguidores" | "Siguiendo" | null>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
   if (badgesOpen) return <Badges onBack={() => setBadgesOpen(false)} />;
+  const openItem = (t: GridTab, i: number) => {
+    const items = grid[t];
+    const m = items[i]!;
+    if (t === "Fotos") setViewer({ items: items.map((x) => toMedia(x, "foto")), start: i });
+    else if (t === "Vídeos") setViewer({ items: items.map((x) => toMedia(x, "video")), start: i });
+    else if (t === "Guardados") setSpot({ s: toSpot(m, i, savedAuthors[i]), author: savedAuthors[i] ?? null });
+    else setSpot({ s: toSpot(m, i), author: null });
+  };
 
   return (
-    <main className="pb-24">
+    <main className="pb-[calc(6rem+env(safe-area-inset-bottom))]">
        <div className="relative px-4 pb-4 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]">
          <div className="relative flex items-center justify-between gap-1"><h2 className="text-sm font-bold">Tu perfil</h2><div className="flex gap-1">
           <Button variant="ghost" size="icon" aria-label="Editar perfil" onClick={() => setEdit(true)}><Pencil size={18} /></Button>
           <Button variant="ghost" size="icon" aria-label="Ajustes" onClick={() => setSettings(true)}><Settings size={18} /></Button>
          </div></div>
         <div className="relative text-center">
-           <div className="mx-auto mt-3 h-24 w-24 rounded-full bg-spot-gradient p-[3px] shadow-glow"><img src={mePhoto} alt={me.name} className="h-full w-full rounded-full object-cover" /></div>
+           <button onClick={() => setEdit(true)} aria-label="Cambiar foto y datos del perfil" className="mx-auto mt-3 block h-24 w-24 rounded-full bg-spot-gradient p-[3px] shadow-glow"><img src={mePhoto} alt={me.name} className="h-full w-full rounded-full object-cover" /></button>
            <h1 className="mt-2 text-xl font-bold">{me.name}</h1>
            <p className="text-xs text-muted-foreground">@{me.user}</p>
-           <div className="mx-auto mt-4 grid max-w-sm grid-cols-3"><div><strong>248</strong><small className="block text-[11px] text-muted-foreground">Spots</small></div><div><strong>12,4K</strong><small className="block text-[11px] text-muted-foreground">Seguidores</small></div><div><strong>680</strong><small className="block text-[11px] text-muted-foreground">Siguiendo</small></div></div>
+           <div className="mx-auto mt-4 grid max-w-sm grid-cols-3">
+             <button onClick={() => { setTab("Spots"); gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className="rounded-lg py-1"><strong>248</strong><small className="block text-[11px] text-muted-foreground">Spots</small></button>
+             <button onClick={() => setList("Seguidores")} className="rounded-lg py-1"><strong>12,4K</strong><small className="block text-[11px] text-muted-foreground">Seguidores</small></button>
+             <button onClick={() => setList("Siguiendo")} className="rounded-lg py-1"><strong>680</strong><small className="block text-[11px] text-muted-foreground">Siguiendo</small></button>
+           </div>
         </div>
       </div>
-       <div className="grid grid-cols-5 gap-1 px-3 py-2">
-         {([["Spots", Grid3x3], ["Fotos", ImageIcon], ["Vídeos", Video], ["Voz", Waves], ["Guardados", Bookmark]] as const).map(([l, I]) => <Button key={l} size="sm" variant={(tab === l || (l === "Voz" && tab === "Audio Wall")) ? "default" : "secondary"} onClick={() => setTab(l === "Voz" ? "Audio Wall" : l)} className={`h-8 min-w-0 gap-1 rounded-full px-1 text-[10px] ${(tab === l || (l === "Voz" && tab === "Audio Wall")) ? "spot-active-pill" : ""}`}><I size={12} />{l}</Button>)}
+       <div ref={gridRef} className="@container grid scroll-mt-4 grid-cols-5 gap-1 px-3 py-2">
+         {([["Spots", Grid3x3], ["Fotos", ImageIcon], ["Vídeos", Video], ["Voz", Waves], ["Guardados", Bookmark]] as const).map(([l, I]) => <Button key={l} size="sm" variant={(tab === l || (l === "Voz" && tab === "Audio Wall")) ? "default" : "secondary"} onClick={() => setTab(l === "Voz" ? "Audio Wall" : l)} className={`h-8 min-w-0 gap-1 rounded-full px-1 text-[10px] ${(tab === l || (l === "Voz" && tab === "Audio Wall")) ? "spot-active-pill" : ""}`}><I size={12} className="@max-[20rem]:hidden" />{l}</Button>)}
       </div>
       {tab !== "Audio Wall" ? (
         <section className="grid grid-cols-3 gap-1 p-1">
-           {tab === "Spots" && <div className="relative"><img src={valenciaSunset} alt="Tu último Spot" className="aspect-[3/4] w-full rounded-md object-cover ring-2 ring-primary" /><span className="absolute bottom-1 left-1 flex items-center gap-0.5 text-[10px] font-semibold text-foreground"><Heart size={10} fill="currentColor" className="text-live"/>1,2K</span></div>}
-           {Array.from({ length: tab === "Spots" ? 8 : tab === "Guardados" ? 4 : 6 }, (_, i) => <div key={tab + i} className="relative"><img src={imgs[(i + (tab === "Vídeos" ? 2 : tab === "Fotos" ? 1 : 0)) % imgs.length]} alt="Spot" loading="lazy" className="aspect-[3/4] w-full rounded-md object-cover" /><span className="absolute bottom-1 left-1 flex items-center gap-0.5 text-[10px] text-foreground"><Heart size={10} fill="currentColor" className="text-live"/>{["842","1,1K","854","376"][i%4]}</span>{tab === "Vídeos" && <Video size={12} className="absolute right-1 top-1 text-foreground"/>}</div>)}
+           {grid[tab as GridTab].map((m, i) => (
+             <button key={tab + i} onClick={() => openItem(tab as GridTab, i)} aria-label={`${tab === "Vídeos" ? "Ver vídeo" : tab === "Fotos" ? "Ver foto" : "Abrir Spot"}: ${m.caption}`} className="relative overflow-hidden rounded-md">
+               <img src={m.img} alt="" loading="lazy" className={"aspect-[3/4] w-full rounded-md object-cover " + (tab === "Spots" && i === 0 ? "ring-2 ring-inset ring-primary" : "")} />
+               <span className="absolute bottom-1 left-1 flex items-center gap-0.5 text-[10px] font-semibold text-white drop-shadow"><Heart size={10} fill="currentColor" className="text-live" />{likesLabel(m.likes)}</span>
+               {tab === "Vídeos" && <span className="absolute right-1 top-1 flex items-center gap-0.5 rounded bg-black/55 px-1 py-0.5 text-[9px] font-semibold text-white"><Play size={9} fill="currentColor" />0:07</span>}
+             </button>
+           ))}
         </section>
       ) : (
         <section className="space-y-3 p-4">
@@ -78,7 +123,45 @@ export function ProfileView({ onOpen, accountEmail }: { onOpen: (s: Sheet) => vo
        <div className="px-4 py-5"><Button variant="secondary" className="w-full" onClick={() => onOpen("verificacion")}><BadgeCheck size={16} className="text-primary" />Verificación · ver ejemplo</Button><Button variant="ghost" className="mt-2 w-full" onClick={() => setBadgesOpen(true)}>{badges.map(([l, I]) => <span key={l} className="flex items-center gap-1 text-[10px] text-muted-foreground"><I size={11} className="text-primary" />{l}</span>)}</Button><div className="mt-3 grid grid-cols-3 gap-2">{([["wallet", "Wallet", WalletIcon], ["chats", "Chats de voz", Mic], ["local", "Panel Local", Store], ["comunidades", "Comunidades", Users], ["eventos", "Eventos", Calendar], ["privacidad", "Privacidad", Lock]] as [Sheet, string, typeof Mic][]).map(([k, l, I]) => <Button key={l} variant="secondary" onClick={() => onOpen(k)} className="flex h-16 flex-col gap-1 rounded-lg border border-border text-[11px]"><I size={18} className="text-primary" />{l}</Button>)}</div><Button variant="ghost" onClick={() => toast("Reproduciendo tu presentación de voz")} className="mt-3 w-full"><Play size={14} className="text-primary" /><Bars on /><span className="text-xs">0:09</span></Button></div>
        {edit && <EditProfile me={me} onSave={(v) => { setMe(v); setEdit(false); toast.success("Perfil actualizado"); }} onClose={() => setEdit(false)} />}
        {settings && <SettingsScreen accountEmail={accountEmail} onBack={() => setSettings(false)} onOpen={(s) => { setSettings(false); onOpen(s); }} />}
+       {viewer && <MediaViewer items={viewer.items} start={viewer.start} onClose={() => setViewer(null)} />}
+       {spot && <SpotDetail s={spot.s} onClose={() => setSpot(null)} onAuthor={() => { if (spot.author) setAuthor(spot.author); else setSpot(null); }} />}
+       {author && <AuthorProfile name={author} onClose={() => setAuthor(null)} />}
+       {list && <PeopleList kind={list} onSwitch={setList} onClose={() => setList(null)} onAuthor={(n) => { setList(null); setAuthor(n); }} />}
     </main>
+  );
+}
+
+/** Seguidores y Siguiendo (demo): seguir o dejar de seguir se refleja en el resto de la app. */
+function PeopleList({ kind, onSwitch, onClose, onAuthor }: { kind: "Seguidores" | "Siguiendo"; onSwitch: (k: "Seguidores" | "Siguiendo") => void; onClose: () => void; onAuthor: (name: string) => void }) {
+  const { following } = useStore();
+  const [followed, setFollowed] = useState<string[]>(() => [...new Set(["Laura", "Marta", "Ana", ...following])]);
+  const setFollow = (name: string, on: boolean) => {
+    setFollowed((f) => (on ? [...f, name] : f.filter((n) => n !== name)));
+    if (following.includes(name) !== on) toggleFollow(name);
+    toast(on ? `Sigues a ${name}` : `Dejaste de seguir a ${name}`);
+  };
+  const shown = kind === "Siguiendo" ? people.filter((p) => followed.includes(p.name)) : people;
+  return (
+    <BottomSheet title={kind} onClose={onClose} z={65}>
+      <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-secondary p-1">
+        {(["Seguidores", "Siguiendo"] as const).map((k) => <button key={k} onClick={() => onSwitch(k)} aria-pressed={k === kind} className={"rounded-lg py-2 text-xs font-semibold " + (k === kind ? "spot-active-pill text-foreground" : "text-muted-foreground")}>{k}</button>)}
+      </div>
+      {shown.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Aún no sigues a nadie de esta lista.</p>}
+      <div className="space-y-1">
+        {shown.map((p) => {
+          const on = followed.includes(p.name);
+          return (
+            <div key={p.name} className="flex items-center gap-3 rounded-xl px-1 py-2">
+              <button onClick={() => onAuthor(p.name)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                <img src={p.img} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
+                <span className="min-w-0"><strong className="block truncate text-sm">{p.name}</strong><small className="block truncate text-xs text-muted-foreground">{p.sub}</small></span>
+              </button>
+              <Button size="sm" variant={on ? "secondary" : "default"} onClick={() => setFollow(p.name, !on)} className="shrink-0 rounded-full">{on ? "Siguiendo" : kind === "Seguidores" ? "Seguir también" : "Seguir"}</Button>
+            </div>
+          );
+        })}
+      </div>
+    </BottomSheet>
   );
 }
 
@@ -86,7 +169,7 @@ function EditProfile({ me, onSave, onClose }: { me: { name: string; user: string
   const [v, setV] = useState(me);
   const [rec, setRec] = useState(false);
   return (
-    <div className="fixed inset-0 z-50 mx-auto max-w-[520px] overflow-y-auto bg-background p-4">
+    <div className="fixed inset-0 z-50 mx-auto max-w-[520px] overflow-y-auto bg-background p-4 pb-[max(1rem,calc(env(safe-area-inset-bottom)+0.5rem))] pt-[max(1rem,calc(env(safe-area-inset-top)+0.5rem))]">
       <div className="flex items-center justify-between"><button aria-label="Cerrar" onClick={onClose}><X /></button><h2 className="font-bold">Editar perfil</h2><Button size="sm" onClick={() => onSave(v)}>Guardar</Button></div>
       <div className="mx-auto mt-6 grid h-24 w-24 place-items-center rounded-full bg-spot-gradient text-3xl font-bold">{v.name[0] || "?"}</div>
       {(["name", "user", "bio"] as const).map((k) => (
@@ -109,7 +192,7 @@ function SettingsScreen({ onBack, onOpen, accountEmail }: { onBack: () => void; 
     if (k === "dark") { document.documentElement.classList.toggle("light", !v); toast(v ? "Tema oscuro activado" : "Tema claro activado"); }
   };
   const Row = ({ k, l }: { k: keyof typeof t; l: string }) => (
-    <button onClick={() => toggle(k)} className="flex w-full items-center justify-between py-3 text-sm">{l}<span className={`h-6 w-11 rounded-full p-0.5 transition ${t[k] ? "bg-primary" : "bg-secondary"}`}><span className={`block h-5 w-5 rounded-full bg-foreground transition ${t[k] ? "translate-x-5" : ""}`} /></span></button>
+    <button onClick={() => toggle(k)} role="switch" aria-checked={t[k]} className="flex w-full items-center justify-between gap-3 py-3 text-left text-sm"><span className="min-w-0">{l}</span><span className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition ${t[k] ? "bg-primary" : "bg-secondary"}`}><span className={`block h-5 w-5 rounded-full bg-foreground transition ${t[k] ? "translate-x-5" : ""}`} /></span></button>
   );
   return (
     <Shell title="Ajustes" onBack={onBack}>

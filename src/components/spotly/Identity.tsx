@@ -42,7 +42,7 @@ export const identityLabel: Record<IdentityStatus, [string, string]> = {
 function Frame({ title, sub, onBack, children, cta, onCta, disabled, footer, center }: { title?: string; sub?: string; onBack?: (() => void) | undefined; children: ReactNode; cta?: string | undefined; onCta?: (() => void) | undefined; disabled?: boolean; footer?: ReactNode; center?: boolean }) {
   return <div className="boost-reference fixed inset-0 z-[60] mx-auto flex max-w-[520px] flex-col">
     <header className="relative flex shrink-0 items-center justify-center px-5 pb-1 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]">{onBack && <Button variant="ghost" size="icon" className="absolute bottom-0 left-4 text-foreground" aria-label="Volver" onClick={onBack}><ChevronLeft size={26} /></Button>}{title && <h2 className="text-lg font-semibold">{title}</h2>}</header>
-    <main className={"flex-1 overflow-y-auto px-6 pb-3 pt-2 " + (center ? "flex flex-col" : "")}>{sub && <p className="mb-3 text-center text-sm text-muted-foreground">{sub}</p>}{children}</main>
+    <main className={"flex-1 overflow-y-auto px-6 pt-2 " + (cta || footer ? "pb-3 " : "pb-[max(0.75rem,calc(env(safe-area-inset-bottom)+0.5rem))] ") + (center ? "flex flex-col" : "")}>{sub && <p className="mb-3 text-center text-sm text-muted-foreground">{sub}</p>}{children}</main>
     {(cta || footer) && <div className="shrink-0 px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">{cta && <Button onClick={onCta} disabled={disabled} className="h-[52px] w-full rounded-full bg-spot-gradient text-base text-foreground shadow-glow">{cta}</Button>}{footer}</div>}
   </div>;
 }
