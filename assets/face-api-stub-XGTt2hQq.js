@@ -1,0 +1,1 @@
+var e={tinyFaceDetector:{loadFromUri:async()=>{}},faceLandmark68TinyNet:{loadFromUri:async()=>{}}},t=()=>({withFaceLandmarks:()=>Promise.resolve(void 0)}),n=class{};export{n as TinyFaceDetectorOptions,t as detectSingleFace,e as nets};
