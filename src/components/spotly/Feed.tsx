@@ -14,7 +14,6 @@ import { IncognitoExpiredNote, IncognitoSpotCard } from "./Incognito";
 import { GrowCard } from "./LocalAd";
 import { PeopleStrip } from "./PromoProfile";
 import { BoostedTag, IncognitoTag, Skeleton, StateCard } from "./kit";
-import { usePos } from "@/lib/preview-context";
 import { ContentState } from "./Safety";
 import { addReport, blockUser, toggleFollow, unblockUser, useNow, useStore } from "@/lib/store";
 import { campaignEligible, hotspots } from "@/lib/sampleData";
@@ -67,10 +66,9 @@ function StoryViewer({ stories, startIndex, onClose }: { stories: typeof storyPe
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [idx, paused]);
 
-  const pos = usePos();
   const s = stories[idx]!;
   return (
-    <div className={pos + " inset-0 z-[80] mx-auto flex max-w-[520px] flex-col bg-black"}
+    <div className="fixed inset-0 z-[80] mx-auto flex max-w-[520px] flex-col bg-black"
       onPointerDown={() => { setPaused(true); }}
       onPointerUp={() => { setPaused(false); startRef.current = null; }}>
       {/* Barras progreso */}
@@ -134,13 +132,12 @@ function StoryViewer({ stories, startIndex, onClose }: { stories: typeof storyPe
 }
 
 function CreateStorySheet({ onClose }: { onClose: () => void }) {
-  const pos = usePos();
   const [step, setStep] = useState<0 | 1 | 2>(0);
   const [recording, setRecording] = useState(false);
   const [selImg, setSelImg] = useState(0);
   const imgs = [sevilleEvening, stagePhoto, festivalPhoto, valenciaSunset, beachPhoto, lauraPhoto];
   return (
-    <div className={pos + " inset-0 z-[85] mx-auto flex max-w-[520px] flex-col bg-black"}>
+    <div className="fixed inset-0 z-[85] mx-auto flex max-w-[520px] flex-col bg-black">
       <div className="absolute inset-x-3 flex items-center justify-between" style={{ top: "max(1rem, env(safe-area-inset-top))", zIndex: 2 }}>
         <span className="text-base font-bold text-white">Nueva historia</span>
         <button onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white"><X size={20} /></button>
@@ -256,11 +253,10 @@ const nets: Net[] = [
 ];
 
 function ShareSheet({ s, onClose }: { s: SpotData; onClose: () => void }) {
-  const pos = usePos();
   const [sent, setSent] = useState<string[]>([]);
   const people = ["Laura","Carlos","Marta","Javi","Lucía"];
   const act = (m: string) => { toast(m); onClose(); };
-  return <div className={pos + " inset-0 z-50 flex items-end bg-background/70 backdrop-blur-sm"} onClick={onClose}><div className="mx-auto w-full max-w-[520px] rounded-t-3xl border-t border-border bg-card p-4 pb-8" onClick={e=>e.stopPropagation()}>
+  return <div className="fixed inset-0 z-50 flex items-end bg-background/70 backdrop-blur-sm" onClick={onClose}><div className="mx-auto w-full max-w-[520px] rounded-t-3xl border-t border-border bg-card p-4 pb-8" onClick={e=>e.stopPropagation()}>
     <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border"/>
     <div className="flex items-center gap-3 rounded-2xl bg-secondary p-2"><img src={s.img} alt="" className="h-14 w-14 rounded-xl object-cover"/><div className="min-w-0"><p className="text-sm font-semibold">Spot de {s.name}</p><p className="truncate text-xs text-muted-foreground">{s.text}</p></div></div>
     <p className="mt-4 px-1 text-xs font-semibold text-muted-foreground">ENVIAR EN SPOTLY</p>
@@ -284,7 +280,6 @@ export const feedTabs = ["Todo", "Cerca", "Suscrito", "España"] as const;
 type FeedTab = (typeof feedTabs)[number];
 
 function SpotMenu({ s, onClose, onStatus }: { s: SpotData; onClose: () => void; onStatus: (v: "ok" | "reported" | "deleted" | "hidden") => void }) {
-  const pos = usePos();
   const app = useApp();
   const { following } = useStore();
   const [view, setView] = useState<"menu" | "report" | "sent">("menu");
@@ -292,7 +287,7 @@ function SpotMenu({ s, onClose, onStatus }: { s: SpotData; onClose: () => void; 
   const follows = following.includes(s.name);
   const copy = () => { try { void navigator.clipboard?.writeText(`https://spotly.app/spot/${s.id}`); } catch { /* sin permiso de portapapeles */ } toast("Enlace copiado"); onClose(); };
   const row = "w-full rounded-xl px-4 py-3 text-left text-sm hover:bg-secondary";
-  return <div className={pos + " inset-0 z-[70] flex items-end bg-background/70 backdrop-blur-sm"} onClick={onClose}><div className="mx-auto w-full max-w-[520px] space-y-1 rounded-t-3xl border-t border-border bg-card p-4 pb-8" onClick={(e) => e.stopPropagation()}>
+  return <div className="fixed inset-0 z-[70] flex items-end bg-background/70 backdrop-blur-sm" onClick={onClose}><div className="mx-auto w-full max-w-[520px] space-y-1 rounded-t-3xl border-t border-border bg-card p-4 pb-8" onClick={(e) => e.stopPropagation()}>
     {view === "menu" && <>
       {s.own ? <>
         <button className={row} onClick={() => { onClose(); app.open("impulso"); }}>Impulsar este Spot</button>
@@ -356,7 +351,7 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
   /* Card principal TikTok-style */
   return <article className="relative overflow-hidden rounded-none bg-black" style={{ minHeight: "calc(100svh - 8rem)" }}>
     {/* Foto fullscreen */}
-    <div className="relative" style={{ aspectRatio: "9/14", maxHeight: "68vh" }} onClick={() => setDetail(true)}>
+    <div className="relative w-full" style={{ aspectRatio: "9/14", maxHeight: "68vh" }} onClick={() => setDetail(true)}>
       <img src={s.img} alt={s.text} className="h-full w-full cursor-pointer object-cover" loading="lazy" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
 
@@ -521,7 +516,7 @@ export function HomeView({ mine, onBell }: { mine: MineSpot; onBell: () => void 
     <main className="pb-32 pt-1">
       {/* Historias */}
       <div className="pt-1 pb-3">
-        <StoriesStrip onOpenCreate={() => app.open("crear")} />
+        <StoriesStrip onOpenCreate={() => app.create()} />
       </div>
 
       <NowStrip />
@@ -529,7 +524,7 @@ export function HomeView({ mine, onBell }: { mine: MineSpot; onBell: () => void 
 
       {phase === "loading" && (
         <div className="space-y-1 bg-black" aria-busy="true">
-          <Skeleton className="rounded-none" style={{ height: "68vh" }} />
+          <Skeleton className="h-[68vh] rounded-none" />
           <Skeleton className="mx-3 h-24 rounded-2xl" />
         </div>
       )}

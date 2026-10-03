@@ -7,13 +7,11 @@ import { addTopNow, useStore } from "@/lib/store";
 import { Checkout } from "./Credits";
 import { useApp } from "./app-context";
 import { useGate } from "./Voice";
-import { usePos } from "@/lib/preview-context";
 
 /* Láminas: 3 Opciones · 4 Niveles · 5 Frecuencia · 6 Público · 7 Resumen y pago · 12 Estadísticas */
 
 function Frame({ title, onBack, children, cta, onCta, center, reference }: { title: string; onBack: () => void; children: ReactNode; cta: string; onCta: () => void; center?: ReactNode; reference?: boolean }) {
-  const pos = usePos();
-  return <div className={pos + " inset-0 z-[55] mx-auto flex max-w-[520px] flex-col bg-background " + (reference ? "boost-reference" : "")}>
+  return <div className={"fixed inset-0 z-[55] mx-auto flex max-w-[520px] flex-col bg-background " + (reference ? "boost-reference" : "")}>
     <header className="relative flex shrink-0 items-center justify-center px-5 pb-2 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]"><Button variant="ghost" size="icon" className="absolute left-4 bottom-1 text-foreground" aria-label="Volver" onClick={onBack}><ChevronLeft size={26} /></Button>{!center && <h2 className="text-xl font-semibold">{title}</h2>}</header>
     {center && <div className="boost-reference-heading shrink-0 px-7 text-center">{center}</div>}
     <main className={"flex-1 space-y-2.5 overflow-y-auto px-6 pb-3 pt-2 " + (reference ? "boost-reference-main" : "")}>{children}</main>
@@ -33,7 +31,6 @@ const Radio = ({ on }: { on: boolean }) => <span className={"grid h-5 w-5 shrink
 const levels = boostLevels;
 
 export function BoostFlow({ onBack, onDone, preview }: { onBack: () => void; onDone: (boosted: boolean) => void; preview?: string | undefined }) {
-  const pos = usePos();
   const [step, setStep] = useState(0);
   const app = useApp();
   const { incognito } = useStore();
@@ -67,8 +64,8 @@ export function BoostFlow({ onBack, onDone, preview }: { onBack: () => void; onD
     <Row tone={boost ? "pink" : undefined} onClick={() => setBoost(!boost)} icon={<Sparkle size={24} fill="currentColor" />} title={<>Impulsar <span className="font-normal text-xs">(más alcance)</span></>} sub="Aparece más veces en el scroll" right={<Toggle on={boost} />} />
     <Row compact tone="flat" onClick={() => { setAudienceFromOptions(true); setStep(3); }} icon={<UserRound size={19} fill="currentColor" />} title="Público objetivo" sub={scope === 0 && area === 0 && radius === 2 ? "Cerca de ti, ciudad, provincia..." : `${scope === 0 && area === 0 ? radii[radius] : "Global"} · ${areas[area]?.[0] ?? "Sevilla"}`} right={<ChevronRight size={20} className="text-foreground" />} />
     <Row compact tone="flat" onClick={() => setScheduleOpen(true)} icon={<Clock size={20} />} title="Programar publicación" sub={schedule === "Ahora" ? "Ahora o más tarde" : schedule} right={<ChevronRight size={20} className="text-foreground" />} />
-    {previewOpen && <div className={pos + " inset-0 z-[70] grid place-items-center bg-background/95 p-5"} role="dialog" aria-label="Vista previa de tu Spot"><Button variant="ghost" size="icon" aria-label="Cerrar vista previa" className="absolute right-5 top-[max(3rem,env(safe-area-inset-top))]" onClick={() => setPreviewOpen(false)}><X /></Button>{preview ? <img src={preview} alt="Tu Spot ampliado" className="max-h-[70vh] w-full max-w-md rounded-lg object-contain" /> : <div className="flex items-center gap-3 text-primary"><Mic size={42}/><AudioLines size={90}/></div>}<p className="absolute bottom-16 text-center text-sm text-muted-foreground">Vista previa · el audio de este Spot aún es una demostración.</p></div>}
-    {scheduleOpen && <div className={pos + " inset-0 z-[70] flex items-end bg-background/75"} onClick={() => setScheduleOpen(false)}><div className="w-full rounded-t-lg border-t border-border bg-card p-4 pb-[max(2rem,env(safe-area-inset-bottom))]" onClick={e=>e.stopPropagation()}><div className="flex items-center justify-between"><h3 className="font-bold">Programar publicación</h3><Button variant="ghost" size="icon" aria-label="Cerrar" onClick={()=>setScheduleOpen(false)}><X size={18}/></Button></div><p className="mb-3 text-xs text-muted-foreground">Solo planificación visual; no se publicará automáticamente.</p>{["Ahora","En 1 hora","Esta tarde","Mañana"].map(choice=><Button key={choice} variant="ghost" className="w-full justify-between text-foreground" onClick={()=>{setSchedule(choice);setScheduleOpen(false)}}>{choice}{schedule===choice&&<Check size={16} className="text-primary"/>}</Button>)}</div></div>}
+    {previewOpen && <div className="fixed inset-0 z-[70] grid place-items-center bg-background/95 p-5" role="dialog" aria-label="Vista previa de tu Spot"><Button variant="ghost" size="icon" aria-label="Cerrar vista previa" className="absolute right-5 top-[max(3rem,env(safe-area-inset-top))]" onClick={() => setPreviewOpen(false)}><X /></Button>{preview ? <img src={preview} alt="Tu Spot ampliado" className="max-h-[70vh] w-full max-w-md rounded-lg object-contain" /> : <div className="flex items-center gap-3 text-primary"><Mic size={42}/><AudioLines size={90}/></div>}<p className="absolute bottom-16 text-center text-sm text-muted-foreground">Vista previa · el audio de este Spot aún es una demostración.</p></div>}
+    {scheduleOpen && <div className="fixed inset-0 z-[70] flex items-end bg-background/75" onClick={() => setScheduleOpen(false)}><div className="w-full rounded-t-lg border-t border-border bg-card p-4 pb-[max(2rem,env(safe-area-inset-bottom))]" onClick={e=>e.stopPropagation()}><div className="flex items-center justify-between"><h3 className="font-bold">Programar publicación</h3><Button variant="ghost" size="icon" aria-label="Cerrar" onClick={()=>setScheduleOpen(false)}><X size={18}/></Button></div><p className="mb-3 text-xs text-muted-foreground">Solo planificación visual; no se publicará automáticamente.</p>{["Ahora","En 1 hora","Esta tarde","Mañana"].map(choice=><Button key={choice} variant="ghost" className="w-full justify-between text-foreground" onClick={()=>{setSchedule(choice);setScheduleOpen(false)}}>{choice}{schedule===choice&&<Check size={16} className="text-primary"/>}</Button>)}</div></div>}
   </Frame>;
 
   if (step === 1) return <Frame title="" onBack={back} cta="Siguiente" reference onCta={() => setStep(2)} center={<><Zap size={52} fill="currentColor" className="mx-auto text-accent boost-bolt" /><h2 className="mt-2 text-[22px] font-semibold">Impulsar tu Spot</h2><p className="mx-auto mt-2 max-w-[290px] text-[13px] leading-snug text-muted-foreground">Aparece más veces en el scroll y llega a nuevas personas reales</p></>}>

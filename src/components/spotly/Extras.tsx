@@ -16,7 +16,7 @@ export type Sheet =
 export function Shell({ title, onBack, children }: { title: string; onBack: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-40 mx-auto max-w-[520px] overflow-y-auto bg-background">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-background/95 p-3 backdrop-blur">
+      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-border bg-background/95 p-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur">
         <Button variant="ghost" size="icon" onClick={onBack} aria-label="Volver"><ArrowLeft /></Button>
         <h2 className="font-bold">{title}</h2>
       </header>

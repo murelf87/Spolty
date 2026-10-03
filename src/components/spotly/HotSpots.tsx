@@ -8,7 +8,6 @@ import { VoiceReply, useGate } from "./Voice";
 import { addReport, toggleConfirm, useStore } from "@/lib/store";
 import { fmtDist, hotspots, people, type HotSpot } from "@/lib/sampleData";
 import { LocationOff } from "./Status";
-import { usePos } from "@/lib/preview-context";
 
 /** Tarjeta de Hot Spot para el feed. */
 export function HotSpotCard({ h = hotspots[0]! }: { h?: HotSpot }) {
@@ -31,7 +30,6 @@ export function HotSpotCard({ h = hotspots[0]! }: { h?: HotSpot }) {
 const audios = [["Laura", "0:18", "hace 2 min"], ["Carlos", "0:12", "hace 4 min"], ["Ana", "0:24", "hace 6 min"], ["Javi", "0:09", "hace 8 min"], ["Marta", "0:15", "hace 9 min"]] as const;
 
 export function HotSpotView({ id, onBack }: { id: string; onBack: () => void }) {
-  const pos = usePos();
   const h = hotspots.find((x) => x.id === id) ?? hotspots[0]!;
   const { confirmed, perms, identity } = useStore();
   const app = useApp();
@@ -42,7 +40,7 @@ export function HotSpotView({ id, onBack }: { id: string; onBack: () => void }) 
   const total = h.confirmedBase + (mine ? 1 : 0);
   const photos = [h.img, people[0]!.img, people[1]!.img, people[2]!.img, people[3]!.img, people[4]!.img];
   return (
-    <div className={pos + " inset-0 z-[55] mx-auto flex max-w-[520px] flex-col overflow-hidden bg-black"}>
+    <div className="fixed inset-0 z-[55] mx-auto flex max-w-[520px] flex-col overflow-hidden bg-black">
       {/* Foto fullscreen */}
       <div className="relative w-full bg-black" style={{ aspectRatio: "9/14", maxHeight: "68vh" }}>
         <img src={h.img} alt={h.title} className="h-full w-full object-cover" />

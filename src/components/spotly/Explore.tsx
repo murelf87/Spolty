@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { usePos } from "@/lib/preview-context";
 import { ArrowLeft, BadgeCheck, Camera, Check, Heart, Layers, MapPin, Mic, Navigation, Play, SlidersHorizontal, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -175,9 +174,8 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  const pos = usePos();
   return (
-    <div className={pos + " inset-0 z-50 flex items-end bg-background/70 backdrop-blur-sm"} onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end bg-background/70 backdrop-blur-sm" onClick={onClose}>
       <div className="mx-auto w-full max-w-[520px] rounded-t-3xl border-t border-border bg-card p-5 pb-8" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between"><h3 className="font-bold">{title}</h3><button aria-label="Cerrar" onClick={onClose}><X size={18} /></button></div>
         {children}
@@ -187,11 +185,10 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 }
 
 function PhotoDetail({ p, img, onBack }: { p: Photo; img: string; onBack: () => void }) {
-  const pos = usePos();
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   return (
-    <div className={pos + " inset-0 z-50 mx-auto flex max-w-[520px] flex-col overflow-hidden bg-black"}>
+    <div className="fixed inset-0 z-50 mx-auto flex max-w-[520px] flex-col overflow-hidden bg-black">
       {/* Foto fullscreen */}
       <div className="relative w-full bg-black" style={{ aspectRatio: "9/14", maxHeight: "68vh" }}>
         <img src={img} alt={p.t} className="h-full w-full object-cover" />
@@ -234,10 +231,9 @@ function PhotoDetail({ p, img, onBack }: { p: Photo; img: string; onBack: () => 
 }
 
 function PersonDetail({ p, onBack }: { p: Person; onBack: () => void }) {
-  const pos = usePos();
   const [follow, setFollow] = useState(false);
   return (
-    <div className={pos + " inset-0 z-50 mx-auto max-w-[520px] overflow-y-auto bg-background"}>
+    <div className="fixed inset-0 z-50 mx-auto max-w-[520px] overflow-y-auto bg-background">
       <div className="bg-spot-surface px-4 pb-6 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))] text-center">
         <div className="text-left"><Button variant="ghost" size="icon" aria-label="Volver" onClick={onBack}><ArrowLeft /></Button></div>
         <div className="mx-auto h-24 w-24 rounded-full bg-spot-gradient p-[3px] shadow-glow"><img src={p.image} alt={p.n} className="h-full w-full rounded-full object-cover"/></div>

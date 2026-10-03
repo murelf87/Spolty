@@ -3,7 +3,6 @@ import { ArrowLeft, Film, ImagePlus, Mic, MoreHorizontal, Pause, Play, Plus, Smi
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Shell } from "./Extras";
-import { usePos } from "@/lib/preview-context";
 import lauraPhoto from "@/assets/spotly-laura.jpg";
 import mePhoto from "@/assets/spotly-me.jpg";
 
@@ -33,7 +32,6 @@ function Avatar({ name, mine = false }: { name: string; mine?: boolean }) {
 }
 
 export function VoiceChats({ onBack, onAudioWall }: { onBack: () => void; onAudioWall: () => void }) {
-  const pos = usePos();
   const [chats, setChats] = useState(samples);
   const [open, setOpen] = useState<number | null>(null);
   const [menu, setMenu] = useState<"attach" | "gifs" | "reactions" | "options" | null>(null);
@@ -110,7 +108,7 @@ export function VoiceChats({ onBack, onAudioWall }: { onBack: () => void; onAudi
     </Button>)}</div>
   </Shell>;
 
-  return <div className={pos + " inset-0 z-40 mx-auto flex max-w-[520px] flex-col bg-background text-foreground"}>
+  return <div className="fixed inset-0 z-40 mx-auto flex max-w-[520px] flex-col bg-background text-foreground">
     <header className="shrink-0 border-b border-border px-4 pb-3 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]">
       <div className="flex items-center gap-3"><Button variant="ghost" size="icon" aria-label="Volver a chats" onClick={leaveChat}><ArrowLeft size={20}/></Button><h1 className="min-w-0 flex-1 text-sm font-bold">Chat de voz</h1><Button variant="ghost" size="icon" aria-label="Opciones del chat" onClick={() => setMenu(menu === "options" ? null : "options")}><MoreHorizontal size={20}/></Button></div>
       <div className="mt-1 flex items-center gap-3 pl-2"><Avatar name={selected.name}/><div className="min-w-0"><h2 className="text-sm font-semibold">{selected.name}</h2><p className="text-xs text-muted-foreground">En línea · ejemplo</p></div></div>

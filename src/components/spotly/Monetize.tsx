@@ -3,7 +3,6 @@ import { ArrowLeft, BadgeCheck, Camera, Check, ChevronRight, CircleCheck, Credit
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Shell } from "./Extras";
-import { usePos } from "@/lib/preview-context";
 import sevilleNight from "@/assets/seville-night.jpg";
 import mePhoto from "@/assets/spotly-laura.jpg";
 
@@ -21,7 +20,6 @@ const verificationTiers = [
 ] as const;
 
 export function Verification({ onBack }: { onBack: () => void }) {
-  const pos = usePos();
   const [step, setStep] = useState<"intro" | "method" | "document" | "selfie" | "phone" | "social" | "creator" | "processing" | "complete">("intro");
   const [tier, setTier] = useState(1);
   const [method, setMethod] = useState(0);
@@ -50,7 +48,7 @@ export function Verification({ onBack }: { onBack: () => void }) {
     else setStep("creator");
   };
   const titles = { intro: "Verificación · demostración", method: "¿Cómo quieres verificarte?", document: "Documento · ejemplo", selfie: "Selfie · ejemplo", phone: "Número de teléfono · ejemplo", social: "Redes sociales · ejemplo", creator: "Creador · ejemplo", processing: "Mostrando resultado…", complete: "Demostración completada" };
-  return <div className={`${pos} inset-0 z-50 mx-auto flex w-full max-w-[520px] flex-col bg-background text-foreground`}>
+  return <div className="fixed inset-0 z-50 mx-auto flex w-full max-w-[520px] flex-col bg-background text-foreground">
     <header className="flex shrink-0 items-center gap-2 px-3 pb-2 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]"><Button variant="ghost" size="icon" onClick={goBack} aria-label="Volver"><ArrowLeft size={20}/></Button><h2 className="text-base font-bold">{titles[step]}</h2></header>
     <main className="flex-1 overflow-y-auto px-4 pb-4">
       {step === "intro" && <div className="flex min-h-full flex-col text-center"><div className="mt-4 flex justify-center"><Sparkles size={32} className="text-accent"/></div><h3 className="mt-3 text-2xl font-bold">Verificación Premium</h3><p className="mt-1 text-sm text-muted-foreground">Vista de ejemplo. No verifica tu identidad ni concede distintivos.</p><div className="mx-auto mt-5 w-full max-w-xs space-y-2 text-left">{[[BadgeCheck,"Asterisco verificado en tu perfil"],[TrendingUp,"Más visibilidad y alcance"],[CircleCheck,"Acceso a funciones exclusivas"],[Users,"Mayor confianza de la comunidad"],[ShieldCheck,"Protección frente a suplantaciones"]].map(([Icon,text]) => {const I = Icon as typeof BadgeCheck; return <div key={text as string} className="flex items-center gap-3 text-sm"><I size={17} className="shrink-0 text-primary"/>{text as string}</div>})}</div><div className="mt-7 grid grid-cols-3 gap-2">{verificationTiers.map((item,i)=><Button key={item.name} variant="secondary" onClick={()=>setTier(i)} className={"relative flex h-32 min-w-0 flex-col whitespace-normal rounded-lg border px-1 text-center " + (tier === i ? "border-accent bg-accent/10 shadow-glow" : "border-border bg-card")}><item.icon size={30} className={i === 1 ? "text-accent" : "text-primary"}/><strong className="mt-2 text-xs">{item.name}</strong><small className="mt-1 text-[10px] font-normal text-muted-foreground">{item.description}</small></Button>)}</div><p className="mt-3 text-xs text-muted-foreground">{verificationTiers[tier]?.description}</p><p className="mt-auto pt-5 text-[11px] text-muted-foreground">Vista de ejemplo · ningún documento ni dato se envía</p></div>}

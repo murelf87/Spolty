@@ -138,6 +138,8 @@
 :root.light .bg-spot-gradient, :root.light .spot-active-pill { color: oklch(0.995 0 0); }
 :root.light .boost-reference { background: var(--background); }
 :root.light .spot-create-button { border-color: var(--card); }
+/* Toasts de sonner con los colores de la app en ambos temas (su CSS va sin capas y ganaría a las utilidades). */
+:root [data-sonner-toaster][data-sonner-theme] { --normal-bg: var(--card); --normal-border: var(--border); --normal-text: var(--card-foreground); }
 
 
 

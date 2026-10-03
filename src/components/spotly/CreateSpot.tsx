@@ -3,7 +3,6 @@ import { Camera, Check, ChevronLeft, Flame, Ghost, Headphones, ImageIcon, MapPin
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Toggle, Trust } from "./kit";
-import { usePos } from "@/lib/preview-context";
 import { Wave, type MineSpot } from "./Feed";
 import { BoostFlow } from "./BoostFlow";
 import { IncognitoSheet } from "./Incognito";
@@ -26,7 +25,6 @@ type Key = keyof typeof opts;
 const fmtSecs = (s: number) => `0:${String(s).padStart(2, "0")}`;
 
 export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPublished: (m: NonNullable<MineSpot>) => void }) {
-  const pos = usePos();
   const app = useApp();
   const { incognito, credits } = useStore();
   const [broadcast, setBroadcast] = useState(false);
@@ -80,7 +78,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
       boosted ? "Impulsado: más distribución, sin visitas garantizadas" : "Publicar es gratis. Puedes impulsarlo más tarde",
       "Puede llegar a ser un Hot Spot si otras personas lo confirman",
     ];
-    return <div className={pos + " inset-0 z-50 flex flex-col overflow-y-auto bg-background px-6 pb-10 pt-[max(5rem,calc(env(safe-area-inset-top)+2rem))] text-center"}>
+    return <div className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background px-6 pb-10 pt-[max(5rem,calc(env(safe-area-inset-top)+2rem))] text-center">
       <div className="mx-auto grid h-24 w-24 shrink-0 place-items-center rounded-full bg-spot-gradient shadow-glow"><Check size={46} /></div>
       <h2 className="mt-7 text-3xl font-bold">¡Publicado!</h2><p className="mt-2 text-sm text-muted-foreground">Tu Spot ya está en Spotly</p>
       <div className="mx-auto mt-8 w-full max-w-sm space-y-3 text-left text-sm">{list.map((x) => <p key={x} className="flex items-center gap-3"><Check size={16} className="shrink-0 text-primary" />{x}</p>)}</div>
@@ -92,7 +90,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
 
   if (boostOpen) return <BoostFlow preview={hasMedia ? valenciaSunset : undefined} onBack={() => setBoostOpen(false)} onDone={(b) => { setBoostOpen(false); if (b) { setBoosted(true); toast.success("Impulso añadido a tu Spot"); publish(); } else publish(); }} />;
 
-  return <div className={pos + " inset-0 z-40 overflow-y-auto bg-background"}>
+  return <div className="fixed inset-0 z-40 overflow-y-auto bg-background">
     <header className="sticky top-0 z-10 flex items-center justify-between bg-background/95 px-3 pb-3 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))] backdrop-blur">
       <Button variant="ghost" size="icon" onClick={step === 0 ? onClose : () => setStep((s) => s - 1)} aria-label={step === 0 ? "Cerrar" : "Volver"}>{step === 0 ? <X /> : <ChevronLeft />}</Button>
       <h2 className="font-bold">{step === 3 ? "Tu Spot está listo" : ""}</h2><span className="w-10" />
@@ -224,7 +222,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
         <p className="mt-2 text-center text-[11px] text-muted-foreground">Publicar, ser descubierto y hacerte viral es gratis.</p>
       </>}
 
-      {pick && <div className={pos + " inset-0 z-[60] flex items-end bg-background/70 backdrop-blur-sm"} onClick={() => setPick(null)}><div className="mx-auto w-full max-w-[520px] space-y-1 rounded-t-3xl border-t border-border bg-card p-4 pb-8" onClick={(e) => e.stopPropagation()}>
+      {pick && <div className="fixed inset-0 z-[60] flex items-end bg-background/70 backdrop-blur-sm" onClick={() => setPick(null)}><div className="mx-auto w-full max-w-[520px] space-y-1 rounded-t-3xl border-t border-border bg-card p-4 pb-8" onClick={(e) => e.stopPropagation()}>
         <h3 className="px-4 pb-2 font-bold">{titles[pick]}</h3>
         {opts[pick].map((o, i) => <Button key={o} variant="ghost" onClick={() => { setSel({ ...sel, [pick]: i }); setPick(null); }} className="flex h-auto w-full items-center justify-between rounded-lg px-4 py-3 text-left text-sm text-foreground">{o}{sel[pick] === i && <Check size={16} className="text-primary" />}</Button>)}</div></div>}
       {incogOpen && <IncognitoSheet onClose={() => setIncogOpen(false)} />}

@@ -10,7 +10,6 @@ import { SpainMap, spainCities } from "./SpainMap";
 import { PlaceBrowser } from "./Places";
 import { isCapital, municipiosOf, norm, provinceOfPlace, searchPlaces, type Province } from "@/lib/geo";
 import { toggleFollow, useStore } from "@/lib/store";
-import { usePos } from "@/lib/preview-context";
 import festival from "@/assets/spotly-sevilla-festival.jpg";
 import stage from "@/assets/spotly-live-stage.jpg";
 import beach from "@/assets/spotly-beach-club.jpg";
@@ -297,7 +296,6 @@ function FiltersSheet({ value, onClose, onApply }: { value: Filters; onClose: ()
 
 /* ---------- Detalle de foto (lámina 12) ---------- */
 function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; onMore: (t: string) => void }) {
-  const pos = usePos();
   const { following } = useStore();
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -311,7 +309,7 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
     try { if (navigator.share) { await navigator.share({ title: p.caption, url: `https://spotly.app/foto/${p.id}` }); return; } await navigator.clipboard?.writeText(`https://spotly.app/foto/${p.id}`); toast("Enlace copiado"); } catch { toast("Enlace copiado"); }
   };
   return (
-    <div className={pos + " inset-0 z-[62] mx-auto flex max-w-[520px] flex-col overflow-hidden bg-black"}>
+    <div className="fixed inset-0 z-[62] mx-auto flex max-w-[520px] flex-col overflow-hidden bg-black">
       {/* Foto fullscreen */}
       <div className="relative w-full flex-1 bg-black" style={{ maxHeight: "68vh" }}>
         <img src={p.img} alt={p.caption} className="h-full w-full object-cover" style={{ aspectRatio: "9/14" }} />

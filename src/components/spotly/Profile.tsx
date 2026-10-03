@@ -3,7 +3,6 @@ import { ArrowLeft, BadgeCheck, Bookmark, Calendar, Heart, Lock, Store, Users, W
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Shell, type Sheet } from "./Extras";
-import { usePos } from "@/lib/preview-context";
 import sevilleNight from "@/assets/seville-night.jpg";
 import valenciaSunset from "@/assets/valencia-sunset.jpg";
 
@@ -84,11 +83,10 @@ export function ProfileView({ onOpen, accountEmail }: { onOpen: (s: Sheet) => vo
 }
 
 function EditProfile({ me, onSave, onClose }: { me: { name: string; user: string; bio: string }; onSave: (v: typeof me) => void; onClose: () => void }) {
-  const pos = usePos();
   const [v, setV] = useState(me);
   const [rec, setRec] = useState(false);
   return (
-    <div className={pos + " inset-0 z-50 mx-auto max-w-[520px] overflow-y-auto bg-background p-4"}>
+    <div className="fixed inset-0 z-50 mx-auto max-w-[520px] overflow-y-auto bg-background p-4">
       <div className="flex items-center justify-between"><button aria-label="Cerrar" onClick={onClose}><X /></button><h2 className="font-bold">Editar perfil</h2><Button size="sm" onClick={() => onSave(v)}>Guardar</Button></div>
       <div className="mx-auto mt-6 grid h-24 w-24 place-items-center rounded-full bg-spot-gradient text-3xl font-bold">{v.name[0] || "?"}</div>
       {(["name", "user", "bio"] as const).map((k) => (
@@ -102,7 +100,6 @@ function EditProfile({ me, onSave, onClose }: { me: { name: string; user: string
 }
 
 function SettingsScreen({ onBack, onOpen, accountEmail }: { onBack: () => void; onOpen: (s: Sheet) => void; accountEmail: string | null }) {
-  const pos = usePos();
   const queryClient = useQueryClient();
   const [t, setT] = useState(() => ({ notif: true, auto: true, dark: typeof document === "undefined" || !document.documentElement.classList.contains("light") }));
   const [help, setHelp] = useState(false); const [out, setOut] = useState(false); const [del, setDel] = useState(false);
@@ -138,8 +135,8 @@ function SettingsScreen({ onBack, onOpen, accountEmail }: { onBack: () => void; 
       <p className="mt-4 text-center text-xs text-muted-foreground">{accountEmail ? `Sesión iniciada: ${accountEmail}` : "Explorando la demostración sin cuenta"}</p>
       <Button variant="outline" className="mt-2 w-full" onClick={() => setOut(true)}>{accountEmail ? "Cerrar sesión" : "Entrar con Apple o Google"}</Button>
       {help && <Help onBack={() => setHelp(false)} />}
-      {del && <div className={pos + " inset-0 z-50 grid place-items-center bg-background/70 p-6 backdrop-blur-sm"} onClick={() => setDel(false)}><div className="w-full max-w-xs rounded-2xl border border-border bg-card p-5 text-center" onClick={e => e.stopPropagation()}><h3 className="font-bold">Eliminar cuenta</h3><p className="mt-1 text-sm text-muted-foreground">Esta opción aún no está disponible. No se ha enviado ninguna solicitud de eliminación.</p><Button className="mt-5 w-full bg-live text-primary-foreground" onClick={() => { setDel(false); }}>Volver</Button><Button variant="ghost" className="mt-2 w-full" onClick={() => setDel(false)}>Cancelar</Button></div></div>}
-      {out && <div className={pos + " inset-0 z-50 grid place-items-center bg-background/70 p-6 backdrop-blur-sm"} onClick={() => setOut(false)}><div className="w-full max-w-xs rounded-2xl border border-border bg-card p-5 text-center" onClick={e => e.stopPropagation()}><h3 className="font-bold">{accountEmail ? "¿Cerrar sesión?" : "Entrar en Spotly"}</h3><p className="mt-1 text-sm text-muted-foreground">{accountEmail ? "Volverás a la pantalla de bienvenida." : "Podrás acceder con Apple o Google."}</p><Button className="mt-5 w-full" onClick={async () => { if (accountEmail) { await queryClient.cancelQueries(); queryClient.clear(); const { error } = await supabase.auth.signOut(); if (error) { toast.error("No se pudo cerrar sesión"); return; } } else window.location.reload(); setOut(false); }}>{accountEmail ? "Cerrar sesión" : "Ir al acceso"}</Button><Button variant="ghost" className="mt-2 w-full" onClick={() => setOut(false)}>Cancelar</Button></div></div>}
+      {del && <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-6 backdrop-blur-sm" onClick={() => setDel(false)}><div className="w-full max-w-xs rounded-2xl border border-border bg-card p-5 text-center" onClick={e => e.stopPropagation()}><h3 className="font-bold">Eliminar cuenta</h3><p className="mt-1 text-sm text-muted-foreground">Esta opción aún no está disponible. No se ha enviado ninguna solicitud de eliminación.</p><Button className="mt-5 w-full bg-live text-primary-foreground" onClick={() => { setDel(false); }}>Volver</Button><Button variant="ghost" className="mt-2 w-full" onClick={() => setDel(false)}>Cancelar</Button></div></div>}
+      {out && <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-6 backdrop-blur-sm" onClick={() => setOut(false)}><div className="w-full max-w-xs rounded-2xl border border-border bg-card p-5 text-center" onClick={e => e.stopPropagation()}><h3 className="font-bold">{accountEmail ? "¿Cerrar sesión?" : "Entrar en Spotly"}</h3><p className="mt-1 text-sm text-muted-foreground">{accountEmail ? "Volverás a la pantalla de bienvenida." : "Podrás acceder con Apple o Google."}</p><Button className="mt-5 w-full" onClick={async () => { if (accountEmail) { await queryClient.cancelQueries(); queryClient.clear(); const { error } = await supabase.auth.signOut(); if (error) { toast.error("No se pudo cerrar sesión"); return; } } else window.location.reload(); setOut(false); }}>{accountEmail ? "Cerrar sesión" : "Ir al acceso"}</Button><Button variant="ghost" className="mt-2 w-full" onClick={() => setOut(false)}>Cancelar</Button></div></div>}
     </Shell>
   );
 }

@@ -3,7 +3,6 @@ import { Bell, Camera, Download, MapPin, Mic, Monitor, Moon, Smartphone, Sun, Wi
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Screen, StateCard, Toggle, Trust } from "./kit";
-import { usePos } from "@/lib/preview-context";
 import { setOffline, setPerm, useStore } from "@/lib/store";
 import { useInstall } from "@/lib/pwa";
 
@@ -14,11 +13,10 @@ export function LocationOff({ compact }: { compact?: boolean }) {
 
 /** Aviso global sin conexión. */
 export function OfflineBanner() {
-  const pos = usePos();
   const { offline } = useStore();
   if (!offline) return null;
   return (
-    <div role="alert" className={pos + " inset-x-0 top-0 z-[90] mx-auto flex max-w-[520px] items-center gap-2 bg-live px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-xs font-semibold text-foreground"}>
+    <div role="alert" className="fixed inset-x-0 top-0 z-[90] mx-auto flex max-w-[520px] items-center gap-2 bg-live px-4 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-xs font-semibold text-foreground">
       <WifiOff size={14} /><span className="flex-1">Sin conexión. Verás lo último que cargó; publicar y pagar no está disponible.</span>
       <button className="rounded-full bg-background/30 px-3 py-1" onClick={() => { setOffline(false); toast.success("Conexión recuperada"); }}>Reintentar</button>
     </div>

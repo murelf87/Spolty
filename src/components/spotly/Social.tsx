@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { usePos } from "@/lib/preview-context";
 import { BadgeCheck, Bookmark, Calendar, CheckCircle2, ChevronLeft, Eye, EyeOff, Flame, Heart, MapPin, Navigation, Pause, Play, Mic, Music, Radio, Share2, ShieldCheck, Sparkles, Trophy, Users, Utensils } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,12 +19,11 @@ const communities = [
 ];
 
 function LiveRoom({ room, onLeave }: { room: string; onLeave: () => void }) {
-  const pos = usePos();
   const [hand, setHand] = useState(false);
   const [muted, setMuted] = useState(true);
   const [speaking, setSpeaking] = useState(false);
   return (
-    <div className={pos + " inset-0 z-[60] flex flex-col bg-background"}>
+    <div className="fixed inset-0 z-[60] flex flex-col bg-background">
       <header className="flex items-center justify-between border-b border-border p-4">
         <div><span className="rounded bg-live px-2 py-0.5 text-[10px] font-bold">● EN DIRECTO</span><h2 className="mt-1 font-bold">{room}</h2><small className="text-muted-foreground">24 escuchando</small></div>
         <Button variant="outline" size="sm" onClick={onLeave}>Salir</Button>
@@ -160,7 +158,6 @@ const events = [
 ];
 
 export function Events({ onBack }: { onBack: () => void }) {
-  const pos = usePos();
   const [filter, setFilter] = useState("Hoy");
   const [going, setGoing] = useState<string[]>([]);
   const [detail, setDetail] = useState<(typeof events)[number] | null>(null);
@@ -169,7 +166,7 @@ export function Events({ onBack }: { onBack: () => void }) {
   if (detail) {
     const isGoing = going.includes(detail.title);
     return (
-      <div className={pos + " inset-0 z-[60] mx-auto flex max-w-[520px] flex-col overflow-hidden bg-black"}>
+      <div className="fixed inset-0 z-[60] mx-auto flex max-w-[520px] flex-col overflow-hidden bg-black">
         {/* Foto fullscreen */}
         <div className="relative w-full bg-black" style={{ aspectRatio: "9/14", maxHeight: "68vh" }}>
           <img src={detail.img} alt={detail.title} className="h-full w-full object-cover" />
@@ -272,7 +269,6 @@ const places = [
 ];
 
 export function CityWall({ onBack, mine = false }: { onBack: () => void; mine?: boolean }) {
-  const pos = usePos();
   const [place, setPlace] = useState(places[0]!);
   const [tab, setTab] = useState("Todos");
   const [selectingCity, setSelectingCity] = useState(false);
@@ -280,7 +276,7 @@ export function CityWall({ onBack, mine = false }: { onBack: () => void; mine?: 
   const cityPhotos = [festival, valenciaSunset, sevilleNight, stage, beach, festival, valenciaSunset, sevilleNight, stage, beach, festival, valenciaSunset];
   const photoCounts = ["1,2K", "842", "1,1K", "654", "854", "376", "924", "563", "717", "623", "448", "302"];
   return (
-    <div className={pos + " inset-0 z-40 mx-auto max-w-[520px] overflow-y-auto bg-background pb-20"}>
+    <div className="fixed inset-0 z-40 mx-auto max-w-[520px] overflow-y-auto bg-background pb-20">
       <header className="flex items-center gap-2 px-4 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]"><Button size="icon" variant="ghost" onClick={onBack} aria-label="Volver"><ChevronLeft /></Button><div><h1 className="text-xl font-bold">{place.name}</h1><p className="text-xs text-muted-foreground">{place.name === "Sevilla" ? "124K Spots · 83K personas" : `${place.people} Spots · ${place.people} personas`}</p></div><Button variant="ghost" size="sm" className="ml-auto text-xs" onClick={() => setSelectingCity(true)} aria-label="Elegir ciudad">⌄</Button></header>
       <div className="mt-5 flex gap-1.5 overflow-x-auto px-4 pb-2">
         {["Todos", "Fotos", "Vídeos", "Voz", "En directo"].map((t) => <Button key={t} size="sm" variant={tab === t ? "default" : "secondary"} onClick={() => setTab(t)} className={`shrink-0 rounded-full text-xs ${tab === t ? "spot-active-pill" : ""}`}>{t}</Button>)}
@@ -289,8 +285,8 @@ export function CityWall({ onBack, mine = false }: { onBack: () => void; mine?: 
         {mine && place.name === "Sevilla" && <Button variant="ghost" onClick={() => setSelectedSpot(-1)} className="relative h-auto overflow-hidden rounded-lg p-0"><img src={valenciaSunset} alt="Tu Spot" className="aspect-[3/4] w-full object-cover" /><span className="absolute left-1 top-1 rounded bg-live px-1 text-[9px] font-bold text-primary-foreground">TÚ · NUEVO</span></Button>}
         {cityPhotos.filter((_, i) => tab !== "En directo" || i % 3 === 0).filter((_, i) => tab !== "Voz" || i % 2 === 0).map((img, i) => <Button key={`${tab}-${i}`} variant="ghost" onClick={() => setSelectedSpot(i)} className="relative h-auto overflow-hidden rounded-lg border border-border p-0"><img src={place.name === "Sevilla" ? img : i % 3 === 0 ? place.img : img} alt={`Spot ${i + 1} en ${place.name}`} loading="lazy" className="aspect-[3/4] w-full object-cover" /><span className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-gradient-to-t from-background/90 to-transparent px-1.5 pb-1 pt-6 text-[10px]"><Heart size={11} fill="currentColor" className="text-live" />{photoCounts[i]} <Mic size={10} className="ml-auto" /></span></Button>)}
       </div>
-      {selectingCity && <div className={pos + " inset-0 z-50 flex items-end bg-background/80"} onClick={() => setSelectingCity(false)}><div className="w-full rounded-t-xl bg-card p-4 pb-10" onClick={(e) => e.stopPropagation()}><p className="mb-3 text-sm font-bold">Ciudades y pueblos</p>{places.map((p) => <Button key={p.name} variant={p.name === place.name ? "default" : "ghost"} onClick={() => { setPlace(p); setTab("Todos"); setSelectingCity(false); }} className="mb-1 w-full justify-start">{p.name}</Button>)}</div></div>}
-      {selectedSpot !== null && <div className={pos + " inset-0 z-50 flex items-end bg-background/80"} onClick={() => setSelectedSpot(null)}><div className="mx-auto w-full max-w-[520px] rounded-t-2xl border-t border-primary bg-card p-4 pb-8" onClick={(e) => e.stopPropagation()}><img src={selectedSpot === -1 ? valenciaSunset : cityPhotos[selectedSpot % cityPhotos.length]} alt="Spot seleccionado" className="aspect-video w-full rounded-lg object-cover" /><p className="mt-3 font-semibold">{selectedSpot === -1 ? "Tu Spot" : `Spot en ${place.name}`}</p><p className="text-xs text-muted-foreground">{place.name} · Hace 5 min</p><div className="mt-3 flex gap-2"><Button onClick={() => toast("Reproduciendo Spot de voz")}><Mic size={16} />Escuchar Spot</Button><Button variant="secondary" onClick={() => setSelectedSpot(null)}>Cerrar</Button></div></div></div>}
+      {selectingCity && <div className="fixed inset-0 z-50 flex items-end bg-background/80" onClick={() => setSelectingCity(false)}><div className="w-full rounded-t-xl bg-card p-4 pb-10" onClick={(e) => e.stopPropagation()}><p className="mb-3 text-sm font-bold">Ciudades y pueblos</p>{places.map((p) => <Button key={p.name} variant={p.name === place.name ? "default" : "ghost"} onClick={() => { setPlace(p); setTab("Todos"); setSelectingCity(false); }} className="mb-1 w-full justify-start">{p.name}</Button>)}</div></div>}
+      {selectedSpot !== null && <div className="fixed inset-0 z-50 flex items-end bg-background/80" onClick={() => setSelectedSpot(null)}><div className="mx-auto w-full max-w-[520px] rounded-t-2xl border-t border-primary bg-card p-4 pb-8" onClick={(e) => e.stopPropagation()}><img src={selectedSpot === -1 ? valenciaSunset : cityPhotos[selectedSpot % cityPhotos.length]} alt="Spot seleccionado" className="aspect-video w-full rounded-lg object-cover" /><p className="mt-3 font-semibold">{selectedSpot === -1 ? "Tu Spot" : `Spot en ${place.name}`}</p><p className="text-xs text-muted-foreground">{place.name} · Hace 5 min</p><div className="mt-3 flex gap-2"><Button onClick={() => toast("Reproduciendo Spot de voz")}><Mic size={16} />Escuchar Spot</Button><Button variant="secondary" onClick={() => setSelectedSpot(null)}>Cerrar</Button></div></div></div>}
     </div>
   );
 }
@@ -299,7 +295,6 @@ export function CityWall({ onBack, mine = false }: { onBack: () => void; mine?: 
 const suggestions = ["Dónde hay música en directo esta noche", "Sitios tranquilos cerca del río", "Qué está pasando ahora en Triana"];
 
 export function VoiceSearch({ onBack }: { onBack: () => void }) {
-  const pos = usePos();
   const [openR, setOpenR] = useState<{ t: string; d: string } | null>(null); const [playR, setPlayR] = useState(false);
   const [kind, setKind] = useState<"Lugares" | "Creadores">("Lugares");
   const [onlyVerified, setOnlyVerified] = useState(false);
@@ -354,7 +349,7 @@ export function VoiceSearch({ onBack }: { onBack: () => void }) {
           </div>
         </>
       )}
-      {openR && <div className={pos + " inset-0 z-50 flex items-end bg-background/70 backdrop-blur-sm"} onClick={() => { setOpenR(null); setPlayR(false); }}><div className="mx-auto w-full max-w-[520px] rounded-t-3xl border-t border-border bg-card p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+      {openR && <div className="fixed inset-0 z-50 flex items-end bg-background/70 backdrop-blur-sm" onClick={() => { setOpenR(null); setPlayR(false); }}><div className="mx-auto w-full max-w-[520px] rounded-t-3xl border-t border-border bg-card p-5 pb-8" onClick={(e) => e.stopPropagation()}>
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted" />
         <h3 className="text-lg font-bold">{openR.t}</h3><p className="text-sm text-muted-foreground">{openR.d}</p>
         {kind === "Creadores" ? <><p className="mt-3 text-xs text-muted-foreground">Presentación de voz · ejemplo</p><Button variant="secondary" onClick={() => setPlayR(!playR)} className="mt-2 w-full justify-start"><span className="text-primary">{playR ? <Pause size={16}/> : <Play size={16}/>}</span>{playR ? "Pausar presentación" : "Escuchar presentación"}</Button><div className="mt-4 grid grid-cols-2 gap-2"><Button variant="secondary" onClick={() => toast("Seguimiento de ejemplo")}>Seguir</Button><Button onClick={() => toast("Mensaje de voz de ejemplo")}><Mic size={16}/>Mensaje de voz</Button></div></> : <><Button variant="secondary" onClick={() => setPlayR(!playR)} className="mt-4 w-full justify-start"><span className="text-primary">{playR ? <Pause size={16}/> : <Play size={16}/>}</span>{playR ? "Pausar ejemplo" : "Escuchar lo que se dice ahí"}</Button><div className="mt-4 grid grid-cols-2 gap-2"><Button variant="outline" onClick={() => toast("Ruta de ejemplo en el mapa")}><MapPin size={16} />Cómo llegar</Button><Button onClick={() => toast("Respuesta de voz de ejemplo")}><Mic size={16} />Responder</Button></div></>}

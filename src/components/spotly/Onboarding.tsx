@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "./Logo";
 import { BottomSheet } from "./kit";
 import { PlaceBrowser } from "./Places";
-import { usePos } from "@/lib/preview-context";
 
 const interests = [["Música", Music], ["Deportes", Trophy], ["Gastronomía", Utensils], ["Viajes", Plane], ["Cultura", Landmark], ["Naturaleza", Trees], ["Arte", Palette], ["Fiestas", PartyPopper], ["Tecnología", Cpu], ["Mascotas", PawPrint], ["Cine", Clapperboard], ["Planes", Heart]] as const;
 /* Lámina 2: 3×3 de losetas de neón; forma (círculo / cuadrado redondeado) y color alternos. */
@@ -40,7 +39,6 @@ function CityAvatar({ name, size = 40 }: { name: string; size?: number }) {
 const modes = [["Personal", "Descubre y comparte lo que pasa", User], ["Creador", "Haz crecer tu audiencia local", Users], ["Negocio", "Ofertas de voz y Panel Local", Store]] as const;
 
 export function Onboarding({ onDone, onBack }: { onDone: () => void; onBack?: (() => void) | undefined }) {
-  const pos = usePos();
   const [s, setS] = useState(0);
   const [picked, setPicked] = useState<string[]>([]);
   const [ok, setOk] = useState<string[]>([]);
@@ -69,7 +67,7 @@ export function Onboarding({ onDone, onBack }: { onDone: () => void; onBack?: ((
   const shown = cities.includes(city) ? cities : [city, ...cities];
 
   return (
-    <div className={pos + " inset-0 z-50 mx-auto flex max-w-[520px] flex-col overflow-hidden bg-background px-5 pb-6 pt-5"}>
+    <div className="fixed inset-0 z-50 mx-auto flex max-w-[520px] flex-col overflow-hidden bg-background px-5 pb-6 pt-5">
       {s === 0 ? (
         <div className="flex items-center justify-between">
           <button aria-label="Atrás" onClick={() => onBack?.()} className={onBack ? "" : "invisible"}><ChevronLeft /></button>

@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { ArrowLeft, Bookmark, Check, ChevronRight, Heart, ListMusic, MapPin, Mic, MoreHorizontal, Pause, Play, RotateCcw, RotateCw, Share2, UserPlus, X, AlignJustify, Music, Map, Flag, BellOff, Navigation } from "lucide-react";
 import { toast } from "sonner";
 import { NewFollowers } from "./LocalAd";
-import { usePos } from "@/lib/preview-context";
 import { VoiceReply } from "./Voice";
 import { Button } from "@/components/ui/button";
 import festival from "@/assets/spotly-sevilla-festival.jpg";
@@ -93,7 +92,6 @@ function AudioCommentRow({ c, playing, onPlay }: { c: typeof AUDIO_COMMENTS[0]; 
 
 /* ── Sheet de opciones (columna central del mockup) ── */
 function OptionsSheet({ onClose, city, name }: { onClose: () => void; city: string; name: string }) {
-  const pos = usePos();
   const items = [
     { icon: <AlignJustify size={19} />, label: "Descripción de este sonido" },
     { icon: <Bookmark size={19} />,     label: "Guardar en mis sonidos" },
@@ -104,7 +102,7 @@ function OptionsSheet({ onClose, city, name }: { onClose: () => void; city: stri
     { icon: <BellOff size={19} />,      label: `Silenciar a ${name}` },
   ];
   return (
-    <div className={pos + " inset-0 z-[70]"} onClick={onClose}>
+    <div className="fixed inset-0 z-[70]" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
       <div className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-card" onClick={e => e.stopPropagation()}>
         {/* handle */}
@@ -129,11 +127,10 @@ function OptionsSheet({ onClose, city, name }: { onClose: () => void; city: stri
 
 /* ── Panel comentarios (columna derecha del mockup) ── */
 function CommentsPanel({ onClose }: { onClose: () => void }) {
-  const pos = usePos();
   const [playing, setPlaying] = useState<string | null>(null);
   const [replying, setReplying] = useState(false);
   return (
-    <div className={pos + " inset-0 z-[70]"} onClick={onClose}>
+    <div className="fixed inset-0 z-[70]" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
       <div className="absolute inset-x-0 bottom-0 h-[90vh] rounded-t-3xl bg-card flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         {/* handle */}
@@ -187,7 +184,6 @@ function CommentsPanel({ onClose }: { onClose: () => void }) {
 export type SpotInfo = { name: string; city: string; ago: string; text: string; img: string; dur: string; dist: string };
 
 export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () => void; onAuthor: () => void }) {
-  const pos = usePos();
   const [playing,     setPlaying]     = useState(false);
   const [progress,    setProgress]    = useState(0);
   const [liked,       setLiked]       = useState(false);
@@ -210,7 +206,7 @@ export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () 
   const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
   return (
-    <div className={pos + " inset-0 z-50 overflow-y-auto bg-background"}>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
       {/* ── FOTO con acciones laterales ── */}
       <div className="relative w-full bg-black" style={{ aspectRatio: "9/14", maxHeight: "68vh" }}>
         <img src={s.img} alt={s.text} className="h-full w-full object-cover" />
@@ -408,7 +404,7 @@ export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () 
       </div>
 
       {/* ── FOOTER FIJO ── */}
-      <div className={pos + " inset-x-0 bottom-0 z-10 bg-card/95 backdrop-blur border-t border-border px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3"}>
+      <div className="fixed inset-x-0 bottom-0 z-10 bg-card/95 backdrop-blur border-t border-border px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
         <div className="flex items-center gap-3">
           <img src={mePhoto} alt="Tú" className="h-9 w-9 rounded-full object-cover shrink-0" />
           <button onClick={() => setReplying(true)}
@@ -431,13 +427,12 @@ export function SpotDetail({ s, onClose, onAuthor }: { s: SpotInfo; onClose: () 
 
 /* ── AuthorProfile ── */
 export function AuthorProfile({ name, onClose }: { name: string; onClose: () => void }) {
-  const pos = usePos();
   const [follow, setFollow] = useState(false);
   const [play,   setPlay]   = useState(false);
   const [list,   setList]   = useState(false);
   if (list) return <NewFollowers onClose={() => setList(false)} />;
   return (
-    <div className={pos + " inset-0 z-[60] overflow-y-auto bg-background pb-10"}>
+    <div className="fixed inset-0 z-[60] overflow-y-auto bg-background pb-10">
       <div className="relative h-40">
         <img src={stage} alt="" className="h-full w-full object-cover" />
         <span className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />

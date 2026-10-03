@@ -151,7 +151,7 @@ export function Index() {
         {onb && <Onboarding onBack={() => { setOnb(false); setWelcome(true); }} onDone={() => { setOnb(false); void supabase.auth.updateUser({ data: { onboarded: true } }).catch(() => undefined); if (getState().identity !== "approved") setSheet("verificacion"); }} />}
         {recovery && <NewPassword mode="recovery" onDone={() => setRecovery(false)} />}
         <OfflineBanner />
-        <Toaster />
+        <Toaster mobileOffset={{ top: "calc(env(safe-area-inset-top) + 10px)", bottom: "calc(env(safe-area-inset-bottom) + 84px)" }} />
       </div>
     </AppCtx.Provider>
   );

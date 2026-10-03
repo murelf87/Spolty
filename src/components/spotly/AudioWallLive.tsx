@@ -2,7 +2,6 @@ import { useState } from "react";
 import { ArrowLeft, Headphones, MapPin, Mic, MicOff, Radio, Search, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import portraits from "@/assets/audio-wall-portraits.jpg";
-import { usePos } from "@/lib/preview-context";
 
 type Filter = "En directo" | "Cerca" | "Tendencias";
 
@@ -17,7 +16,6 @@ function Portrait({ person, className = "" }: { person: number; className?: stri
 }
 
 export function AudioWallLive({ onBack }: { onBack: () => void }) {
-  const pos = usePos();
   const [filter, setFilter] = useState<Filter>("En directo");
   const [joined, setJoined] = useState(false);
   const [muted, setMuted] = useState(true);
@@ -26,7 +24,7 @@ export function AudioWallLive({ onBack }: { onBack: () => void }) {
   const room = rooms[filter];
   const visible = !query || `${room.title} ${room.area}`.toLocaleLowerCase("es").includes(query.toLocaleLowerCase("es"));
 
-  return <div className={pos + " inset-0 z-50 mx-auto flex w-full max-w-[520px] flex-col overflow-y-auto bg-background px-2 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))] text-foreground"}>
+  return <div className="fixed inset-0 z-50 mx-auto flex w-full max-w-[520px] flex-col overflow-y-auto bg-background px-2 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))] text-foreground">
     <div className="mb-2 px-4 text-[11px] font-bold uppercase text-primary">Audio Wall (en directo)</div>
     <div className="audio-wall-frame flex flex-col rounded-[24px] p-3">
       <header className="grid h-9 shrink-0 grid-cols-[36px_1fr_36px] items-center">
