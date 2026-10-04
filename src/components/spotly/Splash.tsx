@@ -59,19 +59,19 @@ export function Splash({ onDone, duration = 3800, waitFor = true }: { onDone: ()
           <BigPin />
         </div>
         <div className="spot-rise mt-4" style={{ animationDelay: ".55s" }}><Logo className="spot-logo-glow origin-center scale-[2.5]" /></div>
-        <p className="spot-rise spot-shimmer mt-10 text-[13px] font-semibold uppercase tracking-[0.2em]" style={{ animationDelay: "1.1s" }}>Less typing. More talking.</p>
-        <p className="spot-rise mt-7 bg-gradient-to-r from-primary via-accent to-[var(--spot-fuchsia)] bg-clip-text text-[17px] font-semibold uppercase leading-snug tracking-wide text-transparent" style={{ animationDelay: "1.5s" }}>Tu ciudad. Tu voz.<br />En tiempo real.</p>
+        <p className="spot-rise spot-shimmer mt-10 text-[0.8125rem] font-semibold uppercase tracking-[0.2em]" style={{ animationDelay: "1.1s" }}>Less typing. More talking.</p>
+        <p className="spot-rise mt-7 bg-gradient-to-r from-primary via-accent to-[var(--spot-fuchsia)] bg-clip-text text-[1.0625rem] font-semibold uppercase leading-snug tracking-wide text-transparent" style={{ animationDelay: "1.5s" }}>Tu ciudad. Tu voz.<br />En tiempo real.</p>
       </div>
 
       <div className="relative z-10 mt-auto grid w-full grid-cols-5 gap-1 px-4 pb-[max(2.5rem,calc(env(safe-area-inset-bottom)+1.5rem))]">
         {items.map(([I, l], i) => (
           <div key={l} className="spot-pop flex flex-col items-center gap-2" style={{ animationDelay: `${1.9 + i * 0.13}s` }}>
             <span className="spot-float grid h-14 w-14 place-items-center rounded-full border-2 bg-background/60 backdrop-blur" style={{ borderColor: i % 2 ? "var(--spot-fuchsia)" : "var(--primary)", boxShadow: `0 0 14px ${i % 2 ? "var(--spot-fuchsia)" : "var(--primary)"}55`, animationDelay: `${i * 0.35}s` }}><I size={22} style={{ color: i % 2 ? "var(--spot-fuchsia)" : "var(--primary)" }} /></span>
-            <span className="text-[11px] font-semibold">{l}</span>
+            <span className="text-2xs font-semibold">{l}</span>
           </div>
         ))}
       </div>
-      <p className="spot-blink absolute inset-x-0 bottom-3 text-center text-[10px] text-muted-foreground">Toca para continuar</p>
+      <p className="spot-blink absolute inset-x-0 bottom-3 text-center text-3xs text-muted-foreground">Toca para continuar</p>
     </div>
   );
 }

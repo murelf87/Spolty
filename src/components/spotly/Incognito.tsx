@@ -13,7 +13,7 @@ import sevilleNight from "@/assets/seville-night.jpg";
 const expireOptions = [["keep", "Conservan el anonimato"], ["archive", "Se archivan"], ["hide", "Dejan de estar disponibles"]] as const;
 
 /** Configurar, activar, gestionar y extender el Incógnito. */
-export function IncognitoSheet({ onClose }: { onClose: () => void }) {
+export function IncognitoSheet({ onClose, z = 65 }: { onClose: () => void; z?: number }) {
   const { incognito: inc } = useStore();
   const app = useApp();
   const now = useNow();
@@ -26,7 +26,7 @@ export function IncognitoSheet({ onClose }: { onClose: () => void }) {
   const buyOpt = buy ? incognitoOptions.find((o) => o.id === buy.id)! : null;
 
   return (
-    <BottomSheet title="👻 Modo Incógnito" onClose={onClose} z={65}>
+    <BottomSheet title="👻 Modo Incógnito" onClose={onClose} z={z}>
       <div className="rounded-2xl border border-accent/40 bg-accent/10 p-3">
         <IncognitoTag />
         <p className="mt-2 text-xs text-foreground/85">Autor verificado por Spotly. Identidad oculta públicamente. <b>Spotly sabe qué cuenta publica</b>; el resto de personas no.</p>
@@ -38,7 +38,7 @@ export function IncognitoSheet({ onClose }: { onClose: () => void }) {
           {!inc.permanent && <p className="mt-1 text-3xl font-extrabold tabular-nums">{remaining === null ? "—" : fmtRemaining(remaining)}</p>}
           {!inc.permanent && <>
             <p className="mb-2 mt-3 text-xs font-semibold text-muted-foreground">EXTENDER</p>
-            <div className="grid grid-cols-3 gap-2">{incognitoExtensions.map((id) => { const o = incognitoOptions.find((x) => x.id === id)!; return <button key={id} onClick={() => setBuy({ kind: "extend", id })} className="rounded-xl border border-border bg-card py-2 text-center"><strong className="block text-sm">+{o.label.replace(" hora", " h")}</strong><small className="text-[10px] text-muted-foreground">{eur(o.priceEur)}</small></button>; })}</div>
+            <div className="grid grid-cols-3 gap-2">{incognitoExtensions.map((id) => { const o = incognitoOptions.find((x) => x.id === id)!; return <button key={id} onClick={() => setBuy({ kind: "extend", id })} className="rounded-xl border border-border bg-card py-2 text-center"><strong className="block text-sm">+{o.label.replace(" hora", " h")}</strong><small className="text-3xs text-muted-foreground">{eur(o.priceEur)}</small></button>; })}</div>
           </>}
           <div className="mt-3 grid grid-cols-2 gap-2">
             <Button variant="secondary" size="sm" onClick={() => { demoShortenIncognito(9); toast("Demo: te quedan 9 minutos"); }}>Ver aviso de fin (demo)</Button>
@@ -50,7 +50,7 @@ export function IncognitoSheet({ onClose }: { onClose: () => void }) {
       {!inc.active && <>
         <h4 className="mb-2 mt-4 text-sm font-bold">¿Cuánto tiempo?</h4>
         <div className="grid grid-cols-2 gap-2">{incognitoOptions.map((o) => <button key={o.id} onClick={() => setSel(o.id)} aria-pressed={sel === o.id} className={"rounded-xl border p-3 text-left " + (sel === o.id ? "border-primary bg-primary/10 shadow-glow" : "border-border bg-card")}><strong className="block text-sm">{o.label}</strong><small className="text-muted-foreground">{eur(o.priceEur)} · {eurToCredits(o.priceEur)} cr</small></button>)}</div>
-        <p className="mt-2 text-[11px] text-muted-foreground">Precios de ejemplo, configurables desde el servidor.</p>
+        <p className="mt-2 text-2xs text-muted-foreground">Precios de ejemplo, configurables desde el servidor.</p>
       </>}
 
       <h4 className="mb-2 mt-4 text-sm font-bold">Protección de voz</h4>
@@ -59,7 +59,7 @@ export function IncognitoSheet({ onClose }: { onClose: () => void }) {
         <span className="min-w-0 flex-1"><strong className="block text-sm">Proteger mi voz</strong><small className="text-muted-foreground">La voz también identifica. Al activarlo se transformará antes de publicar.</small></span>
         <Toggle on={inc.protectVoice} onChange={(v) => setIncognito({ protectVoice: v })} label="Proteger mi voz" />
       </div>
-      <p className="mt-1 text-[11px] text-muted-foreground">{inc.protectVoice ? "Estado: protegida. El procesado de voz llegará con el servidor; hoy es solo el control." : "Estado: sin proteger. Tu voz original podría reconocerse."}</p>
+      <p className="mt-1 text-2xs text-muted-foreground">{inc.protectVoice ? "Estado: protegida. El procesado de voz llegará con el servidor; hoy es solo el control." : "Estado: sin proteger. Tu voz original podría reconocerse."}</p>
 
       <h4 className="mb-2 mt-4 text-sm font-bold">Ubicación pública</h4>
       <div className="space-y-2">{locationPrecision.map((p) => <button key={p.id} onClick={() => setIncognito({ precision: p.id })} aria-pressed={inc.precision === p.id} className={"flex w-full items-center gap-3 rounded-xl border p-3 text-left " + (inc.precision === p.id ? "border-primary bg-primary/10" : "border-border bg-card")}><span className="flex-1"><strong className="block text-sm">{p.label}</strong><small className="text-muted-foreground">{p.hint}</small></span>{inc.precision === p.id && <Check size={16} className="text-primary" />}</button>)}</div>
@@ -67,7 +67,7 @@ export function IncognitoSheet({ onClose }: { onClose: () => void }) {
 
       <h4 className="mb-2 mt-4 text-sm font-bold">Cuando termine el Incógnito, mis Spots incógnito…</h4>
       <div className="flex flex-wrap gap-2">{expireOptions.map(([k, l]) => <button key={k} onClick={() => setIncognito({ onExpire: k })} aria-pressed={inc.onExpire === k} className={"rounded-full border px-3 py-1.5 text-xs " + (inc.onExpire === k ? "spot-active-pill border-transparent" : "border-border bg-card")}>{l}</button>)}</div>
-      <p className="mt-2 text-[11px] text-muted-foreground">Tu identidad nunca se revela sola al expirar. Solo tú puedes decidir mostrarla, Spot a Spot.</p>
+      <p className="mt-2 text-2xs text-muted-foreground">Tu identidad nunca se revela sola al expirar. Solo tú puedes decidir mostrarla, Spot a Spot.</p>
 
       <div className="mt-4"><Trust>Incógnito no es impunidad: se puede denunciar, bloquear y moderar cualquier Spot, y Spotly conserva la relación con la cuenta verificada según la política aplicable.</Trust></div>
 
@@ -101,10 +101,10 @@ export function IncognitoBanner({ onOpen }: { onOpen: () => void }) {
   if (!inc.active) return null;
   const ending = !inc.permanent && remaining !== null && remaining <= incognitoWarnMinutes * 60_000;
   return (
-    <button onClick={onOpen} className={"fixed inset-x-3 bottom-[calc(78px+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-[496px] items-center gap-2 rounded-full border px-4 py-2 text-left text-xs shadow-glow backdrop-blur " + (ending ? "border-live bg-live/20" : "border-accent/60 bg-card/95")} aria-label="Gestionar Incógnito">
+    <button onClick={onOpen} className={"fixed inset-x-3 bottom-[calc(4.875rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-[496px] items-center gap-2 rounded-full border px-4 py-2 text-left text-xs shadow-glow backdrop-blur " + (ending ? "border-live bg-live/20" : "border-accent/60 bg-card/95")} aria-label="Gestionar Incógnito">
       <Ghost size={16} className={ending ? "text-live" : "text-accent"} />
       <span className="min-w-0 flex-1 truncate font-semibold">{inc.permanent ? "Incógnito permanente" : ending ? `Tu Incógnito termina en ${Math.max(1, Math.ceil((remaining ?? 0) / 60000))} min` : `Incógnito activo · ${remaining === null ? "—" : fmtRemaining(remaining)}`}</span>
-      <span className="rounded-full bg-primary px-2.5 py-1 text-[10px] font-bold text-primary-foreground">{ending ? "EXTENDER" : "GESTIONAR"}</span>
+      <span className="rounded-full bg-primary px-2.5 py-1 text-3xs font-bold text-primary-foreground">{ending ? "EXTENDER" : "GESTIONAR"}</span>
     </button>
   );
 }
@@ -127,11 +127,11 @@ export function IncognitoSpotCard() {
         <img src={sevilleNight} alt="" loading="lazy" className="h-full w-full object-cover" />
         <span className="absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent" />
         <span className="absolute left-3 top-3"><IncognitoTag /></span>
-        <span className="absolute right-3 top-3 rounded-md bg-background/85 px-2 py-1 text-[10px] font-semibold">Zona Alameda · aprox.</span>
+        <span className="absolute right-3 top-3 rounded-md bg-background/85 px-2 py-1 text-3xs font-semibold">Zona Alameda · aprox.</span>
         <span className="absolute inset-x-3 bottom-2 flex items-center gap-2 text-left"><span className="grid h-10 w-10 place-items-center rounded-full border border-accent bg-background/80"><Ghost size={18} className="text-accent" /></span><span><strong className="block text-sm">Persona anónima verificada</strong><small className="text-foreground/80">Identidad oculta públicamente · Hace 9 min</small></span></span>
       </button>
       <div className="px-3 pb-3 pt-2">
-        <AudioRow name="Voz protegida" dur="0:16" seed={4} right={<Button variant="icon" size="icon" className="h-8 w-8 text-accent" aria-label="Responder con voz" onClick={() => setReply(true)}><Mic size={15} /></Button>} />
+        <AudioRow name="Anónimo" anon dur="0:16" seed={4} right={<Button variant="icon" size="icon" className="h-8 w-8 text-accent" aria-label="Responder con voz" onClick={() => setReply(true)}><Mic size={15} /></Button>} />
       </div>
       {reply && <VoiceReply name="esta persona" onClose={() => setReply(false)} />}
     </article>
@@ -154,7 +154,7 @@ export function IncognitoPublicProfile({ onClose }: { onClose: () => void }) {
       <h3 className="mb-2 mt-5 text-sm font-bold">Lo que NO se muestra</h3>
       <div className="grid grid-cols-2 gap-2">{["Nombre", "Avatar", "@usuario", "Seguidores", "Enlace al perfil", "Identidad pública"].map((x) => <p key={x} className="flex items-center gap-2 rounded-xl border border-border bg-card p-2.5 text-xs"><EyeOff size={13} className="text-accent" />{x}</p>)}</div>
       <div className="mt-5 overflow-hidden rounded-2xl border border-border"><img src={sevilleNight} alt="Foto del Spot" className="aspect-video w-full object-cover" /></div>
-      <div className="mt-3"><AudioRow name="Voz protegida" dur="0:16" ago="hace 9 min" seed={4} /></div>
+      <div className="mt-3"><AudioRow name="Anónimo" anon dur="0:16" ago="hace 9 min" seed={4} /></div>
       <p className="mt-2 text-xs text-muted-foreground">Ubicación: Zona Alameda (aproximada). Cierran la calle por un rodaje.</p>
       <div className="mt-4 grid grid-cols-2 gap-2">
         <Button onClick={() => setReply(true)}><Mic size={16} />Responder con voz</Button>

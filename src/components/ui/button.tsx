@@ -4,12 +4,12 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-full text-sm font-semibold transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-glow hover:brightness-110",
-        primary: "bg-primary text-primary-foreground shadow-glow hover:brightness-110",
+        default: "bg-spot-gradient font-bold text-foreground shadow-glow hover:brightness-110",
+        primary: "bg-spot-gradient font-bold text-foreground shadow-glow hover:brightness-110",
         secondary: "border border-border bg-secondary text-secondary-foreground hover:bg-accent",
         outline: "border border-border bg-background text-foreground hover:bg-accent",
         destructive: "bg-destructive text-destructive-foreground hover:brightness-110",
@@ -17,7 +17,7 @@ export const buttonVariants = cva(
         icon: "h-10 w-10 rounded-full border border-border bg-secondary text-foreground hover:border-primary hover:text-primary",
         link: "text-primary underline-offset-4 hover:underline",
       },
-      size: { default: "h-11 px-5", sm: "h-9 px-3", lg: "h-12 px-7", icon: "h-10 w-10 p-0" },
+      size: { default: "h-12 px-6", sm: "h-9 px-4", lg: "h-12 px-7", icon: "h-10 w-10 p-0" },
     },
     defaultVariants: { variant: "primary", size: "default" },
   },

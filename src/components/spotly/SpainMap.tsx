@@ -145,12 +145,12 @@ export function SpainMap({ pins = spainCities, selected, onSelect, className, sh
         return (
           <button key={p.id} onClick={() => { if (gesture.current.moved) return; onSelect?.(p); const pr = provinceOfPlace(p.name); if (pr) { onProvince?.(pr); const f = frame(pr.c); if (f) flyTo(f); } }} aria-label={`${p.name}${p.count ? `, ${p.count} personas cerca` : ""}`} aria-pressed={on}
             className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${l}%`, top: `${t}%`, zIndex: on ? 3 : 2 }}>
-            <span className={cn("grid place-items-center rounded-full border-2 bg-background/90 font-bold", on ? "h-8 w-8 border-accent text-[10px] shadow-glow" : "h-6 w-6 border-primary text-[8px]")}>{p.count ?? "·"}</span>
-            {showNames && <span className="absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap rounded bg-background/80 px-1 text-[9px] font-semibold">{p.name}</span>}
+            <span className={cn("grid place-items-center rounded-full border-2 bg-background/90 font-bold", on ? "h-8 w-8 border-accent text-3xs shadow-glow" : "h-6 w-6 border-primary text-4xs")}>{p.count ?? "·"}</span>
+            {showNames && <span className="absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap rounded bg-background/80 px-1 text-4xs font-semibold">{p.name}</span>}
           </button>
         );
       })}
-      {name && (() => { const l = ((name.x - vb[0]) / vb[2]) * 100, t = ((name.y - vb[1]) / vb[3]) * 100; return <span className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-accent/60 bg-background/95 px-2 py-1 text-[11px] font-semibold shadow-glow" style={{ left: `${Math.min(88, Math.max(12, l))}%`, top: `${Math.max(8, t)}%` }}>{name.n}</span>; })()}
+      {name && (() => { const l = ((name.x - vb[0]) / vb[2]) * 100, t = ((name.y - vb[1]) / vb[3]) * 100; return <span className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-accent/60 bg-background/95 px-2 py-1 text-2xs font-semibold shadow-glow" style={{ left: `${Math.min(88, Math.max(12, l))}%`, top: `${Math.max(8, t)}%` }}>{name.n}</span>; })()}
       <div className="absolute right-2 top-2 z-10 flex flex-col gap-1.5">
         <button aria-label="Acercar" onClick={() => zoomAt(1.8)} className="grid h-9 w-9 place-items-center rounded-full border border-border bg-background/85 text-lg font-bold backdrop-blur">+</button>
         <button aria-label="Alejar" onClick={() => zoomAt(1 / 1.8)} disabled={!zoomed} className="grid h-9 w-9 place-items-center rounded-full border border-border bg-background/85 text-lg font-bold backdrop-blur disabled:opacity-40">−</button>
@@ -172,10 +172,10 @@ export function SpainScreen({ onBack }: { onBack: () => void }) {
   const go = (name: string) => { onBack(); app.openPhotoWall(name); };
   return (
     <Screen title="Mapa completo" sub="52 provincias · 8.131 municipios" onBack={onBack} z={55}>
-      <div className="grid grid-cols-3 rounded-full border border-border bg-card p-1">{(["Mapa", "Provincias", "Municipios"] as const).map((x) => <Button key={x} variant="ghost" onClick={() => { setTab(x); setBrowse(undefined); }} className={"h-9 rounded-full px-1 text-[13px] " + (tab === x ? "spot-active-pill text-foreground" : "text-muted-foreground")}>{x === "Municipios" ? "Buscar municipio" : x}</Button>)}</div>
+      <div className="grid grid-cols-3 rounded-full border border-border bg-card p-1">{(["Mapa", "Provincias", "Municipios"] as const).map((x) => <Button key={x} variant="ghost" onClick={() => { setTab(x); setBrowse(undefined); }} className={"h-9 rounded-full px-1 text-[0.8125rem] " + (tab === x ? "spot-active-pill text-foreground" : "text-muted-foreground")}>{x === "Municipios" ? "Buscar municipio" : x}</Button>)}</div>
       {tab === "Mapa" && <>
         <SpainMap className="mt-3 w-full" selected={sel ?? undefined} province={prov?.c} onSelect={(p) => { setSel(p.id); const pr = provinceOfPlace(p.name); if (pr) setProv(pr); }} onProvince={(p) => { setProv(p); setSel(null); }} />
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">Toca una provincia (Ceuta, Melilla, Canarias y Baleares incluidas) o una ciudad activa.</p>
+        <p className="mt-2 text-center text-2xs text-muted-foreground">Toca una provincia (Ceuta, Melilla, Canarias y Baleares incluidas) o una ciudad activa.</p>
         {c && (
           <div className="mt-3 rounded-2xl border border-border bg-card p-3">
             <div className="flex items-center gap-3"><img src={sevilla} alt="" className="h-14 w-14 rounded-xl object-cover" /><span className="min-w-0 flex-1"><strong className="block text-lg">{c.name}</strong><small className="block text-muted-foreground">{c.count} personas con actividad ahora · cifra de ejemplo</small></span></div>
@@ -191,7 +191,7 @@ export function SpainScreen({ onBack }: { onBack: () => void }) {
       </>}
       {tab === "Provincias" && <ProvinceList onPick={(pr) => { setProv(pr); setBrowse(pr.c); setTab("Municipios"); }} />}
       {tab === "Municipios" && <div className="mt-3"><PlaceBrowser key={browse ?? "all"} initialProvince={browse} onPick={(name) => go(name)} /></div>}
-      <p className="mt-3 text-[11px] text-muted-foreground">Geografía oficial (IGN e INE). Las cifras de actividad son de ejemplo hasta conectar el backend.</p>
+      <p className="mt-3 text-2xs text-muted-foreground">Geografía oficial (IGN e INE). Las cifras de actividad son de ejemplo hasta conectar el backend.</p>
     </Screen>
   );
 }

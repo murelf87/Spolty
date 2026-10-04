@@ -1,20 +1,23 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Film, ImagePlus, Mic, MoreHorizontal, Pause, Play, Plus, Smile, Volume2, VolumeX, X } from "lucide-react";
+import { Film, ImagePlus, Mic, MoreHorizontal, Pause, Play, Plus, Smile, Volume2, VolumeX, X, Ghost } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Shell } from "./Extras";
+import { TopBar } from "./kit";
+import { AnonAvatar, MeAvatar } from "./Author";
+import { useMe, useStore } from "@/lib/store";
 import lauraPhoto from "@/assets/spotly-laura.jpg";
-import mePhoto from "@/assets/spotly-me.jpg";
 
-type Message = { id: number; who: "them" | "me"; kind: "voice" | "gif" | "image" | "reaction"; duration?: string; src?: string; value?: string };
-type Chat = { name: string; unread: boolean; messages: Message[] };
+/** `from`: quién habla en un grupo; `anon`: enviado con Incógnito de pago (sale «Anónimo» con fantasma). */
+type Message = { id: number; who: "them" | "me"; kind: "voice" | "gif" | "image" | "reaction"; duration?: string; src?: string; value?: string; from?: string; anon?: boolean };
+type Chat = { name: string; unread: boolean; messages: Message[]; group?: boolean };
 const samples: Chat[] = [
   { name: "María", unread: true, messages: [
     { id: 1, who: "them", kind: "voice", duration: "0:12" }, { id: 2, who: "me", kind: "voice", duration: "0:28" },
     { id: 3, who: "them", kind: "voice", duration: "0:15" }, { id: 4, who: "me", kind: "voice", duration: "0:09" },
   ] },
   { name: "Carlos", unread: false, messages: [{ id: 5, who: "them", kind: "voice", duration: "0:21" }] },
-  { name: "Comunidad Triana", unread: true, messages: [{ id: 6, who: "them", kind: "voice", duration: "1:05" }] },
+  { name: "Comunidad Triana", unread: true, group: true, messages: [{ id: 6, who: "them", from: "Rocío", kind: "voice", duration: "1:05" }, { id: 8, who: "them", from: "Anónimo", anon: true, kind: "voice", duration: "0:14" }, { id: 9, who: "them", from: "Manu", kind: "voice", duration: "0:22" }] },
   { name: "Laura", unread: false, messages: [{ id: 7, who: "them", kind: "voice", duration: "0:09" }] },
 ];
 // GIFs como emojis inline (sin dependencia de CDN Lovable)
@@ -25,13 +28,17 @@ const gifs = [
 ];
 
 function Waveform({ active = false }: { active?: boolean }) {
-  return <span aria-hidden="true" className="flex h-7 min-w-0 flex-1 items-center justify-center gap-[2px] overflow-hidden">{Array.from({ length: 33 }, (_, i) => <span key={i} className={`voice-wave-line ${active ? "voice-wave-playing" : ""}`} style={{ height: `${22 + (i * 17 + i * i * 7) % 72}%`, animationDelay: `${i * 37}ms` }} />)}</span>;
+  return <span aria-hidden="true" className="flex h-7 min-w-0 flex-1 items-center justify-center gap-[0.125rem] overflow-hidden">{Array.from({ length: 33 }, (_, i) => <span key={i} className={`voice-wave-line ${active ? "voice-wave-playing" : ""}`} style={{ height: `${22 + (i * 17 + i * i * 7) % 72}%`, animationDelay: `${i * 37}ms` }} />)}</span>;
 }
-function Avatar({ name, mine = false }: { name: string; mine?: boolean }) {
-  return <img src={mine ? mePhoto : lauraPhoto} alt={mine ? "Tú" : name} className="h-9 w-9 shrink-0 rounded-full border border-primary/70 object-cover" />;
+function Avatar({ name, mine = false, anon = false }: { name: string; mine?: boolean; anon?: boolean }) {
+  if (anon) return <AnonAvatar className="h-9 w-9" size={16} />;
+  if (mine) return <MeAvatar className="h-9 w-9 border border-primary/70 text-xs" />;
+  return <img src={lauraPhoto} alt={name} className="h-9 w-9 shrink-0 rounded-full border border-primary/70 object-cover" />;
 }
 
 export function VoiceChats({ onBack, onAudioWall }: { onBack: () => void; onAudioWall: () => void }) {
+  const me = useMe();
+  const { incognito } = useStore();
   const [chats, setChats] = useState(samples);
   const [open, setOpen] = useState<number | null>(null);
   const [menu, setMenu] = useState<"attach" | "gifs" | "reactions" | "options" | null>(null);
@@ -53,7 +60,7 @@ export function VoiceChats({ onBack, onAudioWall }: { onBack: () => void; onAudi
 
   function append(message: Omit<Message, "id" | "who">, target = open) {
     if (target === null) return;
-    setChats(prev => prev.map((chat, i) => i === target ? { ...chat, messages: [...chat.messages, { ...message, id: Date.now() + Math.random(), who: "me" }] } : chat));
+    setChats(prev => prev.map((chat, i) => i === target ? { ...chat, messages: [...chat.messages, { ...message, id: Date.now() + Math.random(), who: "me", anon: !!chat.group && incognito.active }] } : chat));
     setMenu(null);
   }
   function format(s: number) { return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
@@ -109,31 +116,33 @@ export function VoiceChats({ onBack, onAudioWall }: { onBack: () => void; onAudi
   </Shell>;
 
   return <div className="fixed inset-0 z-40 mx-auto flex max-w-[520px] flex-col bg-background text-foreground">
-    <header className="shrink-0 border-b border-border px-4 pb-3 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]">
-      <div className="flex items-center gap-3"><Button variant="ghost" size="icon" aria-label="Volver a chats" onClick={leaveChat}><ArrowLeft size={20}/></Button><h1 className="min-w-0 flex-1 text-sm font-bold">Chat de voz</h1><Button variant="ghost" size="icon" aria-label="Opciones del chat" onClick={() => setMenu(menu === "options" ? null : "options")}><MoreHorizontal size={20}/></Button></div>
-      <div className="mt-1 flex items-center gap-3 pl-2"><Avatar name={selected.name}/><div className="min-w-0"><h2 className="text-sm font-semibold">{selected.name}</h2><p className="text-xs text-muted-foreground">En línea · ejemplo</p></div></div>
-    </header>
-    {menu === "options" && <div className="absolute right-4 top-28 z-20 flex flex-col rounded-lg border border-border bg-popover p-2 shadow-glow"><Button variant="ghost" onClick={() => { setMuted(!muted); setMenu(null); toast(muted ? "Avisos activados en esta vista" : "Avisos silenciados en esta vista"); }}>{muted ? <Volume2 size={17}/> : <VolumeX size={17}/>} {muted ? "Activar avisos" : "Silenciar avisos"}</Button><Button variant="ghost" onClick={() => setMenu(null)}><X size={17}/> Cerrar</Button></div>}
+    <div className="relative z-20 shrink-0">
+      <TopBar title={selected.name} sub="Chat de voz · en línea (ejemplo)" leading={<Avatar name={selected.name}/>} onBack={leaveChat} backLabel="Volver a chats" right={<Button variant="ghost" size="icon" className="text-foreground" aria-label="Opciones del chat" onClick={() => setMenu(menu === "options" ? null : "options")}><MoreHorizontal size={20}/></Button>} />
+    {menu === "options" && <div className="absolute right-3 top-full z-20 mt-1 flex flex-col rounded-lg border border-border bg-popover p-2 shadow-glow"><Button variant="ghost" onClick={() => { setMuted(!muted); setMenu(null); toast(muted ? "Avisos activados en esta vista" : "Avisos silenciados en esta vista"); }}>{muted ? <Volume2 size={17}/> : <VolumeX size={17}/>} {muted ? "Activar avisos" : "Silenciar avisos"}</Button><Button variant="ghost" onClick={() => setMenu(null)}><X size={17}/> Cerrar</Button></div>}
+    </div>
     <main className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5" aria-label="Mensajes de voz">
-      {selected.messages.map(message => <div key={message.id} className={`flex items-end gap-2 ${message.who === "me" ? "flex-row-reverse" : ""}`}>
-        <Avatar name={message.who === "me" ? "Tú" : selected.name} mine={message.who === "me"}/>
-        {message.kind === "voice" ? <Button variant="ghost" onClick={() => playMessage(message)} aria-label={`${playing === message.id ? "Pausar" : "Reproducir"} nota de voz de ${message.who === "me" ? "Tú" : selected.name}, ${message.duration}${message.src ? "" : ", ejemplo sin audio"}`} className={`voice-chat-bubble ${message.who === "me" ? "voice-chat-bubble-me" : "voice-chat-bubble-them"} h-12 min-w-0 max-w-[70%] flex-1 gap-2 rounded-xl px-2 text-foreground`}>
+      {selected.messages.map(message => { const mine = message.who === "me"; const who = message.anon ? "Anónimo" : mine ? me.name : message.from ?? selected.name; return <div key={message.id} className={`flex items-end gap-2 ${mine ? "flex-row-reverse" : ""}`}>
+        <Avatar name={who} mine={mine} anon={!!message.anon}/>
+        <div className={`flex min-w-0 flex-1 flex-col ${mine ? "items-end" : "items-start"}`}>
+        <span className="mb-1 flex max-w-full items-center gap-1 px-1 text-3xs font-semibold text-muted-foreground">{message.anon && <Ghost size={11} className="shrink-0" />}<span className="truncate">{who}</span>{mine && !message.anon && <span className="shrink-0 font-normal">· tú</span>}</span>
+        {message.kind === "voice" ? <Button variant="ghost" onClick={() => playMessage(message)} aria-label={`${playing === message.id ? "Pausar" : "Reproducir"} nota de voz de ${who}, ${message.duration}${message.src ? "" : ", ejemplo sin audio"}`} className={`voice-chat-bubble ${mine ? "voice-chat-bubble-me" : "voice-chat-bubble-them"} h-12 w-[80%] min-w-0 max-w-[17rem] gap-2 rounded-xl px-2 text-foreground`}>
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-foreground text-background">{playing === message.id ? <Pause size={14} fill="currentColor"/> : <Play size={14} fill="currentColor"/>}</span><Waveform active={playing === message.id}/><span className="text-xs font-normal">{message.duration}</span>
-        </Button> : message.kind === "reaction" ? <span className="rounded-full border border-border bg-card px-4 py-2 text-2xl" aria-label={`Reacción ${message.value}`}>{message.value}</span> : <img src={message.src} alt={message.kind === "gif" ? "GIF animado enviado" : "Imagen enviada"} className="max-h-48 max-w-[65%] rounded-lg border border-border object-contain"/>}
-      </div>)}
+        </Button> : message.kind === "reaction" ? <span className="rounded-full border border-border bg-card px-4 py-2 text-2xl" aria-label={`Reacción ${message.value}`}>{message.value}</span> : <img src={message.src} alt={message.kind === "gif" ? "GIF animado enviado" : "Imagen enviada"} className="max-h-48 max-w-[80%] rounded-lg border border-border object-contain"/>}
+        </div>
+      </div>; })}
     </main>
     <footer className="voice-chat-footer shrink-0 rounded-t-lg border border-primary/20 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3">
       {menu === "attach" && <div className="mb-3 grid grid-cols-3 gap-2"><Button variant="secondary" className="h-16 flex-col gap-1 border border-border text-xs" onClick={() => setMenu("gifs")}><Film size={20} className="text-primary"/> GIF</Button><Button variant="secondary" className="h-16 flex-col gap-1 border border-border text-xs" onClick={() => input.current?.click()}><ImagePlus size={20} className="text-primary"/> Imagen</Button><Button variant="secondary" className="h-16 flex-col gap-1 border border-border text-xs" onClick={() => setMenu("reactions")}><Smile size={20} className="text-primary"/> Reacción</Button></div>}
-      {menu === "gifs" && <div className="mb-3"><div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold">Reacciones Spotly</span><Button variant="ghost" size="icon" aria-label="Cerrar GIF" className="h-7 w-7" onClick={() => setMenu(null)}><X size={16}/></Button></div><div className="grid grid-cols-3 gap-2">{gifs.map(gif => <Button key={gif.title} variant="secondary" className="h-20 p-1 flex-col gap-1" aria-label={`Enviar ${gif.label}`} onClick={() => append({ kind: "reaction", value: gif.emoji })}><span className="text-4xl leading-none">{gif.emoji}</span><span className="text-[10px] text-muted-foreground">{gif.label}</span></Button>)}</div></div>}
+      {menu === "gifs" && <div className="mb-3"><div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold">Reacciones Spotly</span><Button variant="ghost" size="icon" aria-label="Cerrar GIF" className="h-7 w-7" onClick={() => setMenu(null)}><X size={16}/></Button></div><div className="grid grid-cols-3 gap-2">{gifs.map(gif => <Button key={gif.title} variant="secondary" className="h-20 p-1 flex-col gap-1" aria-label={`Enviar ${gif.label}`} onClick={() => append({ kind: "reaction", value: gif.emoji })}><span className="text-4xl leading-none">{gif.emoji}</span><span className="text-3xs text-muted-foreground">{gif.label}</span></Button>)}</div></div>}
       {menu === "reactions" && <div className="mb-3 flex justify-around">{["❤️", "👏", "😂", "🔥", "🙌"].map(value => <Button key={value} variant="ghost" size="icon" aria-label={`Enviar reacción ${value}`} className="text-2xl" onClick={() => append({ kind: "reaction", value })}>{value}</Button>)}</div>}
       <input ref={input} type="file" accept="image/*" className="hidden" aria-label="Seleccionar imagen" onChange={event => choosePhoto(event.target.files?.[0])}/>
       <p className="text-center text-xs text-muted-foreground">{recording ? `Hablando ${format(seconds)}...` : "Mantén pulsado para hablar"}</p>
       <div className="mt-2 flex items-end justify-between gap-3">
         <Button variant="icon" size="icon" aria-label={menu ? "Cerrar adjuntos" : "Añadir GIF, imagen o reacción"} className="h-11 w-11 shrink-0" onClick={() => setMenu(menu ? null : "attach")}>{menu ? <X size={20}/> : <Plus size={22}/>}</Button>
-        <Button variant="icon" size="icon" aria-label={recording ? "Soltar para enviar nota de voz" : "Mantener pulsado para grabar nota de voz"} className={`voice-chat-mic h-[70px] w-[70px] touch-none text-primary ${recording ? "spot-pulse" : ""}`} onPointerDown={event => { if (event.pointerType !== "mouse" || event.button === 0) { event.currentTarget.setPointerCapture(event.pointerId); void startRecording(); } }} onPointerUp={stopRecording} onPointerCancel={stopRecording} onKeyDown={event => { if ((event.key === " " || event.key === "Enter") && !event.repeat) { event.preventDefault(); if (recording) stopRecording(); else void startRecording(); } }}><Mic size={32}/></Button>
+        <Button variant="icon" size="icon" aria-label={recording ? "Soltar para enviar nota de voz" : "Mantener pulsado para grabar nota de voz"} className={`voice-chat-mic h-[4.375rem] w-[4.375rem] touch-none text-primary ${recording ? "spot-pulse" : ""}`} onPointerDown={event => { if (event.pointerType !== "mouse" || event.button === 0) { event.currentTarget.setPointerCapture(event.pointerId); void startRecording(); } }} onPointerUp={stopRecording} onPointerCancel={stopRecording} onKeyDown={event => { if ((event.key === " " || event.key === "Enter") && !event.repeat) { event.preventDefault(); if (recording) stopRecording(); else void startRecording(); } }}><Mic size={32}/></Button>
         <Button variant="icon" size="icon" aria-label="Abrir reacciones GIF" className="h-11 w-11 shrink-0" onClick={() => setMenu(menu === "gifs" ? null : "gifs")}><Film size={20}/></Button>
       </div>
-      <p className="mt-2 text-center text-[10px] text-muted-foreground">Conversación de ejemplo · tus envíos no se guardan al salir</p>
+      <p className="mt-2 text-center text-3xs text-muted-foreground">Conversación de ejemplo · tus envíos no se guardan al salir</p>
     </footer>
   </div>;
 }

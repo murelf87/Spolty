@@ -38,10 +38,10 @@ export function NowStrip() {
       <div className="flex gap-2 overflow-x-auto pb-1">{ordered.slice(0, 4).map((t) => (
         <Button key={t.key} variant="ghost" onClick={t.go} aria-label={`${t.title}, ${t.tag.toLowerCase()}`} className="spot-now-tile relative aspect-[3/4] h-auto w-[calc((100%-1rem)/3)] min-w-0 shrink-0 overflow-hidden rounded-lg border p-0 text-left">
           <img src={t.img} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" /><span className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
-          <span className="absolute left-1 top-1">{t.tag === "IMPULSADO" ? <BoostedTag /> : <span className={"rounded px-1 py-0.5 text-[8px] font-bold " + (t.tag === "VIRAL" ? "bg-accent" : "bg-live")}>{t.tag}</span>}</span>
-          <span className="absolute bottom-1 left-1 right-1 text-[10px] font-semibold leading-tight">{t.title}<small className="mt-0.5 flex items-center gap-0.5 font-normal text-foreground/80"><MapPin size={10} />{t.sub}</small></span>
+          <span className="absolute left-1 top-1">{t.tag === "IMPULSADO" ? <BoostedTag /> : <span className={"rounded px-1 py-0.5 text-4xs font-bold " + (t.tag === "VIRAL" ? "bg-accent" : "bg-live")}>{t.tag}</span>}</span>
+          <span className="absolute bottom-1 left-1 right-1 text-3xs font-semibold leading-tight">{t.title}<small className="mt-0.5 flex items-center gap-0.5 font-normal text-foreground/80"><MapPin size={10} />{t.sub}</small></span>
         </Button>))}</div>
-      <p className="mt-1 text-[10px] text-muted-foreground">Lo impulsado rota y se marca. Máx. {commerce.frequencyCapPerUserPerDay} veces por persona y día.</p>
+      <p className="mt-1 text-3xs text-muted-foreground">Lo impulsado rota y se marca. Máx. {commerce.frequencyCapPerUserPerDay} veces por persona y día.</p>
     </section>
   );
 }

@@ -148,10 +148,10 @@ export function SelfieStep({ onDone }: { onDone: (frame: string | null, manual: 
 
   return (
     <>
-      <h1 className="mt-1 text-center text-[21px] font-bold">Haz un selfie en tiempo real</h1>
-      <p className="mb-3 mt-1 text-center text-[13px] text-muted-foreground">Mira a la cámara y sigue las instrucciones.</p>
+      <h1 className="mt-1 text-center text-[1.3125rem] font-bold">Haz un selfie en tiempo real</h1>
+      <p className="mb-3 mt-1 text-center text-[0.8125rem] text-muted-foreground">Mira a la cámara y sigue las instrucciones.</p>
 
-      <div className={`relative mx-auto mt-1 h-[300px] w-[230px] rounded-[50%] p-[3px] transition-shadow ${ok ? "bg-gradient-to-b from-emerald-400 to-[var(--spot-blue)] shadow-[0_0_28px_#22e28a]" : "bg-gradient-to-b from-[var(--spot-blue)] via-[var(--spot-fuchsia)] to-[var(--spot-blue)] shadow-[0_0_28px_var(--spot-fuchsia)]"}`}>
+      <div className={`relative mx-auto mt-1 h-[18.75rem] w-[14.375rem] rounded-[50%] p-[0.1875rem] transition-shadow ${ok ? "bg-gradient-to-b from-emerald-400 to-[var(--spot-blue)] shadow-[0_0_28px_#22e28a]" : "bg-gradient-to-b from-[var(--spot-blue)] via-[var(--spot-fuchsia)] to-[var(--spot-blue)] shadow-[0_0_28px_var(--spot-fuchsia)]"}`}>
         <div className="relative h-full w-full overflow-hidden rounded-[50%] bg-card">
           <video ref={video} playsInline muted autoPlay aria-label="Vista de tu cámara" className={"absolute inset-0 h-full w-full -scale-x-100 object-cover " + (cam === "live" ? "" : "invisible")} />
           {cam !== "live" && (
@@ -161,24 +161,24 @@ export function SelfieStep({ onDone }: { onDone: (frame: string | null, manual: 
           )}
           {cam === "live" && ok && <span className="spot-scan pointer-events-none absolute inset-x-0 h-10 bg-gradient-to-b from-transparent via-primary/30 to-transparent" />}
         </div>
-        <span className="absolute left-1/2 top-2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-background/80 px-3 py-1 text-[11px] font-semibold backdrop-blur">
+        <span className="absolute left-1/2 top-2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-background/80 px-3 py-1 text-2xs font-semibold backdrop-blur">
           <span className={`h-2 w-2 rounded-full ${cam === "live" ? "animate-pulse bg-emerald-400" : "bg-muted-foreground"}`} />{cam === "live" ? "En vivo" : cam === "starting" ? "Abriendo…" : "Cámara apagada"}
         </span>
       </div>
 
       {blocked ? (
-        <div className="mx-auto mt-5 max-w-[320px] text-center" role="alert">
+        <div className="mx-auto mt-5 max-w-[20rem] text-center" role="alert">
           <ShieldAlert className="mx-auto text-live" size={26} />
-          <h2 className="mt-2 text-[16px] font-semibold">{msg[cam][0]}</h2>
-          <p className="mt-1 text-[12.5px] leading-snug text-muted-foreground">{msg[cam][1]}</p>
+          <h2 className="mt-2 text-[1rem] font-semibold">{msg[cam][0]}</h2>
+          <p className="mt-1 text-[0.8125rem] leading-snug text-muted-foreground">{msg[cam][1]}</p>
           <Button className="mt-4 w-full rounded-full bg-spot-gradient text-white" onClick={retry}><RefreshCw size={16} />Reintentar</Button>
           <Button variant="outline" className="mt-2 w-full rounded-full" onClick={() => file.current?.click()}><Upload size={16} />Hacerme una foto con la cámara del sistema</Button>
-          <p className="mt-2 text-[11px] text-muted-foreground">Sin detección automática, tu foto pasará a revisión manual.</p>
+          <p className="mt-2 text-2xs text-muted-foreground">Sin detección automática, tu foto pasará a revisión manual.</p>
         </div>
       ) : (
         <>
-          <p className="mt-3 text-center text-[17px] font-semibold" aria-live="polite">{step < STEPS.length ? STEPS[step]!.title : "¡Selfie completado!"}</p>
-          <p className="min-h-[18px] text-center text-[12.5px] text-muted-foreground" aria-live="polite">{engine === "loading" && cam === "live" ? "Preparando el detector facial…" : engine === "failed" ? "No se pudo cargar el detector." : hint}</p>
+          <p className="mt-3 text-center text-[1.0625rem] font-semibold" aria-live="polite">{step < STEPS.length ? STEPS[step]!.title : "¡Selfie completado!"}</p>
+          <p className="min-h-[1.125rem] text-center text-[0.8125rem] text-muted-foreground" aria-live="polite">{engine === "loading" && cam === "live" ? "Preparando el detector facial…" : engine === "failed" ? "No se pudo cargar el detector." : hint}</p>
           <div className="mt-3 flex justify-center gap-4">{STEPS.map((s, i) => (
             <span key={s.title} aria-label={`${s.title}${i < step ? ", hecho" : ""}`} className={"relative grid h-14 w-14 place-items-center overflow-hidden rounded-xl border-2 " + (i < step ? "border-emerald-400" : i === step ? "border-primary shadow-glow" : "border-border")}>
               {thumbs[i] ? <img src={thumbs[i]} alt="" className="h-full w-full object-cover" /> : <Camera size={22} className="text-muted-foreground" />}
@@ -186,8 +186,8 @@ export function SelfieStep({ onDone }: { onDone: (frame: string | null, manual: 
             </span>))}
           </div>
           {(engine === "failed" || stale) && (
-            <div className="mx-auto mt-4 max-w-[320px] text-center">
-              <p className="text-[12px] text-muted-foreground">{engine === "failed" ? "Tu dispositivo no pudo ejecutar la detección." : "¿Te cuesta? Mejora la luz, quítate gafas de sol o gorra y acércate."}</p>
+            <div className="mx-auto mt-4 max-w-[20rem] text-center">
+              <p className="text-[0.75rem] text-muted-foreground">{engine === "failed" ? "Tu dispositivo no pudo ejecutar la detección." : "¿Te cuesta? Mejora la luz, quítate gafas de sol o gorra y acércate."}</p>
               <div className="mt-2 flex gap-2">
                 <Button variant="outline" className="flex-1 rounded-full" onClick={retry}><RefreshCw size={15} />Reintentar</Button>
                 <Button variant="outline" className="flex-1 rounded-full" onClick={() => { const v = video.current; if (!v) return; void grabFrame(v).then((u) => { done.current = true; stop(); onDone(u, true); }); }}>Enviar a revisión</Button>
@@ -197,7 +197,7 @@ export function SelfieStep({ onDone }: { onDone: (frame: string | null, manual: 
         </>
       )}
       <input ref={file} type="file" accept="image/*" capture="user" className="hidden" aria-label="Hacer foto con la cámara del sistema" onChange={(e) => onFile(e.target.files?.[0])} />
-      <p className="mt-3 pb-2 text-center text-[10px] text-muted-foreground">El análisis se hace en tu dispositivo: el vídeo no se graba ni se envía. En producción, la prueba de vida la valida además un proveedor KYC.</p>
+      <p className="mt-3 pb-2 text-center text-3xs text-muted-foreground">El análisis se hace en tu dispositivo: el vídeo no se graba ni se envía. En producción, la prueba de vida la valida además un proveedor KYC.</p>
     </>
   );
 }

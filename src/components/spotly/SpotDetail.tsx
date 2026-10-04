@@ -1,25 +1,25 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowLeft, Bookmark, Check, ChevronRight, Heart, ListMusic, MapPin, Mic, MoreHorizontal, Pause, Play, RotateCcw, RotateCw, Share2, UserPlus, X, AlignJustify, Music, Map, Flag, BellOff, Navigation } from "lucide-react";
+import { ChevronLeft, Bookmark, Check, ChevronRight, Heart, ListMusic, MapPin, Mic, MoreHorizontal, Pause, Play, RotateCcw, RotateCw, Share2, UserPlus, X, AlignJustify, Music, Map, Flag, BellOff, Navigation } from "lucide-react";
 import { toast } from "sonner";
 import { NewFollowers } from "./LocalAd";
 import { useApp } from "./app-context";
 import { BottomSheet } from "./kit";
 import { MediaViewer } from "./MediaViewer";
 import { sampleMedia } from "@/lib/media";
-import { addReport, toggleFollow, useStore } from "@/lib/store";
+import { addReport, toggleFollow, useStore, useMe } from "@/lib/store";
 import { VoiceReply } from "./Voice";
+import { AnonAvatar, MeAvatar } from "./Author";
 import { Button } from "@/components/ui/button";
 import festival from "@/assets/spotly-sevilla-festival.jpg";
 import stage from "@/assets/spotly-live-stage.jpg";
 import beach from "@/assets/spotly-beach-club.jpg";
 import lauraPhoto from "@/assets/spotly-laura.jpg";
-import mePhoto from "@/assets/spotly-me.jpg";
 
 /* ── Waveform coloreada igual que el mockup ── */
 function ColorWave({ active, big = false }: { active: boolean; big?: boolean }) {
   const count = big ? 38 : 26;
   return (
-    <div className={`flex items-center gap-[2.5px] ${big ? "h-12 flex-1" : "h-8 flex-1"}`}>
+    <div className={`flex items-center gap-[0.15625rem] ${big ? "h-12 flex-1" : "h-8 flex-1"}`}>
       {Array.from({ length: count }, (_, i) => {
         const pct = 20 + ((i * 19 + i * i * 6) % 72);
         // degradado morado→azul como en el mockup
@@ -75,15 +75,18 @@ const ALSO_LISTENED = [
   { name: "Lucía",  img: lauraPhoto },
 ];
 
-/* ── Fila comentario de audio ── */
-function AudioCommentRow({ c, playing, onPlay, onMore }: { c: typeof AUDIO_COMMENTS[0]; playing: boolean; onPlay: () => void; onMore: () => void }) {
+/* ── Fila comentario de audio: siempre con el nombre de quien habla (o «Anónimo» con Incógnito de pago) ── */
+type AudioComment = { id: string; name: string; img?: string; ago: string; dur: string; likes: number; text: string; anon?: boolean; mine?: boolean };
+function AudioCommentRow({ c, playing, onPlay, onMore }: { c: AudioComment; playing: boolean; onPlay: () => void; onMore: () => void }) {
+  const me = useMe();
   const [liked, setLiked] = useState(false);
+  const who = c.anon ? "Anónimo" : c.mine ? me.name : c.name;
   return (
     <div className="flex items-start gap-3 py-3 border-b border-border/40 last:border-0">
-      <img src={c.img} alt={c.name} className="h-10 w-10 shrink-0 rounded-full object-cover" />
+      {c.anon ? <AnonAvatar className="h-10 w-10" /> : c.mine ? <MeAvatar className="h-10 w-10 text-sm" /> : <img src={c.img} alt={c.name} className="h-10 w-10 shrink-0 rounded-full object-cover" />}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1">
-          <span className="text-sm font-semibold">{c.name}</span>
+          <span className="min-w-0 truncate text-sm font-semibold">{who}</span>{c.mine && <span className="shrink-0 rounded-full bg-primary/15 px-1.5 text-4xs font-bold text-primary">TÚ</span>}
           <span className="text-xs text-muted-foreground">· {c.ago}</span>
           <button onClick={onMore} aria-label={`Opciones del comentario de ${c.name}`} className="ml-auto grid h-8 w-8 place-items-center rounded-full text-muted-foreground"><MoreHorizontal size={15} /></button>
         </div>
@@ -99,7 +102,7 @@ function AudioCommentRow({ c, playing, onPlay, onMore }: { c: typeof AUDIO_COMME
       </div>
       <button onClick={() => setLiked(l => !l)} className={`flex shrink-0 flex-col items-center gap-0.5 pt-7 ${liked ? "text-red-400" : "text-muted-foreground"}`}>
         <Heart size={14} fill={liked ? "currentColor" : "none"} />
-        <span className="text-[10px]">{c.likes + (liked ? 1 : 0)}</span>
+        <span className="text-3xs">{c.likes + (liked ? 1 : 0)}</span>
       </button>
     </div>
   );
@@ -117,26 +120,18 @@ function OptionsSheet({ onClose, city, name }: { onClose: () => void; city: stri
     { icon: <BellOff size={19} />,      label: `Silenciar a ${name}` },
   ];
   return (
-    <div className="fixed inset-0 z-[70]" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50" />
-      <div className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-card" onClick={e => e.stopPropagation()}>
-        {/* handle */}
-        <div className="flex justify-center pt-2.5 pb-1"><div className="h-1 w-10 rounded-full bg-border" /></div>
-        <div className="pb-6">
-          {items.map(it => (
-            <button key={it.label} onClick={() => { toast(it.label); onClose(); }}
-              className="flex w-full items-center gap-4 px-6 py-3.5 text-[15px] text-foreground hover:bg-secondary/60 text-left">
-              <span className="text-muted-foreground">{it.icon}</span>{it.label}
-            </button>
-          ))}
-          <button onClick={() => { toast.error("Denuncia enviada"); onClose(); }}
-            className="flex w-full items-center gap-4 px-6 py-3.5 text-[15px] text-live hover:bg-secondary/60">
-            <Flag size={19} className="text-live" />Denunciar sonido
-          </button>
-        </div>
-        <div className="h-[env(safe-area-inset-bottom,16px)]" />
-      </div>
-    </div>
+    <BottomSheet onClose={onClose} z={70}>
+      {items.map(it => (
+        <button key={it.label} onClick={() => { toast(it.label); onClose(); }}
+          className="flex w-full items-center gap-4 rounded-xl px-3 py-3.5 text-left text-[0.9375rem] text-foreground hover:bg-secondary/60">
+          <span className="text-muted-foreground">{it.icon}</span>{it.label}
+        </button>
+      ))}
+      <button onClick={() => { toast.error("Denuncia enviada"); onClose(); }}
+        className="flex w-full items-center gap-4 rounded-xl px-3 py-3.5 text-[0.9375rem] text-live hover:bg-secondary/60">
+        <Flag size={19} className="text-live" />Denunciar sonido
+      </button>
+    </BottomSheet>
   );
 }
 
@@ -146,7 +141,9 @@ function CommentsPanel({ onClose }: { onClose: () => void }) {
   const [replying, setReplying] = useState(false);
   const [more, setMore] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  const list = more ? [...AUDIO_COMMENTS, ...MORE_COMMENTS] : AUDIO_COMMENTS;
+  const [mine, setMine] = useState<AudioComment[]>([]);
+  const me = useMe();
+  const list: AudioComment[] = [...mine, ...(more ? [...AUDIO_COMMENTS, ...MORE_COMMENTS] : AUDIO_COMMENTS)];
   return (
     <div className="fixed inset-0 z-[70]" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
@@ -155,13 +152,13 @@ function CommentsPanel({ onClose }: { onClose: () => void }) {
         <div className="flex justify-center pt-2.5 shrink-0"><div className="h-1 w-10 rounded-full bg-border" /></div>
         {/* header */}
         <div className="flex items-center justify-between px-4 py-3 shrink-0">
-          <span className="text-base font-bold">Comentarios de audio <span className="ml-1 font-normal text-muted-foreground">24</span></span>
+          <span className="text-base font-bold">Comentarios de audio <span className="ml-1 font-normal text-muted-foreground">{24 + mine.length}</span></span>
           <button onClick={onClose} aria-label="Cerrar comentarios" className="grid h-9 w-9 place-items-center rounded-full"><X size={20} /></button>
         </div>
         {/* lista */}
         <div className="flex-1 overflow-y-auto px-4 min-h-0">
           {list.map(c => (
-            <AudioCommentRow key={c.id} c={c} playing={playing === c.id} onPlay={() => setPlaying(playing === c.id ? null : c.id)} onMore={() => setMenuFor(c.name)} />
+            <AudioCommentRow key={c.id} c={c} playing={playing === c.id} onPlay={() => setPlaying(playing === c.id ? null : c.id)} onMore={() => setMenuFor(c.anon ? "Anónimo" : c.mine ? me.name : c.name)} />
           ))}
           {/* escuchar más */}
           {!more && <button onClick={() => setMore(true)} className="flex w-full items-center justify-center gap-2 rounded-full border border-border py-3 my-3 text-sm text-muted-foreground">
@@ -175,7 +172,7 @@ function CommentsPanel({ onClose }: { onClose: () => void }) {
                 <img src={sp.img} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium truncate">{sp.title}</p>
-                  <p className="text-[10px] text-muted-foreground">{sp.author} · {sp.dur}</p>
+                  <p className="text-3xs text-muted-foreground">{sp.author} · {sp.dur}</p>
                 </div>
                 {i === 0
                   ? <ColorWave active={true} />
@@ -186,13 +183,13 @@ function CommentsPanel({ onClose }: { onClose: () => void }) {
         </div>
         {/* reply bar */}
         <div className="shrink-0 border-t border-border flex items-center gap-3 px-4 py-3">
-          <img src={mePhoto} alt="Tú" className="h-9 w-9 rounded-full object-cover shrink-0" />
+          <MeAvatar className="h-9 w-9 text-xs" />
           <button onClick={() => setReplying(true)} className="flex-1 flex items-center gap-2 rounded-full bg-secondary px-4 py-2.5 text-sm text-muted-foreground text-left">
             <Mic size={15} className="text-primary shrink-0" />Añade un comentario de voz…
           </button>
         </div>
         <div className="h-[env(safe-area-inset-bottom,0px)] shrink-0" />
-        {replying && <VoiceReply name="este Spot" onClose={() => setReplying(false)} />}
+        {replying && <VoiceReply name="este Spot" onClose={() => setReplying(false)} onSent={({ anon, dur }) => setMine((l) => [{ id: `m${Date.now()}`, name: me.name, ago: "Ahora", dur, likes: 0, text: "Tu comentario de voz (ejemplo, no se guarda)", anon, mine: true }, ...l])} />}
         {menuFor && <BottomSheet title={`Comentario de ${menuFor}`} onClose={() => setMenuFor(null)} z={80}>
           <button onClick={() => { setMenuFor(null); setReplying(true); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm hover:bg-secondary"><Mic size={18} className="text-primary" />Responder con tu voz</button>
           <button onClick={() => { void copyLink(`comentario/${menuFor.toLowerCase()}`); setMenuFor(null); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm hover:bg-secondary"><Share2 size={18} className="text-primary" />Copiar enlace</button>
@@ -227,11 +224,15 @@ function ListenersSheet({ onClose, onPerson }: { onClose: () => void; onPerson: 
 }
 
 /* ── SpotDetail principal ── */
-export type SpotInfo = { name: string; city: string; ago: string; text: string; img: string; dur: string; dist: string };
+/** Datos que necesita el detalle. `incognito`: autor con Incógnito de pago (sale «Anónimo»); `own`: es tu Spot. */
+export type SpotInfo = { name: string; city: string; ago: string; text: string; img: string; dur: string; dist: string; incognito?: boolean | undefined; own?: boolean | undefined };
 
 export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onClose: () => void; onAuthor: () => void }) {
   const app = useApp();
   const [s,           setSpot]        = useState(initial);
+  const me = useMe();
+  const anon = !!s.incognito;
+  const shownName = anon ? "Anónimo" : s.own ? me.name : s.name;
   const [person,      setPerson]      = useState<string | null>(null);
   const [listeners,   setListeners]   = useState(false);
   const [allTags,     setAllTags]     = useState(false);
@@ -269,12 +270,12 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
 
         {/* ← atrás */}
         <button onClick={onClose} aria-label="Volver"
-          className="absolute left-3 top-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))] grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white">
-          <ArrowLeft size={20} />
+          className="absolute left-3 top-[var(--safe-header)] grid h-10 w-10 place-items-center rounded-full bg-black/50 text-white backdrop-blur-sm">
+          <ChevronLeft size={24} />
         </button>
         {/* ⋮ opciones */}
         <button onClick={() => setOptions(true)} aria-label="Opciones"
-          className="absolute right-3 top-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))] grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white">
+          className="absolute right-3 top-[var(--safe-header)] grid h-10 w-10 place-items-center rounded-full bg-black/50 text-white backdrop-blur-sm">
           <MoreHorizontal size={20} />
         </button>
 
@@ -305,17 +306,25 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
 
         {/* Título grande */}
         <div>
-          <h1 className="text-[26px] font-extrabold leading-tight tracking-tight">{s.text}</h1>
+          <h1 className="text-[1.625rem] font-extrabold leading-tight tracking-tight">{s.text}</h1>
           {/* Autor */}
-          <button onClick={onAuthor} className="mt-2.5 flex items-center gap-2.5 text-left">
-            <img src={s.img} alt={s.name} className="h-11 w-11 rounded-full border-2 border-primary object-cover" />
-            <div>
-              <div className="flex items-center gap-1 text-sm font-semibold">
-                {s.name} <span className="text-primary text-base">✓</span>
+          {anon
+            ? <div className="mt-2.5 flex items-center gap-2.5">
+                <AnonAvatar className="h-11 w-11" size={20} />
+                <div>
+                  <div className="text-sm font-semibold">Anónimo</div>
+                  <div className="text-xs text-muted-foreground">{s.dist} · Hace {s.ago} · Incógnito verificado</div>
+                </div>
               </div>
-              <div className="text-xs text-muted-foreground">{s.dist} · Hace {s.ago}</div>
-            </div>
-          </button>
+            : <button onClick={onAuthor} className="mt-2.5 flex items-center gap-2.5 text-left">
+                {s.own ? <MeAvatar className="h-11 w-11 border-2 border-primary text-base" /> : <img src={s.img} alt={s.name} className="h-11 w-11 rounded-full border-2 border-primary object-cover" />}
+                <div>
+                  <div className="flex items-center gap-1 text-sm font-semibold">
+                    {shownName} <span className="text-primary text-base">✓</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">{s.dist} · Hace {s.ago}</div>
+                </div>
+              </button>}
         </div>
 
         {/* ── PLAYER GRANDE ── fondo oscuro como el mockup */}
@@ -326,7 +335,7 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
             <button
               onClick={() => setPlaying(p => !p)}
               aria-label={playing ? "Pausar" : "Reproducir"}
-              className="shrink-0 grid h-[60px] w-[60px] place-items-center rounded-full"
+              className="shrink-0 grid h-[3.75rem] w-[3.75rem] place-items-center rounded-full"
               style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}
             >
               {playing
@@ -356,10 +365,10 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
           {/* ↺15  15↻ */}
           <div className="flex items-center justify-between px-4">
             <button onClick={() => setProgress(p => Math.max(0, p - 15))} className="flex flex-col items-center" style={{ color: "rgba(255,255,255,0.6)" }} aria-label="Retroceder 15s">
-              <RotateCcw size={22} /><span className="text-[9px] -mt-0.5">15</span>
+              <RotateCcw size={22} /><span className="text-4xs -mt-0.5">15</span>
             </button>
             <button onClick={() => setProgress(p => Math.min(TOTAL, p + 15))} className="flex flex-col items-center" style={{ color: "rgba(255,255,255,0.6)" }} aria-label="Avanzar 15s">
-              <RotateCw size={22} /><span className="text-[9px] -mt-0.5">15</span>
+              <RotateCw size={22} /><span className="text-4xs -mt-0.5">15</span>
             </button>
           </div>
 
@@ -390,7 +399,7 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
         {/* ── Más sonidos de Sevilla ── */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[15px] font-bold">Más sonidos de {s.city}</h3>
+            <h3 className="text-[0.9375rem] font-bold">Más sonidos de {s.city}</h3>
             <button onClick={toCity} className="flex items-center gap-0.5 text-xs text-primary font-medium">Ver todos <ChevronRight size={13} /></button>
           </div>
           <div className="grid grid-cols-4 gap-2">
@@ -403,10 +412,10 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
                     <div className="grid h-4 w-4 place-items-center rounded-full bg-white/90">
                       <Play size={8} fill="#7c3aed" className="text-[#7c3aed] ml-px" />
                     </div>
-                    <span className="text-[9px] text-white font-semibold drop-shadow">{sp.dur}</span>
+                    <span className="text-4xs text-white font-semibold drop-shadow">{sp.dur}</span>
                   </div>
                 </div>
-                <p className="mt-1 text-[10px] text-muted-foreground leading-tight line-clamp-2">{sp.title}</p>
+                <p className="mt-1 text-3xs text-muted-foreground leading-tight line-clamp-2">{sp.title}</p>
               </button>
             ))}
           </div>
@@ -415,26 +424,26 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
         {/* ── Personas que también escucharon ── */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[15px] font-bold">Personas que también escucharon</h3>
+            <h3 className="text-[0.9375rem] font-bold">Personas que también escucharon</h3>
             <button onClick={() => setListeners(true)} className="flex items-center gap-0.5 text-xs text-primary font-medium">Ver todos <ChevronRight size={13} /></button>
           </div>
           <div className="flex gap-4">
             {ALSO_LISTENED.map(p => (
               <button key={p.name} onClick={() => setPerson(p.name)} aria-label={`Ver perfil de ${p.name}`} className="flex flex-col items-center gap-1 shrink-0">
                 <div className="relative">
-                  <img src={p.img} alt={p.name} className="h-13 w-13 rounded-full object-cover border-2 border-border" style={{ height: 52, width: 52 }} />
-                  <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full text-[10px] font-bold text-white" style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>+</span>
+                  <img src={p.img} alt={p.name} className="h-13 w-13 rounded-full object-cover border-2 border-border" />
+                  <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full text-3xs font-bold text-white" style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>+</span>
                 </div>
-                <span className="text-[10px] text-muted-foreground">{p.name}</span>
+                <span className="text-3xs text-muted-foreground">{p.name}</span>
               </button>
             ))}
           </div>
         </section>
 
-        {/* ── Más de Laura ── */}
-        <section>
+        {/* ── Más de Laura ── (no se muestra si el autor es anónimo) */}
+        {!anon && <section>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[15px] font-bold">Más de {s.name}</h3>
+            <h3 className="text-[0.9375rem] font-bold">Más de {shownName}</h3>
             <button onClick={onAuthor} className="flex items-center gap-0.5 text-xs text-primary font-medium">Ver todos <ChevronRight size={13} /></button>
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -447,33 +456,33 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
                     <div className="grid h-4 w-4 place-items-center rounded-full bg-white/90">
                       <Play size={8} fill="#7c3aed" className="text-[#7c3aed] ml-px" />
                     </div>
-                    <span className="text-[9px] text-white font-semibold drop-shadow">{sp.dur}</span>
+                    <span className="text-4xs text-white font-semibold drop-shadow">{sp.dur}</span>
                   </div>
                 </div>
-                <p className="mt-1 text-[10px] text-muted-foreground leading-tight">{sp.title}</p>
+                <p className="mt-1 text-3xs text-muted-foreground leading-tight">{sp.title}</p>
               </button>
             ))}
           </div>
-        </section>
+        </section>}
       </div>
 
       {/* ── FOOTER FIJO ── */}
       <div className="fixed inset-x-0 bottom-0 z-10 bg-card/95 backdrop-blur border-t border-border px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
         <div className="flex items-center gap-3">
-          <img src={mePhoto} alt="Tú" className="h-9 w-9 rounded-full object-cover shrink-0" />
+          <MeAvatar className="h-9 w-9 text-xs" />
           <button onClick={() => setReplying(true)}
             className="flex flex-1 items-center gap-2 rounded-full bg-secondary px-4 py-2.5 text-sm text-muted-foreground text-left">
             <Mic size={15} className="text-primary shrink-0" />Responde con tu voz…
           </button>
-          <button onClick={() => setComments(true)} className="flex items-center gap-1.5 text-muted-foreground">
+          <button onClick={() => setComments(true)} aria-label="Ver comentarios de audio (24)" className="flex min-h-10 items-center gap-1.5 px-1 text-muted-foreground">
             <Mic size={19} className="text-primary" />
             <span className="text-sm font-semibold text-foreground">24</span>
           </button>
         </div>
       </div>
 
-      {replying && <VoiceReply name={s.name} onClose={() => setReplying(false)} />}
-      {options  && <OptionsSheet name={s.name} city={s.city} onClose={() => setOptions(false)} />}
+      {replying && <VoiceReply name={shownName} onClose={() => setReplying(false)} />}
+      {options  && <OptionsSheet name={shownName} city={s.city} onClose={() => setOptions(false)} />}
       {comments && <CommentsPanel onClose={() => setComments(false)} />}
       {listeners && <ListenersSheet onClose={() => setListeners(false)} onPerson={(n) => { setListeners(false); setPerson(n); }} />}
       {person && <AuthorProfile name={person} onClose={() => setPerson(null)} />}
@@ -495,7 +504,7 @@ export function AuthorProfile({ name, onClose }: { name: string; onClose: () => 
       <div className="relative h-40">
         <img src={stage} alt="" className="h-full w-full object-cover" />
         <span className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
-        <Button variant="icon" size="icon" aria-label="Volver" onClick={onClose} className="absolute left-3 top-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] bg-background/75"><ArrowLeft /></Button>
+        <Button variant="icon" size="icon" aria-label="Volver" onClick={onClose} className="absolute left-3 top-[var(--safe-header)] bg-background/75"><ChevronLeft size={24} /></Button>
       </div>
       <div className="-mt-12 px-4 text-center">
         <img src={beach} alt="" className="relative mx-auto h-24 w-24 rounded-full border-4 border-background object-cover" />

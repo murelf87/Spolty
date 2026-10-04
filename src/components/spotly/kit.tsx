@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Ghost, Loader2, ShieldCheck, X, type LucideIcon } from "lucide-react";
+import { ChevronLeft, Ghost, Loader2, ShieldCheck, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /** Hoja inferior reutilizable (modales, selectores, confirmaciones). */
@@ -25,7 +25,7 @@ export function BottomSheet({ title, onClose, children, z = 60, footer }: { titl
 export function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
     <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)} className={"relative h-6 w-11 shrink-0 rounded-full transition " + (on ? "bg-spot-gradient" : "bg-muted")}>
-      <span className={"absolute top-0.5 h-5 w-5 rounded-full bg-foreground transition-all " + (on ? "left-[22px]" : "left-0.5")} />
+      <span className={"absolute top-0.5 h-5 w-5 rounded-full bg-foreground transition-all " + (on ? "left-[1.375rem]" : "left-0.5")} />
     </button>
   );
 }
@@ -45,37 +45,38 @@ export function StateCard({ icon: I, title, text, action, onAction, secondary, o
     <div className="rounded-2xl border border-dashed border-border bg-card/60 p-6 text-center" role="status">
       <span className={"mx-auto grid h-14 w-14 place-items-center rounded-full " + c}>{loading ? <Loader2 className="animate-spin" /> : <I size={26} />}</span>
       <h3 className="mt-3 font-bold">{title}</h3>
-      <p className="mx-auto mt-1 max-w-[280px] text-sm text-muted-foreground">{text}</p>
-      {action && <Button className="mt-4 w-full max-w-[260px] rounded-full bg-spot-gradient text-foreground" onClick={onAction}>{action}</Button>}
-      {secondary && <Button variant="ghost" className="mt-1 w-full max-w-[260px]" onClick={onSecondary}>{secondary}</Button>}
+      <p className="mx-auto mt-1 max-w-[17.5rem] text-sm text-muted-foreground">{text}</p>
+      {action && <Button className="mt-4 w-full max-w-[16.25rem] rounded-full bg-spot-gradient text-foreground" onClick={onAction}>{action}</Button>}
+      {secondary && <Button variant="ghost" className="mt-1 w-full max-w-[16.25rem]" onClick={onSecondary}>{secondary}</Button>}
     </div>
   );
 }
 
-export const SponsoredTag = ({ label = "Patrocinado" }: { label?: string }) => <span className="rounded bg-accent px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-accent-foreground">{label}</span>;
-export const BoostedTag = () => <span className="rounded bg-premium/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary-foreground">Impulsado</span>;
+export const SponsoredTag = ({ label = "Patrocinado" }: { label?: string }) => <span className="rounded bg-accent px-1.5 py-0.5 text-4xs font-bold uppercase tracking-wide text-accent-foreground">{label}</span>;
+export const BoostedTag = () => <span className="rounded bg-premium/90 px-1.5 py-0.5 text-4xs font-bold uppercase tracking-wide text-primary-foreground">Impulsado</span>;
 export function IncognitoTag({ className = "" }: { className?: string }) {
-  return <span className={"inline-flex items-center gap-1 rounded-full border border-accent/60 bg-accent/15 px-2 py-0.5 text-[10px] font-bold tracking-wide text-foreground " + className}><Ghost size={11} />✱ INCÓGNITO VERIFICADO</span>;
+  return <span className={"inline-flex items-center gap-1 rounded-full border border-accent/60 bg-accent/15 px-2 py-0.5 text-3xs font-bold tracking-wide text-foreground " + className}><Ghost size={11} />✱ INCÓGNITO VERIFICADO</span>;
 }
-export const Trust = ({ children }: { children: ReactNode }) => <p className="flex items-start gap-2 rounded-xl border border-border bg-secondary/60 p-3 text-[11px] leading-snug text-muted-foreground"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-primary" />{children}</p>;
+export const Trust = ({ children }: { children: ReactNode }) => <p className="flex items-start gap-2 rounded-xl border border-border bg-secondary/60 p-3 text-2xs leading-snug text-muted-foreground"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-primary" />{children}</p>;
 
 const seedBars = (seed: number, n: number) => Array.from({ length: n }, (_, i) => 22 + ((i * 37 + seed * 53) % 70));
 /** Forma de onda decorativa y estable. */
 export function Waveform({ active, seed = 1, bars = 28, className = "" }: { active?: boolean; seed?: number; bars?: number; className?: string }) {
-  return <span aria-hidden="true" className={"flex h-6 min-w-0 flex-1 items-center gap-[2px] overflow-hidden " + className}>{seedBars(seed, bars).map((h, i) => <span key={i} className={(active ? "spot-wave-active voice-wave-playing" : "spot-wave-idle")} style={{ height: `${h}%`, width: 2, borderRadius: 3, animationDelay: `${(i % 7) * 60}ms` }} />)}</span>;
+  return <span aria-hidden="true" className={"flex h-6 min-w-0 flex-1 items-center gap-[0.125rem] overflow-hidden " + className}>{seedBars(seed, bars).map((h, i) => <span key={i} className={(active ? "spot-wave-active voice-wave-playing" : "spot-wave-idle")} style={{ height: `${h}%`, width: 2, borderRadius: 3, animationDelay: `${(i % 7) * 60}ms` }} />)}</span>;
 }
 
 /** Fila de audio (avatar + onda + duración + play). */
-export function AudioRow({ name, img, dur, ago, seed = 1, right }: { name: string; img?: string | undefined; dur: string; ago?: string | undefined; seed?: number; right?: ReactNode }) {
+/** Fila de audio con su autor: nombre y foto, o fantasma y «Anónimo» si el autor ha pagado Incógnito. */
+export function AudioRow({ name, img, dur, ago, seed = 1, right, anon = false }: { name: string; img?: string | undefined; dur: string; ago?: string | undefined; seed?: number; right?: ReactNode; anon?: boolean }) {
   const [on, setOn] = useState(false);
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
-      {img ? <img src={img} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" /> : <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-secondary font-bold">{name[0]}</span>}
+      {anon ? <span role="img" aria-label="Anónimo" className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-accent/60 bg-accent/20"><Ghost size={18} /></span> : img ? <img src={img} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" /> : <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-secondary font-bold">{name[0]}</span>}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">{name}{ago && <small className="font-normal text-muted-foreground"> · {ago}</small>}</p>
+        <p className="truncate text-sm font-semibold">{anon ? "Anónimo" : name}{ago && <small className="font-normal text-muted-foreground"> · {ago}</small>}</p>
         <div className="mt-1 flex items-center gap-2">
           <button aria-label={on ? `Pausar audio de ${name}` : `Escuchar audio de ${name}`} onClick={() => setOn(!on)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
-            {on ? <span className="flex gap-[2px]"><i className="h-3 w-[3px] bg-current" /><i className="h-3 w-[3px] bg-current" /></span> : <span className="ml-0.5 h-0 w-0 border-y-[6px] border-l-[10px] border-y-transparent border-l-current" />}
+            {on ? <span className="flex gap-[0.125rem]"><i className="h-3 w-[0.1875rem] bg-current" /><i className="h-3 w-[0.1875rem] bg-current" /></span> : <span className="ml-0.5 h-0 w-0 border-y-[6px] border-l-[10px] border-y-transparent border-l-current" />}
           </button>
           <Waveform active={on} seed={seed} />
           <span className="text-xs text-muted-foreground">{dur}</span>
@@ -86,14 +87,29 @@ export function AudioRow({ name, img, dur, ago, seed = 1, right }: { name: strin
   );
 }
 
-/** Cabecera de pantalla completa con botón atrás. */
-export function Screen({ title, onBack, children, footer, z = 50, sub }: { title: string; onBack: () => void; children: ReactNode; footer?: ReactNode; z?: number; sub?: string }) {
+/**
+ * Cabecera común de las pantallas: atrás (o cerrar), título con subtítulo opcional y acciones a la derecha.
+ * Mismo margen superior (barra de estado o isla), alto, icono y tipografía en toda la app.
+ */
+export function TopBar({ title, sub, onBack, close = false, right, leading, sticky = false, border = true, transparent = false, backLabel, className = "" }: { title: ReactNode; sub?: ReactNode; onBack?: (() => void) | undefined; close?: boolean; right?: ReactNode; leading?: ReactNode; sticky?: boolean; border?: boolean; transparent?: boolean; backLabel?: string; className?: string }) {
+  return (
+    <header className={"z-10 flex shrink-0 items-center gap-1 px-2 pb-2 pt-[var(--safe-header)] " + (transparent ? "" : "bg-background/95 backdrop-blur ") + (border ? "border-b border-border/60 " : "") + (sticky ? "sticky top-0 " : "") + className}>
+      {onBack ? <Button variant="ghost" size="icon" className="text-foreground" aria-label={backLabel ?? (close ? "Cerrar" : "Volver")} onClick={onBack}>{close ? <X size={22} /> : <ChevronLeft size={26} />}</Button> : <span className="w-2 shrink-0" />}
+      {leading && <span className="mr-1 shrink-0">{leading}</span>}
+      <div className="flex min-h-10 min-w-0 flex-1 flex-col justify-center">
+        <h2 className="truncate text-base font-bold leading-tight">{title}</h2>
+        {sub && <p className="truncate text-2xs leading-snug text-muted-foreground">{sub}</p>}
+      </div>
+      {right && <div className="flex shrink-0 items-center gap-1">{right}</div>}
+    </header>
+  );
+}
+
+/** Pantalla completa con la cabecera común, contenido con scroll y pie opcional. */
+export function Screen({ title, onBack, children, footer, z = 50, sub, right }: { title: string; onBack: () => void; children: ReactNode; footer?: ReactNode; z?: number; sub?: string; right?: ReactNode }) {
   return (
     <div className="fixed inset-0 mx-auto flex max-w-[520px] flex-col bg-background" style={{ zIndex: z }}>
-      <header className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 pb-2 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]">
-        <Button variant="ghost" size="icon" aria-label="Volver" onClick={onBack}><svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg></Button>
-        <div className="min-w-0"><h2 className="truncate text-base font-bold">{title}</h2>{sub && <p className="truncate text-[11px] text-muted-foreground">{sub}</p>}</div>
-      </header>
+      <TopBar title={title} sub={sub} onBack={onBack} right={right} />
       <main className={"flex-1 overflow-y-auto px-4 pt-3 " + (footer ? "pb-6" : "pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.5rem))]")}>{children}</main>
       {footer && <footer className="shrink-0 border-t border-border bg-background/95 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">{footer}</footer>}
     </div>

@@ -46,8 +46,8 @@ export function ActivityView() {
               <button aria-label={playing === n.id ? "Pausar" : "Escuchar respuesta"} onClick={(e) => { e.stopPropagation(); setPlaying(playing === n.id ? null : n.id); }} className="grid h-7 w-7 place-items-center rounded-full bg-primary text-primary-foreground">
                 {playing === n.id ? <Pause size={13} /> : <Play size={13} />}
               </button>
-              <span className="flex h-5 flex-1 items-center gap-[2px]">{Array.from({ length: 22 }, (_, i) => <span key={i} className={`w-[3px] rounded-full ${playing === n.id ? "bg-primary animate-pulse" : "bg-muted-foreground/50"}`} style={{ height: `${30 + ((i * 37) % 70)}%` }} />)}</span>
-              <span className="text-[10px] text-muted-foreground">0:12</span>
+              <span className="flex h-5 flex-1 items-center gap-[0.125rem]">{Array.from({ length: 22 }, (_, i) => <span key={i} className={`w-[0.1875rem] rounded-full ${playing === n.id ? "bg-primary animate-pulse" : "bg-muted-foreground/50"}`} style={{ height: `${30 + ((i * 37) % 70)}%` }} />)}</span>
+              <span className="text-3xs text-muted-foreground">0:12</span>
             </span>
           )}
           <span className="block text-xs text-muted-foreground">{n.time === "Ayer" ? "Ayer" : `Hace ${n.time}`}</span>
@@ -62,11 +62,11 @@ export function ActivityView() {
 
   const today = shown.filter((n) => n.today), before = shown.filter((n) => !n.today);
   return (
-    <main className="px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]">
-       <div className="flex items-center justify-center">
-         <h1 className="text-base font-bold">Notificaciones{unread > 0 && <span className="sr-only"> · {unread} sin leer</span>}</h1>
+    <main className="px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[var(--safe-header)]">
+       <div className="flex min-h-10 items-center">
+         <h1 className="text-lg font-bold">Notificaciones{unread > 0 && <span className="sr-only"> · {unread} sin leer</span>}</h1>
       </div>
-       <div className="mt-4 grid grid-cols-4 gap-1">{["Todas", "Menciones", "Seguidores", "Eventos"].map((x) => <Button key={x} size="sm" variant={tab === x ? "default" : "secondary"} onClick={() => setTab(x)} className={`h-8 min-w-0 rounded-full px-1 text-[10px] ${tab === x ? "spot-active-pill" : "text-foreground"}`}>{x}</Button>)}</div>
+       <div className="mt-4 grid grid-cols-4 gap-1">{["Todas", "Menciones", "Seguidores", "Eventos"].map((x) => <Button key={x} size="sm" variant={tab === x ? "default" : "secondary"} onClick={() => setTab(x)} className={`h-8 min-w-0 rounded-full px-1 text-3xs ${tab === x ? "spot-active-pill" : "text-foreground"}`}>{x}</Button>)}</div>
       {shown.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">Nada por aquí todavía</p>}
        {today.length > 0 && <div className="mt-5 space-y-0">{today.map(row)}</div>}
        {before.length > 0 && <div className="space-y-0">{before.map(row)}</div>}

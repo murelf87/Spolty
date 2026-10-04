@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BadgeCheck, Bookmark, Calendar, CheckCircle2, ChevronLeft, Eye, EyeOff, Flame, Heart, MapPin, Navigation, Pause, Play, Mic, Music, Radio, Share2, ShieldCheck, Sparkles, Trophy, Users, Utensils } from "lucide-react";
+import { BadgeCheck, Bookmark, Calendar, CheckCircle2, ChevronDown, ChevronLeft, Eye, EyeOff, Flame, Heart, MapPin, Navigation, Pause, Play, Mic, Music, Radio, Share2, ShieldCheck, Sparkles, Trophy, Users, Utensils } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Shell } from "./Extras";
@@ -9,6 +9,7 @@ import festival from "@/assets/spotly-sevilla-festival.jpg";
 import stage from "@/assets/spotly-live-stage.jpg";
 import beach from "@/assets/spotly-beach-club.jpg";
 import lauraPhoto from "@/assets/spotly-laura.jpg";
+import { TopBar, BottomSheet } from "./kit";
 
 /* ---------- Comunidades de voz ---------- */
 const communities = [
@@ -24,10 +25,7 @@ function LiveRoom({ room, onLeave }: { room: string; onLeave: () => void }) {
   const [speaking, setSpeaking] = useState(false);
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-background">
-      <header className="flex items-center justify-between border-b border-border p-4">
-        <div><span className="rounded bg-live px-2 py-0.5 text-[10px] font-bold">● EN DIRECTO</span><h2 className="mt-1 font-bold">{room}</h2><small className="text-muted-foreground">24 escuchando</small></div>
-        <Button variant="outline" size="sm" onClick={onLeave}>Salir</Button>
-      </header>
+      <TopBar title={room} sub={<><span className="mr-1.5 rounded bg-live px-1.5 py-px text-4xs font-bold text-foreground">● EN DIRECTO</span>24 escuchando</>} right={<Button variant="outline" size="sm" onClick={onLeave}>Salir</Button>} />
       <main className="flex-1 overflow-y-auto p-5">
         <p className="text-xs font-bold tracking-wider text-muted-foreground">HABLANDO</p>
         <div className="mt-3 grid grid-cols-3 gap-4">
@@ -38,7 +36,7 @@ function LiveRoom({ room, onLeave }: { room: string; onLeave: () => void }) {
         <p className="mt-8 text-xs font-bold tracking-wider text-muted-foreground">ESCUCHANDO</p>
         <div className="mt-3 grid grid-cols-4 gap-3">
           {["Marta", "Sergio", "Ana", "Pablo", "Lucía", "Diego", "Eva", "Iván"].map((n) => (
-            <div key={n} className="text-center"><span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary font-semibold">{n[0]}</span><small className="mt-1 block text-[10px] text-muted-foreground">{n}</small></div>
+            <div key={n} className="text-center"><span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-secondary font-semibold">{n[0]}</span><small className="mt-1 block text-3xs text-muted-foreground">{n}</small></div>
           ))}
         </div>
       </main>
@@ -139,7 +137,7 @@ export function Communities({ onBack }: { onBack: () => void }) {
           <button key={c.name} onClick={() => { setOpen(c.name); setInner("Salas"); }} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left hover:border-primary">
             <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl"><img src={[stage, festival, beach, sevilleNight][all.indexOf(c) % 4]} alt="" className="h-full w-full object-cover" /><span className="absolute bottom-0.5 right-0.5 grid h-5 w-5 place-items-center rounded-full bg-background/80 text-primary"><c.icon size={11} /></span></span>
             <span className="flex-1"><strong className="block text-sm">{c.name}</strong><small className="text-muted-foreground">{c.members} miembros{c.live > 0 ? ` · ${c.live} en directo` : ""}</small></span>
-            {c.live > 0 && <span className="rounded-md bg-live px-2 py-1 text-[10px] font-bold">EN DIRECTO</span>}
+            {c.live > 0 && <span className="rounded-md bg-live px-2 py-1 text-3xs font-bold">EN DIRECTO</span>}
             {joined.includes(c.name) && <CheckCircle2 size={18} className="text-primary" />}
           </button>
         ))}
@@ -151,10 +149,10 @@ export function Communities({ onBack }: { onBack: () => void }) {
 
 /* ---------- Eventos locales ---------- */
 const events = [
-  { title: "Concierto flamenco en Triana", when: "Hoy · 21:00", place: "Sevilla · Triana", filter: "Hoy", img: stage },
-  { title: "Mercado de productores", when: "Sábado · 10:00", place: "Sevilla · Alameda", filter: "Fin de semana", img: valenciaSunset },
-  { title: "Ruta al atardecer", when: "Domingo · 19:30", place: "Valencia · Malvarrosa", filter: "Fin de semana", img: beach },
-  { title: "Feria de barrio", when: "12 de octubre", place: "Sevilla · Macarena", filter: "Próximos", img: festival },
+  { title: "Concierto flamenco en Triana", when: "Hoy · 21:00", place: "Sevilla · Triana", filter: "Hoy", img: stage, by: "Peña Flamenca Triana" },
+  { title: "Mercado de productores", when: "Sábado · 10:00", place: "Sevilla · Alameda", filter: "Fin de semana", img: valenciaSunset, by: "Asociación Alameda Viva" },
+  { title: "Ruta al atardecer", when: "Domingo · 19:30", place: "Valencia · Malvarrosa", filter: "Fin de semana", img: beach, by: "Marta · Runners Valencia" },
+  { title: "Feria de barrio", when: "12 de octubre", place: "Sevilla · Macarena", filter: "Próximos", img: festival, by: "Vecinos de la Macarena" },
 ];
 
 export function Events({ onBack, create = false }: { onBack: () => void; create?: boolean }) {
@@ -172,7 +170,7 @@ export function Events({ onBack, create = false }: { onBack: () => void; create?
           <img src={detail.img} alt={detail.title} className="h-full w-full object-cover" />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
           {/* Botón atrás */}
-          <button onClick={() => setDetail(null)} aria-label="Volver" className="absolute left-3 grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white" style={{ top: "max(2.75rem, calc(env(safe-area-inset-top) + 0.5rem))" }}><ChevronLeft size={22} /></button>
+          <button onClick={() => setDetail(null)} aria-label="Volver" className="absolute left-3 grid h-10 w-10 place-items-center rounded-full bg-black/50 text-white backdrop-blur-sm" style={{ top: "var(--safe-header)" }}><ChevronLeft size={24} /></button>
           {/* Acciones laterales derecha */}
           <div className="absolute bottom-24 right-3 flex flex-col items-center gap-5">
             <button onClick={() => { setGoing((g) => isGoing ? g.filter((t) => t !== detail.title) : [...g, detail.title]); toast.success(isGoing ? "Has cancelado tu asistencia" : "¡Asistencia confirmada!"); }} aria-label="Asistiré" className="flex flex-col items-center gap-1">
@@ -202,7 +200,7 @@ export function Events({ onBack, create = false }: { onBack: () => void; create?
           <h2 className="mt-1 text-2xl font-bold">{detail.title}</h2>
           <p className="text-sm text-muted-foreground">{detail.place}</p>
           <div className="mt-4 flex items-center gap-2"><div className="flex -space-x-2">{[lauraPhoto, beach, festival, stage].map((image,i) => <span key={image} className="relative h-8 w-8 rounded-full border-2 border-background"><img src={image} alt="" className="h-full w-full rounded-full object-cover"/>{i < 2 && <BadgeCheck size={11} aria-label="Asistente verificado de ejemplo" className="absolute -right-1 -top-1 rounded-full bg-background text-primary"/>}</span>)}</div><span className="text-xs text-muted-foreground">{48 + (isGoing ? 1 : 0)} asistirán · 2 distintivos de ejemplo</span></div>
-          <button onClick={() => toast("Reproduciendo la presentación de voz")} className="mt-4 flex w-full items-center gap-2 rounded-xl border border-border bg-secondary p-3 text-left text-sm"><span className="grid h-9 w-9 place-items-center rounded-full bg-primary text-primary-foreground"><Mic size={16} /></span>Escucha al organizador · 0:22</button>
+          <button onClick={() => toast("Reproduciendo la presentación de voz")} className="mt-4 flex w-full items-center gap-2 rounded-xl border border-border bg-secondary p-3 text-left text-sm"><span className="grid h-9 w-9 place-items-center rounded-full bg-primary text-primary-foreground"><Mic size={16} /></span><span className="min-w-0"><strong className="block truncate">{detail.by}</strong><small className="text-muted-foreground">Organizador · nota de voz 0:22</small></span></button>
           <Button variant="outline" className="mt-3 w-full" onClick={() => toast.success("Pregunta de voz enviada al organizador")}><Mic size={16} />Preguntar con tu voz</Button>
         </div>
 
@@ -246,7 +244,7 @@ export function Events({ onBack, create = false }: { onBack: () => void; create?
                 <p className="text-xs text-muted-foreground">{e.place}</p>
                 <button onClick={() => toast("Reproduciendo la presentación de voz")} className="mt-3 flex w-full items-center gap-2 rounded-xl border border-border bg-secondary p-2 text-left text-xs text-muted-foreground">
                   <span className="grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground"><Mic size={15} /></span>
-                  Escucha al organizador · 0:22
+                  <span className="min-w-0"><strong className="block truncate text-foreground">{e.by}</strong>Organizador · nota de voz 0:22</span>
                 </button>
                 <Button className="mt-3 w-full" variant={isGoing ? "secondary" : "primary"} onClick={() => { setGoing((g) => isGoing ? g.filter((t) => t !== e.title) : [...g, e.title]); toast.success(isGoing ? "Has cancelado tu asistencia" : "¡Asistencia confirmada!"); }}>
                   {isGoing ? "Ya asistes" : "Asistiré"}
@@ -277,13 +275,13 @@ export function CityWall({ onBack, mine = false }: { onBack: () => void; mine?: 
   const photoCounts = ["1,2K", "842", "1,1K", "654", "854", "376", "924", "563", "717", "623", "448", "302"];
   return (
     <div className="fixed inset-0 z-40 mx-auto max-w-[520px] overflow-y-auto bg-background pb-[calc(5rem+env(safe-area-inset-bottom))]">
-      <header className="flex items-center gap-2 px-4 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]"><Button size="icon" variant="ghost" onClick={onBack} aria-label="Volver"><ChevronLeft /></Button><div><h1 className="text-xl font-bold">{place.name}</h1><p className="text-xs text-muted-foreground">{place.name === "Sevilla" ? "124K Spots · 83K personas" : `${place.people} Spots · ${place.people} personas`}</p></div><Button variant="ghost" size="sm" className="ml-auto text-xs" onClick={() => setSelectingCity(true)} aria-label="Elegir ciudad">⌄</Button></header>
+      <TopBar title={place.name} sub={place.name === "Sevilla" ? "124K Spots · 83K personas" : `${place.people} Spots · ${place.people} personas`} onBack={onBack} sticky right={<Button variant="ghost" size="icon" className="text-foreground" onClick={() => setSelectingCity(true)} aria-label="Elegir ciudad"><ChevronDown size={20} /></Button>} />
       <div className="mt-5 flex gap-1.5 overflow-x-auto px-4 pb-2">
         {["Todos", "Fotos", "Vídeos", "Voz", "En directo"].map((t) => <Button key={t} size="sm" variant={tab === t ? "default" : "secondary"} onClick={() => setTab(t)} className={`shrink-0 rounded-full text-xs ${tab === t ? "spot-active-pill" : ""}`}>{t}</Button>)}
       </div>
       <div className="mt-1 grid grid-cols-3 gap-1.5 px-3">
-        {mine && place.name === "Sevilla" && <Button variant="ghost" onClick={() => setSelectedSpot(-1)} className="relative h-auto overflow-hidden rounded-lg p-0"><img src={valenciaSunset} alt="Tu Spot" className="aspect-[3/4] w-full object-cover" /><span className="absolute left-1 top-1 rounded bg-live px-1 text-[9px] font-bold text-primary-foreground">TÚ · NUEVO</span></Button>}
-        {cityPhotos.filter((_, i) => tab !== "En directo" || i % 3 === 0).filter((_, i) => tab !== "Voz" || i % 2 === 0).map((img, i) => <Button key={`${tab}-${i}`} variant="ghost" onClick={() => setSelectedSpot(i)} className="relative h-auto overflow-hidden rounded-lg border border-border p-0"><img src={place.name === "Sevilla" ? img : i % 3 === 0 ? place.img : img} alt={`Spot ${i + 1} en ${place.name}`} loading="lazy" className="aspect-[3/4] w-full object-cover" /><span className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-gradient-to-t from-background/90 to-transparent px-1.5 pb-1 pt-6 text-[10px]"><Heart size={11} fill="currentColor" className="text-live" />{photoCounts[i]} <Mic size={10} className="ml-auto" /></span></Button>)}
+        {mine && place.name === "Sevilla" && <Button variant="ghost" onClick={() => setSelectedSpot(-1)} className="relative h-auto overflow-hidden rounded-lg p-0"><img src={valenciaSunset} alt="Tu Spot" className="aspect-[3/4] w-full object-cover" /><span className="absolute left-1 top-1 rounded bg-live px-1 text-4xs font-bold text-primary-foreground">TÚ · NUEVO</span></Button>}
+        {cityPhotos.filter((_, i) => tab !== "En directo" || i % 3 === 0).filter((_, i) => tab !== "Voz" || i % 2 === 0).map((img, i) => <Button key={`${tab}-${i}`} variant="ghost" onClick={() => setSelectedSpot(i)} className="relative h-auto overflow-hidden rounded-lg border border-border p-0"><img src={place.name === "Sevilla" ? img : i % 3 === 0 ? place.img : img} alt={`Spot ${i + 1} en ${place.name}`} loading="lazy" className="aspect-[3/4] w-full object-cover" /><span className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-gradient-to-t from-background/90 to-transparent px-1.5 pb-1 pt-6 text-3xs"><Heart size={11} fill="currentColor" className="text-live" />{photoCounts[i]} <Mic size={10} className="ml-auto" /></span></Button>)}
       </div>
       {selectingCity && <div className="fixed inset-0 z-50 flex items-end bg-background/80" onClick={() => setSelectingCity(false)}><div className="w-full rounded-t-xl bg-card p-4 pb-10" onClick={(e) => e.stopPropagation()}><p className="mb-3 text-sm font-bold">Ciudades y pueblos</p>{places.map((p) => <Button key={p.name} variant={p.name === place.name ? "default" : "ghost"} onClick={() => { setPlace(p); setTab("Todos"); setSelectingCity(false); }} className="mb-1 w-full justify-start">{p.name}</Button>)}</div></div>}
       {selectedSpot !== null && <div className="fixed inset-0 z-50 flex items-end bg-background/80" onClick={() => setSelectedSpot(null)}><div className="mx-auto w-full max-w-[520px] rounded-t-2xl border-t border-primary bg-card p-4 pb-8" onClick={(e) => e.stopPropagation()}><img src={selectedSpot === -1 ? valenciaSunset : cityPhotos[selectedSpot % cityPhotos.length]} alt="Spot seleccionado" className="aspect-video w-full rounded-lg object-cover" /><p className="mt-3 font-semibold">{selectedSpot === -1 ? "Tu Spot" : `Spot en ${place.name}`}</p><p className="text-xs text-muted-foreground">{place.name} · Hace 5 min</p><div className="mt-3 flex gap-2"><Button onClick={() => toast("Reproduciendo Spot de voz")}><Mic size={16} />Escuchar Spot</Button><Button variant="secondary" onClick={() => setSelectedSpot(null)}>Cerrar</Button></div></div></div>}
@@ -317,7 +315,7 @@ export function VoiceSearch({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-1 rounded-lg bg-secondary p-1">{(["Lugares", "Creadores"] as const).map(x => <Button key={x} size="sm" variant={kind===x?"default":"ghost"} onClick={()=>{setKind(x);setOpenR(null)}} className="rounded-md">{x}</Button>)}</div>
-      {kind === "Creadores" && <div className="mt-4"><Button size="sm" variant={onlyVerified?"default":"secondary"} onClick={()=>setOnlyVerified(v=>!v)} className="rounded-full"><BadgeCheck size={15}/>Solo verificados</Button><p className="mt-2 text-[11px] text-muted-foreground">Perfiles y sellos de ejemplo</p></div>}
+      {kind === "Creadores" && <div className="mt-4"><Button size="sm" variant={onlyVerified?"default":"secondary"} onClick={()=>setOnlyVerified(v=>!v)} className="rounded-full"><BadgeCheck size={15}/>Solo verificados</Button><p className="mt-2 text-2xs text-muted-foreground">Perfiles y sellos de ejemplo</p></div>}
       <h3 className="mt-6 text-sm font-bold">Filtros</h3>
       <label className="mt-2 block text-xs text-muted-foreground">Distancia: {distance} km
         <input type="range" min={1} max={30} value={distance} onChange={(e) => setDistance(Number(e.target.value))} className="mt-2 w-full accent-[var(--primary)]" />
@@ -349,11 +347,10 @@ export function VoiceSearch({ onBack }: { onBack: () => void }) {
           </div>
         </>
       )}
-      {openR && <div className="fixed inset-0 z-50 flex items-end bg-background/70 backdrop-blur-sm" onClick={() => { setOpenR(null); setPlayR(false); }}><div className="mx-auto w-full max-w-[520px] rounded-t-3xl border-t border-border bg-card p-5 pb-8" onClick={(e) => e.stopPropagation()}>
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-muted" />
+      {openR && <BottomSheet onClose={() => { setOpenR(null); setPlayR(false); }} z={50}>
         <h3 className="text-lg font-bold">{openR.t}</h3><p className="text-sm text-muted-foreground">{openR.d}</p>
         {kind === "Creadores" ? <><p className="mt-3 text-xs text-muted-foreground">Presentación de voz · ejemplo</p><Button variant="secondary" onClick={() => setPlayR(!playR)} className="mt-2 w-full justify-start"><span className="text-primary">{playR ? <Pause size={16}/> : <Play size={16}/>}</span>{playR ? "Pausar presentación" : "Escuchar presentación"}</Button><div className="mt-4 grid grid-cols-2 gap-2"><Button variant="secondary" onClick={() => toast("Seguimiento de ejemplo")}>Seguir</Button><Button onClick={() => toast("Mensaje de voz de ejemplo")}><Mic size={16}/>Mensaje de voz</Button></div></> : <><Button variant="secondary" onClick={() => setPlayR(!playR)} className="mt-4 w-full justify-start"><span className="text-primary">{playR ? <Pause size={16}/> : <Play size={16}/>}</span>{playR ? "Pausar ejemplo" : "Escuchar lo que se dice ahí"}</Button><div className="mt-4 grid grid-cols-2 gap-2"><Button variant="outline" onClick={() => toast("Ruta de ejemplo en el mapa")}><MapPin size={16} />Cómo llegar</Button><Button onClick={() => toast("Respuesta de voz de ejemplo")}><Mic size={16} />Responder</Button></div></>}
-      </div></div>}
+      </BottomSheet>}
     </Shell>
   );
 }
@@ -387,10 +384,10 @@ export function Privacy({ onBack }: { onBack: () => void }) {
 
       <div className="mt-4 space-y-2">
         {labels.map(([k, title, desc]) => (
-          <button key={k} onClick={() => set(k)} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left">
+          <button key={k} onClick={() => set(k)} role="switch" aria-checked={toggles[k]} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left">
             <span className="flex-1"><strong className="block text-sm">{title}</strong><small className="text-muted-foreground">{desc}</small></span>
-            <span className={toggles[k] ? "h-6 w-11 rounded-full bg-primary p-1" : "h-6 w-11 rounded-full bg-secondary p-1"}>
-              <span className={toggles[k] ? "block h-4 w-4 translate-x-5 rounded-full bg-primary-foreground transition" : "block h-4 w-4 rounded-full bg-muted-foreground transition"} />
+            <span className={"h-6 w-11 shrink-0 rounded-full p-0.5 transition " + (toggles[k] ? "bg-spot-gradient" : "bg-muted")}>
+              <span className={"block h-5 w-5 rounded-full bg-foreground transition " + (toggles[k] ? "translate-x-5" : "")} />
             </span>
           </button>
         ))}

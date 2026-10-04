@@ -38,7 +38,7 @@ export function PlaceBrowser({ onPick, initialProvince, allowProvince = true, se
         {allowProvince && <button onClick={() => onPick(prov.n, prov)} className={cn("mb-2 flex min-h-11 w-full items-center justify-between rounded-xl border px-3 text-sm font-semibold", selected === prov.n ? "border-primary bg-primary/10" : "border-border bg-card")}>Toda la provincia de {prov.n}<ChevronRight size={16} className="text-muted-foreground" /></button>}
         {municipiosOf(prov.c).length > 12 && searchBox(inner, setInner, `Buscar en ${prov.n}`)}
         <div className="mt-2 divide-y divide-border">
-          {shown.map((m) => <button key={m} onClick={() => onPick(m, prov)} className={rowCls}><MapPin size={15} className={selected === m ? "text-primary" : "text-muted-foreground"} /><span className={cn("min-w-0 flex-1 truncate text-sm", selected === m && "font-bold text-primary")}>{m}</span>{norm(m) === norm(prov.k) && <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary">Capital</span>}<ChevronRight size={15} className="text-muted-foreground" /></button>)}
+          {shown.map((m) => <button key={m} onClick={() => onPick(m, prov)} className={rowCls}><MapPin size={15} className={selected === m ? "text-primary" : "text-muted-foreground"} /><span className={cn("min-w-0 flex-1 truncate text-sm", selected === m && "font-bold text-primary")}>{m}</span>{norm(m) === norm(prov.k) && <span className="rounded-full bg-primary/15 px-2 py-0.5 text-3xs font-bold text-primary">Capital</span>}<ChevronRight size={15} className="text-muted-foreground" /></button>)}
         </div>
         {list.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Ningún municipio coincide con “{inner}”.</p>}
         {list.length > limit && <button onClick={() => setLimit(limit + PAGE)} className="mt-2 w-full rounded-xl border border-border py-2.5 text-xs font-semibold text-primary">Mostrar más ({list.length - limit} restantes)</button>}
@@ -49,7 +49,7 @@ export function PlaceBrowser({ onPick, initialProvince, allowProvince = true, se
   return (
     <div>
       {searchBox(q, setQ, "Buscar ciudad, pueblo o provincia…")}
-      <p className="mt-2 text-[11px] text-muted-foreground">{provinces.length} provincias · {String(totalMunicipios).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} municipios (Ceuta, Melilla, Canarias y Baleares incluidos)</p>
+      <p className="mt-2 text-2xs text-muted-foreground">{provinces.length} provincias · {String(totalMunicipios).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} municipios (Ceuta, Melilla, Canarias y Baleares incluidos)</p>
       {q.trim() ? (
         <div className="mt-1 divide-y divide-border">
           {hits.map((h) => <button key={h.kind + h.prov.c + h.name} onClick={() => h.kind === "provincia" ? open(h.prov) : onPick(h.name, h.prov)} className={rowCls}><MapPin size={15} className="text-primary" /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{h.name}</span><small className="text-muted-foreground">{h.kind === "provincia" ? `Provincia · ${h.prov.r}` : `${h.kind === "capital" ? "Capital · " : ""}${h.prov.n}`}</small></span><ChevronRight size={15} className="text-muted-foreground" /></button>)}
@@ -57,7 +57,7 @@ export function PlaceBrowser({ onPick, initialProvince, allowProvince = true, se
         </div>
       ) : (
         <div className="mt-2">
-          {communities.map((r) => <section key={r} className="mb-3"><h4 className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{r}</h4>
+          {communities.map((r) => <section key={r} className="mb-3"><h4 className="mb-1 text-2xs font-bold uppercase tracking-wider text-muted-foreground">{r}</h4>
             <div className="divide-y divide-border rounded-xl border border-border bg-card px-3">{provinces.filter((p) => p.r === r).map((p) => <button key={p.c} onClick={() => open(p)} className={rowCls}><span className="min-w-0 flex-1 truncate text-sm font-semibold">{p.n}</span><small className="text-muted-foreground">{municipiosOf(p.c).length} mun.</small><ChevronRight size={15} className="text-muted-foreground" /></button>)}</div></section>)}
         </div>
       )}

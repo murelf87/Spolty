@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bell, Calendar, Compass, Download, Flame, Home, Mic, Plus, UserRound, Users } from "lucide-react";
-import { Logo } from "@/components/spotly/Logo";
+import { Logo, SpotPin } from "@/components/spotly/Logo";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { ActivityView } from "@/components/spotly/Activity";
@@ -29,7 +29,7 @@ import { ProfilePromo, SuggestedPeople } from "@/components/spotly/PromoProfile"
 import { SpainScreen } from "@/components/spotly/SpainMap";
 import { PhotoWall } from "@/components/spotly/PhotoWall";
 import { SafetyCenter } from "@/components/spotly/Safety";
-import { getState, setIdentity, setIdTier } from "@/lib/store";
+import { getState, loadMe, setIdentity, setIdTier } from "@/lib/store";
 import { registerSW } from "@/lib/pwa";
 import { enableDragScroll } from "@/lib/dragScroll";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,6 +70,7 @@ export function Index() {
   const goTo = (t: Tab | null, sh: Sheet = null) => { setSheet(sh); setHotId(null); setBizId(null); setIncogPublic(false); setCreating(false); if (t) setTab(t); };
 
   useEffect(() => {
+    loadMe(); // tu nombre y tu foto guardados en este dispositivo
     registerSW();
     const off = enableDragScroll();
     const a = new URLSearchParams(window.location.search).get("accion");
@@ -114,10 +115,10 @@ export function Index() {
       <DesktopSidebars tab={tab} goTo={goTo} onCreate={() => setCreating(true)} onOpenHot={(id) => setHotId(id)} onPlace={(c) => actions.openPhotoWall(c)} />
       <div className="mx-auto min-h-screen w-full max-w-[520px] overflow-hidden bg-background text-foreground shadow-2xl sm:border-x sm:border-border">
         {content}
-        <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto grid min-[1100px]:hidden h-[calc(68px+env(safe-area-inset-bottom))] max-w-[520px] grid-cols-5 items-center border-t border-border bg-background/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur" aria-label="Navegación principal">
-          {navItems.slice(0, 2).map(([id, Icon, label]) => <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? "page" : undefined} className={tab === id ? "grid place-items-center gap-1 text-primary" : "grid place-items-center gap-1 text-muted-foreground"}><Icon size={21} /><span className="text-[10px]">{id === "explorar" ? "Mapa" : label}</span></button>)}
-          <button onClick={() => setCreating(true)} className="spot-create-button mx-auto grid h-14 w-14 -translate-y-3 place-items-center rounded-full bg-spot-gradient shadow-glow" aria-label="Crear Spot"><span className="text-4xl font-light leading-none">+</span></button>
-          {navItems.slice(2).map(([id, Icon, label]) => <button key={id} onClick={() => id === "actividad" ? setSheet("chats") : setTab(id)} className={tab === id && id !== "actividad" ? "grid place-items-center gap-1 text-primary" : "grid place-items-center gap-1 text-muted-foreground"}>{id === "actividad" ? <Mic size={21} /> : <Icon size={21} />}<span className="text-[10px]">{id === "actividad" ? "Chats" : label}</span></button>)}
+        <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto grid min-[1100px]:hidden h-[calc(4.25rem+env(safe-area-inset-bottom))] max-w-[520px] grid-cols-5 items-center border-t border-border bg-background/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur" aria-label="Navegación principal">
+          {navItems.slice(0, 2).map(([id, Icon, label]) => <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? "page" : undefined} className={tab === id ? "grid place-items-center gap-1 text-primary" : "grid place-items-center gap-1 text-muted-foreground"}><Icon size={21} /><span className="text-3xs">{id === "explorar" ? "Mapa" : label}</span></button>)}
+          <button onClick={() => setCreating(true)} className="spot-create-button mx-auto grid h-14 w-14 -translate-y-3 place-items-center rounded-full" aria-label="Crear Spot" title="Crear Spot"><SpotPin size={25} /></button>
+          {navItems.slice(2).map(([id, Icon, label]) => <button key={id} onClick={() => id === "actividad" ? setSheet("chats") : setTab(id)} className={tab === id && id !== "actividad" ? "grid place-items-center gap-1 text-primary" : "grid place-items-center gap-1 text-muted-foreground"}>{id === "actividad" ? <Mic size={21} /> : <Icon size={21} />}<span className="text-3xs">{id === "actividad" ? "Chats" : label}</span></button>)}
         </nav>
 
         <IncognitoBanner onOpen={() => setSheet("incognito")} />
@@ -152,7 +153,7 @@ export function Index() {
         {onb && <Onboarding onBack={() => { setOnb(false); setWelcome(true); }} onDone={() => { setOnb(false); void supabase.auth.updateUser({ data: { onboarded: true } }).catch(() => undefined); if (getState().identity !== "approved") setSheet("verificacion"); }} />}
         {recovery && <NewPassword mode="recovery" onDone={() => setRecovery(false)} />}
         <OfflineBanner />
-        <Toaster mobileOffset={{ top: "calc(env(safe-area-inset-top) + 10px)", bottom: "calc(env(safe-area-inset-bottom) + 84px)" }} />
+        <Toaster mobileOffset={{ top: "calc(env(safe-area-inset-top) + 0.625rem)", bottom: "calc(env(safe-area-inset-bottom) + 5.25rem)" }} />
       </div>
     </AppCtx.Provider>
   );
@@ -167,20 +168,20 @@ function DesktopSidebars({ tab, goTo, onCreate, onOpenHot, onPlace }: { tab: Tab
   const live = [["Festival Sevilla", "1,2K escuchando"], ["DJ Sunset · Barcelona", "2,4K"], ["Charla viajera · Madrid", "1,2K"], ["Sesión acústica · Valencia", "980"]];
   return (
     <>
-      <aside aria-label="Navegación" className="fixed inset-y-0 z-[80] hidden w-[300px] flex-col gap-1 border-r border-border bg-background px-5 py-6 min-[1100px]:flex" style={{ left: "calc(50% - 560px)" }}>
+      <aside aria-label="Navegación" className="fixed inset-y-0 z-[80] hidden w-[18.75rem] flex-col gap-1 border-r border-border bg-background px-5 py-6 min-[1100px]:flex" style={{ left: "calc(50% - 560px)" }}>
         <Logo className="mb-6 self-start" />
         {nav.map(([l, I, f, on]) => <button key={l} onClick={f} aria-current={on ? "page" : undefined} className={"flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold " + (on ? "spot-active-pill" : "text-foreground/80 hover:bg-secondary")}><I size={18} />{l}</button>)}
         <button onClick={onCreate} className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-spot-gradient font-bold text-foreground shadow-glow"><Plus size={18} />Crear Spot</button>
         <button onClick={() => goTo(null, "permisos")} className="mt-auto flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-muted-foreground hover:bg-secondary"><Download size={14} />Instalar la app de Spotly</button>
       </aside>
-      <aside aria-label="Ahora en Spotly" className="fixed inset-y-0 z-[80] hidden w-[300px] flex-col gap-5 overflow-y-auto border-l border-border bg-background px-5 py-6 min-[1100px]:flex" style={{ left: "calc(50% + 260px)" }}>
+      <aside aria-label="Ahora en Spotly" className="fixed inset-y-0 z-[80] hidden w-[18.75rem] flex-col gap-5 overflow-y-auto border-l border-border bg-background px-5 py-6 min-[1100px]:flex" style={{ left: "calc(50% + 260px)" }}>
         <section><h2 className="mb-2 flex items-center gap-1.5 text-sm font-bold"><Flame size={15} className="text-live" />En directo ahora</h2>
           <div className="space-y-1">{live.map(([t, n]) => <button key={t} onClick={() => goTo(null, "audio-wall")} className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-secondary"><span className="grid h-10 w-10 place-items-center rounded-lg bg-live/20 text-live"><Mic size={16} /></span><span className="min-w-0 flex-1"><strong className="block truncate text-sm">{t}</strong><small className="text-muted-foreground">{n}</small></span></button>)}</div></section>
         <section><h2 className="mb-2 text-sm font-bold">Hot Spots cerca</h2>
           <div className="space-y-1">{[["h1", "Concierto en la calle Betis", "420 m"], ["h2", "Cola en el Mercado de Triana", "800 m"], ["h3", "Corte de tráfico junto al Puente", "1,6 km"]].map(([id, t, d]) => <button key={id} onClick={() => onOpenHot(id!)} className="flex w-full items-center gap-2 rounded-xl p-2 text-left text-sm hover:bg-secondary"><Flame size={14} className="shrink-0 text-live" /><span className="min-w-0 flex-1 truncate">{t}</span><small className="text-muted-foreground">{d}</small></button>)}</div></section>
         <section><h2 className="mb-2 text-sm font-bold">Ciudades populares</h2>
           <div className="flex flex-wrap gap-2">{["Madrid", "Barcelona", "Valencia", "Sevilla", "Málaga"].map((c) => <button key={c} onClick={() => onPlace(c)} className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-secondary">{c}</button>)}</div></section>
-        <p className="mt-auto text-[11px] text-muted-foreground">Spotly · Less typing. More talking. Solo personas verificadas.</p>
+        <p className="mt-auto text-2xs text-muted-foreground">Spotly · Less typing. More talking. Solo personas verificadas.</p>
       </aside>
     </>
   );

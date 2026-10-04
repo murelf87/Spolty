@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, AtSign, Check, Eye, EyeOff, KeyRound, Loader2, Lock, Mail, MailCheck, ShieldCheck, X } from "lucide-react";
+import { ChevronLeft, AtSign, Check, Eye, EyeOff, KeyRound, Loader2, Lock, Mail, MailCheck, ShieldCheck, X } from "lucide-react";
 import { siApple, siGoogle } from "simple-icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,7 @@ function Shell({ onBack, children, back = true }: { onBack?: (() => void) | unde
   return (
     <div className="fixed inset-0 z-50 mx-auto flex max-w-[520px] flex-col overflow-y-auto bg-background px-6 pb-[max(2rem,calc(env(safe-area-inset-bottom)+1rem))] pt-[max(1.25rem,env(safe-area-inset-top))]">
       <div className="flex items-center justify-between">
-        {back && onBack ? <button aria-label="Volver" onClick={onBack} className="-ml-1 grid h-10 w-10 place-items-center rounded-full"><ArrowLeft size={22} /></button> : <span className="h-10 w-10" />}
+        {back && onBack ? <button aria-label="Volver" onClick={onBack} className="-ml-1 grid h-10 w-10 place-items-center rounded-full"><ChevronLeft size={24} /></button> : <span className="h-10 w-10" />}
         <Logo compact />
         <span className="h-10 w-10" />
       </div>
@@ -67,15 +67,15 @@ function Shell({ onBack, children, back = true }: { onBack?: (() => void) | unde
 
 const Head = ({ title, sub }: { title: string; sub?: ReactNode }) => (
   <div className="mt-5 text-center">
-    <h1 className="text-[30px] font-semibold leading-tight tracking-tight">{title}</h1>
-    {sub && <p className="mx-auto mt-2 max-w-[300px] text-[15px] leading-snug text-muted-foreground">{sub}</p>}
+    <h1 className="text-[1.875rem] font-semibold leading-tight tracking-tight">{title}</h1>
+    {sub && <p className="mx-auto mt-2 max-w-[18.75rem] text-[0.9375rem] leading-snug text-muted-foreground">{sub}</p>}
   </div>
 );
 
 function Field({ id, label, icon: Icon, error, hint, right, ...rest }: { id: string; label: string; icon: typeof Mail; error?: string | undefined; hint?: string | undefined; right?: ReactNode } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "id">) {
   return (
     <div>
-      <label htmlFor={id} className="mb-1.5 block text-[13px] font-medium text-foreground/80">{label}</label>
+      <label htmlFor={id} className="mb-1.5 block text-[0.8125rem] font-medium text-foreground/80">{label}</label>
       <div className={`flex h-14 items-center gap-3 rounded-2xl border bg-card px-4 transition focus-within:shadow-glow ${error ? "border-live" : "border-border focus-within:border-primary"}`}>
         <Icon size={18} className="shrink-0 text-muted-foreground" />
         <input id={id} aria-invalid={!!error} aria-describedby={error ? `${id}-e` : undefined} {...rest} className="h-full min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground/70" />
@@ -112,10 +112,10 @@ function Strength({ value }: { value: string }) {
 }
 
 const Cta = ({ children, busy, ...p }: { busy?: boolean } & React.ComponentProps<typeof Button>) => (
-  <Button size="lg" className="h-[52px] w-full rounded-full bg-spot-gradient text-[15px] font-semibold text-white shadow-glow" disabled={busy || p.disabled} {...p}>{busy ? <Loader2 className="animate-spin" size={18} /> : children}</Button>
+  <Button size="lg" className="h-[3.25rem] w-full rounded-full bg-spot-gradient text-[0.9375rem] font-semibold text-white shadow-glow" disabled={busy || p.disabled} {...p}>{busy ? <Loader2 className="animate-spin" size={18} /> : children}</Button>
 );
 
-const ErrorBox = ({ children }: { children: ReactNode }) => <div role="alert" className="rounded-xl border border-live/50 bg-live/10 px-3 py-2.5 text-[13px] text-live">{children}</div>;
+const ErrorBox = ({ children }: { children: ReactNode }) => <div role="alert" className="rounded-xl border border-live/50 bg-live/10 px-3 py-2.5 text-[0.8125rem] text-live">{children}</div>;
 const LinkBtn = ({ children, ...p }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button type="button" {...p} className={`font-semibold text-primary disabled:text-muted-foreground ${p.className ?? ""}`}>{children}</button>;
 
 function Social({ onDone, disabled }: { onDone: () => void; disabled?: boolean }) {
@@ -166,8 +166,8 @@ function Legal({ kind, onClose }: { kind: "terms" | "privacy"; onClose: () => vo
   const list = kind === "terms" ? terms : priv;
   return (
     <BottomSheet title={kind === "terms" ? "Términos de uso" : "Política de privacidad"} onClose={onClose} z={90}>
-      <p className="mb-3 rounded-lg border border-dashed border-border p-2 text-[11px] text-muted-foreground">Resumen orientativo. El texto legal definitivo debe revisarlo asesoría jurídica antes de publicar.</p>
-      <div className="space-y-3">{list.map(([t, d]) => <section key={t}><h4 className="text-sm font-semibold">{t}</h4><p className="mt-0.5 text-[13px] leading-snug text-muted-foreground">{d}</p></section>)}</div>
+      <p className="mb-3 rounded-lg border border-dashed border-border p-2 text-2xs text-muted-foreground">Resumen orientativo. El texto legal definitivo debe revisarlo asesoría jurídica antes de publicar.</p>
+      <div className="space-y-3">{list.map(([t, d]) => <section key={t}><h4 className="text-sm font-semibold">{t}</h4><p className="mt-0.5 text-[0.8125rem] leading-snug text-muted-foreground">{d}</p></section>)}</div>
     </BottomSheet>
   );
 }
@@ -266,13 +266,13 @@ export function AuthFlow({ initial, onBack, onDemo, onSignedIn }: { initial: "lo
       <form className="mt-7 space-y-4" noValidate onSubmit={(e) => { e.preventDefault(); void login(); }}>
         <Field id="email" label="Correo electrónico" icon={Mail} type="email" inputMode="email" autoComplete="email" autoCapitalize="none" placeholder="nombre@correo.com" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => touch("email")} error={emailErr} />
         <PasswordField id="pass" label="Contraseña" value={pass} onChange={setPass} autoComplete="current-password" error={touched.pass && !pass ? "Escribe tu contraseña." : undefined} />
-        <div className="text-right text-[13px]"><LinkBtn onClick={() => go("forgot")}>¿Olvidaste tu contraseña?</LinkBtn></div>
+        <div className="text-right text-[0.8125rem]"><LinkBtn onClick={() => go("forgot")}>¿Olvidaste tu contraseña?</LinkBtn></div>
         {err && <ErrorBox>{err}</ErrorBox>}
         <Cta type="submit" busy={busy} disabled={lock > 0}>{lock > 0 ? `Espera ${lock} s` : "Iniciar sesión"}</Cta>
       </form>
       <Social onDone={() => onSignedIn(false)} />
       <p className="mt-6 text-center text-sm text-muted-foreground">¿No tienes cuenta? <LinkBtn onClick={() => go("register")}>Crear cuenta</LinkBtn></p>
-      <button onClick={onDemo} className="mx-auto mt-4 py-2 text-[13px] font-medium text-foreground/70">Saltar todo y ver la demostración</button>
+      <button onClick={onDemo} className="mx-auto mt-4 py-2 text-[0.8125rem] font-medium text-foreground/70">Saltar todo y ver la demostración</button>
     </Shell>
   );
 
@@ -286,14 +286,14 @@ export function AuthFlow({ initial, onBack, onDemo, onSignedIn }: { initial: "lo
         <div><PasswordField id="pass" label="Contraseña" value={pass} onChange={(v) => { setPass(v); touch("pass"); }} autoComplete="new-password" error={passErr && pass ? undefined : undefined} /><Strength value={pass} /></div>
         <PasswordField id="pass2" label="Repite la contraseña" value={pass2} onChange={(v) => { setPass2(v); touch("pass2"); }} autoComplete="new-password" error={pass2Err} />
         <div className="space-y-3 pt-1">
-          <label className="flex items-start gap-3 text-[13px] leading-snug text-foreground/85"><input type="checkbox" checked={age} onChange={(e) => setAge(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--primary)]" />Tengo {authCfg.minAge} años o más.</label>
-          <label className="flex items-start gap-3 text-[13px] leading-snug text-foreground/85"><input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--primary)]" /><span>Acepto los <LinkBtn onClick={() => setLegal("terms")}>Términos de uso</LinkBtn> y la <LinkBtn onClick={() => setLegal("privacy")}>Política de privacidad</LinkBtn>.</span></label>
+          <label className="flex items-start gap-3 text-[0.8125rem] leading-snug text-foreground/85"><input type="checkbox" checked={age} onChange={(e) => setAge(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--primary)]" />Tengo {authCfg.minAge} años o más.</label>
+          <label className="flex items-start gap-3 text-[0.8125rem] leading-snug text-foreground/85"><input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--primary)]" /><span>Acepto los <LinkBtn onClick={() => setLegal("terms")}>Términos de uso</LinkBtn> y la <LinkBtn onClick={() => setLegal("privacy")}>Política de privacidad</LinkBtn>.</span></label>
         </div>
         {err && <ErrorBox>{err}</ErrorBox>}
         <Cta type="submit" busy={busy}>Crear cuenta</Cta>
       </form>
       <Social onDone={() => onSignedIn(true)} disabled={!terms || !age} />
-      {(!terms || !age) && <p className="mt-2 text-center text-[11px] text-muted-foreground">Acepta los términos y confirma tu edad para usar Apple o Google.</p>}
+      {(!terms || !age) && <p className="mt-2 text-center text-2xs text-muted-foreground">Acepta los términos y confirma tu edad para usar Apple o Google.</p>}
       <p className="mt-6 text-center text-sm text-muted-foreground">¿Ya tienes cuenta? <LinkBtn onClick={() => go("login")}>Iniciar sesión</LinkBtn></p>
       {legal && <Legal kind={legal} onClose={() => setLegal(null)} />}
     </Shell>
@@ -337,7 +337,7 @@ export function AuthFlow({ initial, onBack, onDemo, onSignedIn }: { initial: "lo
       {err && <div className="mt-4"><ErrorBox>{err}</ErrorBox></div>}
       <div className="mt-8"><Cta onClick={() => go("login")}>Volver a iniciar sesión</Cta></div>
       <p className="mt-5 text-center text-sm text-muted-foreground">¿No llega? <LinkBtn disabled={wait > 0} onClick={() => void resend()}>{wait > 0 ? `Reenviar en ${wait} s` : "Reenviar enlace"}</LinkBtn></p>
-      <p className="mx-auto mt-6 flex max-w-[300px] items-start gap-2 text-[11px] text-muted-foreground"><ShieldCheck size={14} className="mt-0.5 shrink-0" />Por seguridad no indicamos si un correo está registrado o no.</p>
+      <p className="mx-auto mt-6 flex max-w-[18.75rem] items-start gap-2 text-2xs text-muted-foreground"><ShieldCheck size={14} className="mt-0.5 shrink-0" />Por seguridad no indicamos si un correo está registrado o no.</p>
     </Shell>
   );
 }

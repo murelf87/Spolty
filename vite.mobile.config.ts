@@ -46,7 +46,7 @@ const manifest = {
 
 /* Red primero y caché de respaldo, todo relativo al alcance del service worker. Los vídeos (peticiones con
    Range) los gestiona el navegador directamente. */
-const serviceWorker = `const CACHE = "spotly-movil-v1";
+const serviceWorker = `const CACHE = "spotly-movil-v2";
 const BASE = new URL("./", self.location).href;
 const SHELL = ["./", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./favicon.png"].map((p) => new URL(p, BASE).href);
 self.addEventListener("install", (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });

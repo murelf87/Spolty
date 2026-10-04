@@ -9,7 +9,7 @@ import { LocationOff } from "./Status";
 import { SpainMap, spainCities } from "./SpainMap";
 import { PlaceBrowser } from "./Places";
 import { isCapital, municipiosOf, norm, provinceOfPlace, searchPlaces, type Province } from "@/lib/geo";
-import { toggleFollow, useStore } from "@/lib/store";
+import { toggleFollow, useStore, useMe } from "@/lib/store";
 import { videoFor } from "@/lib/media";
 import festival from "@/assets/spotly-sevilla-festival.jpg";
 import stage from "@/assets/spotly-live-stage.jpg";
@@ -92,7 +92,7 @@ export function PhotoWall({ onBack, initialPlace }: { onBack: () => void; initia
     <>
       <div className="flex items-center gap-2">
         <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full border border-border bg-secondary px-3.5"><Search size={16} className="text-primary" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar ciudad, pueblo…" aria-label="Buscar ciudad o pueblo" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />{q && <button aria-label="Borrar búsqueda" onClick={() => setQ("")}><X size={15} /></button>}</label>
-        <Button variant="secondary" size="icon" className="relative h-11 w-11 rounded-full" aria-label="Filtros avanzados" onClick={() => setFilterOpen(true)}><SlidersHorizontal size={17} />{nf > 0 && <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-live px-1 text-[9px] font-bold">{nf}</span>}</Button>
+        <Button variant="secondary" size="icon" className="relative h-11 w-11 rounded-full" aria-label="Filtros avanzados" onClick={() => setFilterOpen(true)}><SlidersHorizontal size={17} />{nf > 0 && <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-live px-1 text-4xs font-bold">{nf}</span>}</Button>
       </div>
       {searchHits.length > 0 && <div className="mt-2 divide-y divide-border rounded-xl border border-border bg-card">{searchHits.map((n) => <button key={n} onClick={() => { setPlace(n); setQ(""); }} className="flex w-full items-center gap-3 p-3 text-left text-sm"><MapPin size={15} className="text-primary" />{n}<small className="ml-auto text-muted-foreground">{kindOf(n)} · {provOf(n)}</small></button>)}</div>}
       {q.trim() && searchHits.length === 0 && <p className="mt-2 rounded-xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">No encontramos “{q}”. Prueba con otra ciudad o pueblo.</p>}
@@ -132,19 +132,19 @@ function ExploreHome({ cats: topCats, onPlace, onCat, onUpload, onMode, onStory 
     <div className="space-y-5">
       <section aria-label="Historias por ciudad"><h3 className="mb-2 text-sm font-bold">Historias por ciudad</h3>
         <div className="flex gap-3 overflow-x-auto pb-1">
-          <button onClick={() => onStory("mine")} className="flex w-16 shrink-0 flex-col items-center gap-1"><span className="relative grid h-16 w-16 place-items-center rounded-full border-2 border-dashed border-primary bg-secondary"><img src={me} alt="" className="h-full w-full rounded-full object-cover opacity-70" /><span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full bg-primary text-primary-foreground"><Plus size={12} /></span></span><span className="text-[11px]">Tu historia</span></button>
-          {stories.map((s) => <button key={s} onClick={() => onStory(s)} className="flex w-16 shrink-0 flex-col items-center gap-1"><span className="rounded-full bg-spot-gradient p-[2.5px]"><img src={info(s).img} alt="" className="h-[60px] w-[60px] rounded-full border-2 border-background object-cover" /></span><span className="text-[11px]">{s}</span></button>)}
+          <button onClick={() => onStory("mine")} className="flex w-16 shrink-0 flex-col items-center gap-1"><span className="relative grid h-16 w-16 place-items-center rounded-full border-2 border-dashed border-primary bg-secondary"><img src={me} alt="" className="h-full w-full rounded-full object-cover opacity-70" /><span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full bg-primary text-primary-foreground"><Plus size={12} /></span></span><span className="text-2xs">Tu historia</span></button>
+          {stories.map((s) => <button key={s} onClick={() => onStory(s)} className="flex w-16 shrink-0 flex-col items-center gap-1"><span className="rounded-full bg-spot-gradient p-[0.15625rem]"><img src={info(s).img} alt="" className="h-[3.75rem] w-[3.75rem] rounded-full border-2 border-background object-cover" /></span><span className="text-2xs">{s}</span></button>)}
         </div>
       </section>
       <button onClick={() => onPlace("Madrid")} className="relative block w-full overflow-hidden rounded-2xl text-left" aria-label="Ver fotos de España"><img src={festival} alt="" className="aspect-[16/8] w-full object-cover" /><span className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" /><span className="absolute inset-x-4 bottom-3 flex items-end justify-between"><span><strong className="block text-2xl">España</strong><small className="text-foreground/80">1,2M fotos</small></span><ChevronRight /></span></button>
       <section><div className="mb-2 flex items-center justify-between"><h3 className="text-sm font-bold">Ciudades populares</h3><button onClick={() => onMode("Mapa")} className="text-xs text-primary">Ver en mapa ›</button></div>
-        <div className="flex gap-2 overflow-x-auto pb-1">{["Madrid", "Barcelona", "Valencia", "Sevilla", "Málaga"].map((c) => <button key={c} onClick={() => onPlace(c)} className="relative h-24 w-28 shrink-0 overflow-hidden rounded-xl text-left"><img src={info(c).img} alt="" className="h-full w-full object-cover" /><span className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" /><span className="absolute inset-x-2 bottom-1.5"><strong className="block text-sm">{c}</strong><small className="text-[10px] text-foreground/80">{info(c).photos}</small></span></button>)}</div>
+        <div className="flex gap-2 overflow-x-auto pb-1">{["Madrid", "Barcelona", "Valencia", "Sevilla", "Málaga"].map((c) => <button key={c} onClick={() => onPlace(c)} className="relative h-24 w-28 shrink-0 overflow-hidden rounded-xl text-left"><img src={info(c).img} alt="" className="h-full w-full object-cover" /><span className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" /><span className="absolute inset-x-2 bottom-1.5"><strong className="block text-sm">{c}</strong><small className="text-3xs text-foreground/80">{info(c).photos}</small></span></button>)}</div>
       </section>
       <section><div className="mb-2 flex items-center justify-between"><h3 className="flex items-center gap-1.5 text-sm font-bold"><Flame size={15} className="text-live" />Tendencias en España</h3><button onClick={() => onMode("Lista")} className="text-xs text-primary">Ver todo ›</button></div>
-        <div className="flex gap-2 overflow-x-auto pb-1">{trending.map(([c, n], i) => <button key={c} onClick={() => onPlace(c)} className="relative h-32 w-24 shrink-0 overflow-hidden rounded-xl text-left" aria-label={`${i + 1}. ${c}, ${n} fotos hoy`}><img src={info(c).img} alt="" loading="lazy" className="h-full w-full object-cover" /><span className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" /><span className="absolute left-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-md bg-spot-gradient text-[10px] font-extrabold">{i + 1}</span><span className="absolute inset-x-1.5 bottom-1"><strong className="block text-[11px]">{c}</strong><small className="text-[9px] text-foreground/80">{n} fotos</small></span></button>)}</div>
+        <div className="flex gap-2 overflow-x-auto pb-1">{trending.map(([c, n], i) => <button key={c} onClick={() => onPlace(c)} className="relative h-32 w-24 shrink-0 overflow-hidden rounded-xl text-left" aria-label={`${i + 1}. ${c}, ${n} fotos hoy`}><img src={info(c).img} alt="" loading="lazy" className="h-full w-full object-cover" /><span className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" /><span className="absolute left-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-md bg-spot-gradient text-3xs font-extrabold">{i + 1}</span><span className="absolute inset-x-1.5 bottom-1"><strong className="block text-2xs">{c}</strong><small className="text-4xs text-foreground/80">{n} fotos</small></span></button>)}</div>
       </section>
       <section><h3 className="mb-2 text-sm font-bold">Explorar por categorías</h3>
-        <div className="grid grid-cols-2 gap-2">{topCats.map((c, i) => <button key={c} onClick={() => onCat(c)} className="relative h-24 overflow-hidden rounded-xl text-left"><img src={imgs[(i * 2 + 2) % imgs.length]} alt="" className="h-full w-full object-cover" /><span className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" /><span className="absolute inset-x-3 bottom-2"><strong className="block">{c}</strong><small className="text-[11px] text-foreground/80">{[128, 96, 212, 84][i]}K fotos</small></span></button>)}</div>
+        <div className="grid grid-cols-2 gap-2">{topCats.map((c, i) => <button key={c} onClick={() => onCat(c)} className="relative h-24 overflow-hidden rounded-xl text-left"><img src={imgs[(i * 2 + 2) % imgs.length]} alt="" className="h-full w-full object-cover" /><span className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" /><span className="absolute inset-x-3 bottom-2"><strong className="block">{c}</strong><small className="text-2xs text-foreground/80">{[128, 96, 212, 84][i]}K fotos</small></span></button>)}</div>
         <div className="mt-2 flex flex-wrap gap-1.5">{cats.slice(4).map((c) => <Chip key={c} active={false} onClick={() => onCat(c)}>{c}</Chip>)}</div>
       </section>
       <section className="rounded-2xl border border-primary/40 bg-primary/10 p-4"><p className="text-sm font-bold">Comparte cómo es tu rincón</p><p className="mt-1 text-xs text-muted-foreground">Sube una foto y cuéntala con tu voz. Gratis.</p><Button className="mt-3 w-full" onClick={onUpload}><Camera size={16} />Subir foto</Button></section>
@@ -177,9 +177,9 @@ function Grid({ list, onOpen, empty, onClear }: { list: Photo[]; onOpen: (p: Pho
       <button key={p.id} onClick={() => onOpen(p)} className="relative mb-2 block w-full overflow-hidden rounded-xl text-left" aria-label={`${p.caption}, ${p.town}`}>
         <img src={p.img} alt="" loading="lazy" className={"w-full object-cover " + (i % 3 === 0 ? "aspect-[3/4]" : i % 3 === 1 ? "aspect-square" : "aspect-[4/5]")} />
         <span className="absolute inset-0 bg-gradient-to-t from-background/85 via-transparent to-transparent" />
-        {p.type !== "Fotos" && <span className="absolute right-2 top-2 rounded bg-background/70 px-1.5 py-0.5 text-[9px] font-bold">{p.type === "Vídeos" ? "VÍDEO" : "REEL"}</span>}
-        {p.mine && <span className="absolute left-2 top-2 rounded bg-primary px-1.5 py-0.5 text-[9px] font-bold text-primary-foreground">TUYA</span>}
-        <span className="absolute inset-x-2 bottom-1.5 flex items-center justify-between text-[11px] font-semibold"><span className="flex items-center gap-1"><Heart size={12} fill="currentColor" className="text-accent" />{fmtN(p.likes)}</span><span className="flex items-center gap-1 text-foreground/85"><MapPin size={11} />{fmtKm(p.dist)}</span></span>
+        {p.type !== "Fotos" && <span className="absolute right-2 top-2 rounded bg-background/70 px-1.5 py-0.5 text-4xs font-bold">{p.type === "Vídeos" ? "VÍDEO" : "REEL"}</span>}
+        {p.mine && <span className="absolute left-2 top-2 rounded bg-primary px-1.5 py-0.5 text-4xs font-bold text-primary-foreground">TUYA</span>}
+        <span className="absolute inset-x-2 bottom-1.5 flex items-center justify-between text-2xs font-semibold"><span className="flex items-center gap-1"><Heart size={12} fill="currentColor" className="text-accent" />{fmtN(p.likes)}</span><span className="flex items-center gap-1 text-foreground/85"><MapPin size={11} />{fmtKm(p.dist)}</span></span>
       </button>))}</div>
   );
 }
@@ -221,7 +221,7 @@ function PhotoMap({ all, onPlace, onOpen }: { all: Photo[]; onPlace: (p: string)
           <div className="mt-3 grid grid-cols-2 gap-2"><Button variant="secondary" onClick={() => setView("municipios")}>Municipios</Button><Button onClick={() => setView("fotos")}>Ver fotos</Button></div>
         </div>
       ) : <p className="mt-3 rounded-2xl border border-dashed border-border p-3 text-center text-xs text-muted-foreground">Toca cualquier provincia para verla: hay 52, con Ceuta, Melilla, Canarias y Baleares. Pellizca o usa + / − para acercar.</p>}
-      <p className="mt-2 text-[11px] text-muted-foreground">Geografía oficial (IGN e INE). Las cifras de actividad son de ejemplo hasta conectar el servidor.</p>
+      <p className="mt-2 text-2xs text-muted-foreground">Geografía oficial (IGN e INE). Las cifras de actividad son de ejemplo hasta conectar el servidor.</p>
       {view === "fotos" && prov && (
         <Screen title={prov.n} sub={`${prov.r} · ${list.length} ${list.length === 1 ? "foto" : "fotos"} en la demo`} onBack={() => setView(null)} z={52}>
           {towns.length > 0 && <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1">{towns.map((t) => <Chip key={t} active={false} onClick={() => { setView(null); onPlace(t); }}>{t}</Chip>)}</div>}
@@ -297,6 +297,7 @@ function FiltersSheet({ value, onClose, onApply }: { value: Filters; onClose: ()
 
 /* ---------- Detalle de foto (lámina 12) ---------- */
 function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; onMore: (t: string) => void }) {
+  const me = useMe();
   const { following } = useStore();
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -322,9 +323,9 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
         {clip && paused && <span className="pointer-events-none absolute left-1/2 top-1/2 grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-black/55 text-white"><Play size={30} fill="currentColor" /></span>}
         {/* Botón atrás */}
-        <button onClick={onClose} aria-label="Volver" className="absolute left-3 grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white" style={{ top: "max(2.75rem, calc(env(safe-area-inset-top) + 0.5rem))" }}><ChevronLeft size={22} /></button>
+        <button onClick={onClose} aria-label="Volver" className="absolute left-3 grid h-10 w-10 place-items-center rounded-full bg-black/50 text-white backdrop-blur-sm" style={{ top: "var(--safe-header)" }}><ChevronLeft size={24} /></button>
         {/* Botón más opciones */}
-        <button onClick={() => setMenu(true)} aria-label="Más opciones" className="absolute right-3 grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white" style={{ top: "max(2.75rem, calc(env(safe-area-inset-top) + 0.5rem))" }}><MoreHorizontal size={20} /></button>
+        <button onClick={() => setMenu(true)} aria-label="Más opciones" className="absolute right-3 grid h-10 w-10 place-items-center rounded-full bg-black/50 text-white backdrop-blur-sm" style={{ top: "var(--safe-header)" }}><MoreHorizontal size={20} /></button>
         {/* Acciones laterales derecha */}
         <div className="absolute bottom-24 right-3 flex flex-col items-center gap-5">
           <button onClick={() => setLiked(!liked)} aria-label="Me gusta" className="flex flex-col items-center gap-1">
@@ -360,7 +361,7 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
           </span>
           {!p.mine && <Button size="sm" variant={follows ? "secondary" : "default"} onClick={() => { toggleFollow(p.author); toast(follows ? `Dejaste de seguir a ${p.author}` : `Sigues a ${p.author}`); }}>{follows ? "Siguiendo" : "Seguir"}</Button>}
         </div>
-        <div className="mt-3"><AudioRow name={p.mine ? "Tu voz" : p.author} dur={p.dur} seed={p.id + 1} /></div>
+        <div className="mt-3"><AudioRow name={p.mine ? me.name : p.author} img={p.mine ? me.avatar ?? undefined : undefined} dur={p.dur} seed={p.id + 1} /></div>
         <p className="mt-2 text-sm">{p.caption}. Siempre es un plan perfecto.</p>
         {comments.map((c, i) => <p key={i} className="mt-2 rounded-xl bg-secondary/60 p-2.5 text-sm"><strong>Tú</strong> · {c}</p>)}
         {gate && <div className="mt-3">{gate}</div>}
@@ -404,7 +405,7 @@ function PhotoUpload({ onClose, onPublished, onCamera, defaultPlace }: { onClose
       <h4 className="mb-2 mt-4 text-sm font-bold">Visibilidad</h4>
       <div className="grid grid-cols-2 gap-2">{(["Público", "Solo seguidores"] as const).map((v) => <button key={v} onClick={() => setVis(v)} aria-pressed={vis === v} className={"h-11 rounded-xl border text-sm font-semibold " + (vis === v ? "spot-active-pill border-transparent" : "border-border bg-card")}>{v}</button>)}</div>
       <div className="mt-3 divide-y divide-border rounded-xl border border-border bg-card px-3">{rows.map(([I, l, v, k]) => <button key={k} onClick={() => setPick(k)} className="flex w-full items-center gap-3 py-3 text-left text-sm"><I size={16} className="text-primary" /><span className="flex-1">{l}<small className="block text-muted-foreground">{v}</small></span><ChevronRight size={16} className="text-muted-foreground" /></button>)}</div>
-      <p className="mt-2 text-[11px] text-muted-foreground">Publicar es gratis. Ejemplo: música, etiquetas y eventos se guardan al conectar el servidor.</p>
+      <p className="mt-2 text-2xs text-muted-foreground">Publicar es gratis. Ejemplo: música, etiquetas y eventos se guardan al conectar el servidor.</p>
       {pick && <BottomSheet title={{ music: "Música", people: "Etiquetar personas", event: "Añadir a un evento", place: "Lugar" }[pick]} onClose={() => setPick(null)} z={70}>
         <div className="max-h-[50vh] space-y-1 overflow-y-auto">{opts[pick].map((o) => { const on = pick === "people" ? tags.includes(o) : pick === "music" ? music === o : pick === "event" ? event === o : place === o; return <button key={o} onClick={() => { if (pick === "people") setTags((t) => (t.includes(o) ? t.filter((x) => x !== o) : [...t, o])); else { if (pick === "music") setMusic(o === "Sin música" ? null : o); if (pick === "event") setEvent(o === "Ninguno" ? null : o); if (pick === "place") setPlace(o); setPick(null); } }} className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left text-sm hover:bg-secondary">{o}{on && <Check size={16} className="text-primary" />}</button>; })}</div>
         {pick === "people" && <Button className="mt-2 w-full" onClick={() => setPick(null)}>Listo</Button>}

@@ -8,6 +8,7 @@
  */
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { commerce, eurToCredits, incognitoOptions, type Precision } from "./spotlyConfig";
+import demoAvatar from "@/assets/spotly-me.jpg";
 
 export type TxKind = "purchase" | "spend" | "bonus" | "refund";
 export type Tx = { id: string; label: string; amount: number; kind: TxKind; when: string };
@@ -18,6 +19,8 @@ export type Campaign = { id: string; radiusId: string; from: string; to: string;
 export type FlashOffer = { id: string; title: string; discount: number; endsAt: number };
 export type Availability = { on: boolean; slots: number; until: number; radiusKm: number };
 export type Report = { id: string; what: string; reason: string; status: "review" | "resolved" | "removed"; when: string };
+/** Tu perfil público: nombre, usuario, descripción y foto (URL o imagen recortada en data URL; null = sin foto). */
+export type Me = { name: string; user: string; bio: string; avatar: string | null };
 
 type State = {
   credits: number;
@@ -37,6 +40,7 @@ type State = {
   confirmed: string[];
   following: string[];
   incognitoNote: string | null;
+  me: Me;
 };
 
 let state: State = {
@@ -66,6 +70,7 @@ let state: State = {
   confirmed: [],
   following: [],
   incognitoNote: null,
+  me: { name: "Tú", user: "tu.spotly", bio: "Contando Sevilla con mi voz 🎙️", avatar: demoAvatar },
 };
 
 const listeners = new Set<() => void>();
@@ -139,6 +144,26 @@ export const removeOffer = (oid: string) => setState((s) => ({ bizOffers: s.bizO
 export const setAvailability = (a: Availability | null) => setState({ bizAvailability: a });
 export const setProfilePromo = (p: State["profilePromo"]) => setState({ profilePromo: p });
 export const addTopNow = (title: string, minutes: number) => setState((s) => ({ topNow: [{ title, endsAt: Date.now() + minutes * 60_000 }, ...s.topNow] }));
+
+/* ---------- Tu perfil ----------
+ * Se guarda en este dispositivo (localStorage) hasta que el perfil se sincronice con el backend; así el nombre y la
+ * foto que elijas aparecen en todas tus publicaciones, respuestas y chats, también al volver a abrir la app. */
+const ME_KEY = "spotly-perfil";
+export const useMe = () => useStore().me;
+export function loadMe() {
+  try {
+    const raw = localStorage.getItem(ME_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw) as Partial<Me> & { avatar?: string | null };
+    setState((s) => ({ me: { ...s.me, ...saved, avatar: saved.avatar === "demo" || saved.avatar === undefined ? demoAvatar : saved.avatar } }));
+  } catch { /* sin almacenamiento disponible: se queda el perfil de ejemplo */ }
+}
+export function saveMe(me: Me) {
+  setState({ me });
+  try { localStorage.setItem(ME_KEY, JSON.stringify({ ...me, avatar: me.avatar === demoAvatar ? "demo" : me.avatar })); }
+  catch { /* sin espacio o sin permiso: el cambio dura hasta cerrar la app */ }
+}
+export const DEMO_AVATAR = demoAvatar;
 
 /* ---------- Tiempo ---------- */
 /** Reloj compartido. Empieza en 0 para no romper la hidratación (SSR). */

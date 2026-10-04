@@ -60,7 +60,7 @@ export function Checkout({ title, kind, lines, onClose, onPaid, onNeedCredits }:
         <p className="text-sm font-semibold">{title}</p>
         <div className="mt-3 divide-y divide-border rounded-2xl border border-border bg-background/40">
           {lines.map((l) => <p key={l.label} className="flex justify-between p-3 text-sm"><span>{l.label}</span><strong>{l.eur === 0 ? "Gratis" : eur(l.eur)}</strong></p>)}
-          <p className="flex items-center justify-between p-3 font-bold"><span>Total</span><span className="text-right">{eur(total)}<small className="block text-[11px] font-normal text-muted-foreground">≈ {fmtCredits(totalCr)}</small></span></p>
+          <p className="flex items-center justify-between p-3 font-bold"><span>Total</span><span className="text-right">{eur(total)}<small className="block text-2xs font-normal text-muted-foreground">≈ {fmtCredits(totalCr)}</small></span></p>
         </div>
         <p className="mb-2 mt-4 text-xs font-semibold text-muted-foreground">FORMA DE PAGO</p>
         <div className="space-y-2">
@@ -69,7 +69,7 @@ export function Checkout({ title, kind, lines, onClose, onPaid, onNeedCredits }:
         {short && <div className="mt-3 flex items-center justify-between gap-2 rounded-xl border border-live/50 bg-live/10 p-3 text-xs"><span>Te faltan {fmtCredits(totalCr - credits)}.</span><Button size="sm" variant="secondary" onClick={() => { onClose(); onNeedCredits?.(); }}>Recargar</Button></div>}
         <div className="mt-3"><Trust>{KIND_NOTE[kind]}</Trust></div>
         <div className="mt-3 rounded-xl border border-dashed border-border p-3">
-          <p className="text-[11px] font-semibold text-muted-foreground">DEMO · SIMULAR RESULTADO (no hay cobro real)</p>
+          <p className="text-2xs font-semibold text-muted-foreground">DEMO · SIMULAR RESULTADO (no hay cobro real)</p>
           <div className="mt-2 grid grid-cols-3 gap-1">{([["success", "Correcto"], ["pending", "Pendiente"], ["failed", "Fallido"]] as const).map(([k, l]) => <button key={k} onClick={() => setOutcome(k)} aria-pressed={outcome === k} className={"rounded-lg py-1.5 text-xs " + (outcome === k ? "bg-primary text-primary-foreground" : "bg-secondary")}>{l}</button>)}</div>
         </div>
         <Button className="mt-4 h-12 w-full rounded-full bg-spot-gradient text-base text-foreground" disabled={short} onClick={() => setPhase("processing")}>{total === 0 ? "Confirmar" : kind === "physical" ? "Reservar" : `Pagar ${eur(total)}`}</Button>
@@ -100,7 +100,7 @@ export function TxHistory({ onBack }: { onBack: () => void }) {
       <div className="flex gap-1.5 overflow-x-auto pb-2">{([["all", "Todo"], ["purchase", "Compras"], ["spend", "Consumo"], ["bonus", "Bonos"], ["refund", "Reembolsos"]] as const).map(([k, l]) => <button key={k} onClick={() => setF(k)} aria-pressed={f === k} className={"shrink-0 rounded-full border px-3 py-1.5 text-xs " + (f === k ? "spot-active-pill border-transparent" : "border-border bg-card")}>{l}</button>)}</div>
       {list.length === 0 ? <StateCard icon={History} tone="muted" title="Sin movimientos" text="Aún no hay movimientos de este tipo." action="Ver todo" onAction={() => setF("all")} /> :
         <div className="divide-y divide-border rounded-2xl border border-border bg-card">{list.map((t) => <div key={t.id} className="flex items-center gap-3 p-3.5"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-secondary">{t.kind === "purchase" ? <Plus size={16} /> : t.kind === "refund" ? <Undo2 size={16} /> : t.kind === "bonus" ? <Flame size={16} /> : <Zap size={16} />}</span><span className="min-w-0 flex-1"><strong className="block truncate text-sm">{t.label}</strong><small className={kindMeta[t.kind].cls}>{kindMeta[t.kind].label} · {t.when}</small></span><strong className={t.amount > 0 ? "text-primary" : ""}>{t.amount > 0 ? "+" : ""}{t.amount.toLocaleString("es-ES")} 💎</strong></div>)}</div>}
-      <p className="mt-3 text-[11px] text-muted-foreground">Historial de ejemplo. Los movimientos reales se sincronizarán con tu cuenta.</p>
+      <p className="mt-3 text-2xs text-muted-foreground">Historial de ejemplo. Los movimientos reales se sincronizarán con tu cuenta.</p>
     </Screen>
   );
 }
@@ -112,7 +112,7 @@ function Premium({ onBack }: { onBack: () => void }) {
       <div className="rounded-3xl border border-premium/50 bg-spot-surface p-6 text-center"><Crown size={44} className="mx-auto text-premium" /><h3 className="mt-3 text-2xl font-bold">Premium</h3><p className="text-sm text-muted-foreground">Premium <b>no</b> es verificación ni compra reputación: son funciones extra.</p></div>
       <div className="mt-5 space-y-2 text-sm">{["Sin anuncios en el feed", "Ver quién escuchó tus Spots", "Audios de hasta 3 minutos", "200 💎 diamantes cada mes"].map((x) => <p key={x} className="flex gap-2"><Check size={16} className="shrink-0 text-premium" />{x}</p>)}</div>
       <div className="mt-5 grid grid-cols-2 gap-2">{([["Mensual", 4.99], ["Anual", 39.99]] as const).map(([p, v]) => <button key={p} onClick={() => setBuy({ t: `Suscripción Premium ${p.toLowerCase()}`, p: v })} className="rounded-2xl border border-border bg-card p-4 hover:border-premium"><strong className="block">{p}</strong><span className="text-premium">{eur(v)}</span></button>)}</div>
-      <p className="mt-3 text-center text-[11px] text-muted-foreground">Se renueva automáticamente. Puedes cancelarla desde los ajustes de tu tienda.</p>
+      <p className="mt-3 text-center text-2xs text-muted-foreground">Se renueva automáticamente. Puedes cancelarla desde los ajustes de tu tienda.</p>
       {buy && <Checkout title={buy.t} kind="digital" lines={[{ label: buy.t, eur: buy.p }]} onClose={() => setBuy(null)} onPaid={() => toast.success("Premium activado (demostración)")} />}
     </Screen>
   );
@@ -137,7 +137,7 @@ export function Wallet({ onBack, onOpen }: { onBack: () => void; onOpen: (s: She
     <Screen title="Diamantes Spotly" sub="Publicar y descubrir siempre gratis" onBack={onBack} z={50}>
       <div className="rounded-2xl bg-spot-gradient p-5 shadow-glow"><p className="text-sm opacity-90">Saldo disponible</p><p className="text-4xl font-extrabold">{credits.toLocaleString("es-ES")} <span className="text-base font-semibold">diamantes</span></p><p className="mt-1 text-xs opacity-90">≈ {eur(credits / commerce.creditsPerEur)}</p></div>
       <h3 className="mt-6 font-bold">Recargar</h3><p className="text-xs text-muted-foreground">Verás el precio exacto antes de confirmar.</p>
-      <div className="mt-2 space-y-2">{creditPacks.map((c) => <button key={c.id} onClick={() => setPack(c.id)} aria-pressed={pack === c.id} className={"relative flex w-full items-center justify-between rounded-2xl border p-4 text-left " + (pack === c.id ? "border-primary bg-primary/10 shadow-glow" : "border-border bg-card")}>{c.popular && <span className="absolute -top-2 right-3 rounded bg-spot-gradient px-2 py-0.5 text-[10px] font-semibold">Más popular</span>}<span><strong className="block">{c.credits.toLocaleString("es-ES")} diamantes</strong><small className="text-muted-foreground">{c.bonus ? `incluye ${c.bonus} de bonificación 💎` : "sin bonificación"}</small></span><strong>{eur(c.priceEur)}</strong></button>)}</div>
+      <div className="mt-2 space-y-2">{creditPacks.map((c) => <button key={c.id} onClick={() => setPack(c.id)} aria-pressed={pack === c.id} className={"relative flex w-full items-center justify-between rounded-2xl border p-4 text-left " + (pack === c.id ? "border-primary bg-primary/10 shadow-glow" : "border-border bg-card")}>{c.popular && <span className="absolute -top-2 right-3 rounded bg-spot-gradient px-2 py-0.5 text-3xs font-semibold">Más popular</span>}<span><strong className="block">{c.credits.toLocaleString("es-ES")} diamantes</strong><small className="text-muted-foreground">{c.bonus ? `incluye ${c.bonus} de bonificación 💎` : "sin bonificación"}</small></span><strong>{eur(c.priceEur)}</strong></button>)}</div>
       <Button className="mt-3 h-12 w-full rounded-full bg-spot-gradient text-foreground" onClick={() => setBuy(true)}>Comprar {p.credits.toLocaleString("es-ES")} 💎 · {eur(p.priceEur)}</Button>
       <h3 className="mt-6 font-bold">Qué puedes hacer con tus 💎</h3>
       <div className="mt-2 space-y-2">{uses.map(([I, t, d, s]) => <button key={t} onClick={() => onOpen(s)} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-3.5 text-left"><span className="grid h-10 w-10 place-items-center rounded-full bg-secondary text-accent"><I size={18} /></span><span className="flex-1"><strong className="block text-sm">{t}</strong><small className="text-muted-foreground">{d}</small></span><span className="text-muted-foreground">›</span></button>)}</div>

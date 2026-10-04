@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Asterisk, BadgeCheck, Camera, Check, ChevronLeft, ChevronRight, Clock, CopyX, Crown, FileWarning, IdCard, Music2, Phone, ScanFace, ShieldCheck, ShieldX, Smartphone, Sparkles, TrendingUp, User, UserCog, Users } from "lucide-react";
+import { Asterisk, BadgeCheck, Camera, Check, ChevronRight, Clock, CopyX, Crown, FileWarning, IdCard, Music2, Phone, ScanFace, ShieldCheck, ShieldX, Smartphone, Sparkles, TrendingUp, User, UserCog, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { BottomSheet, Chip, Screen, StateCard, Trust } from "./kit";
+import { BottomSheet, Chip, Screen, StateCard, Trust, TopBar } from "./kit";
 import { SelfieStep } from "./Selfie";
 import { Checkout } from "./Credits";
 import { verificationPricesEur, eur } from "@/lib/spotlyConfig";
@@ -41,9 +41,9 @@ export const identityLabel: Record<IdentityStatus, [string, string]> = {
 /** Marco de pantalla completa de las láminas de verificación. */
 function Frame({ title, sub, onBack, children, cta, onCta, disabled, footer, center }: { title?: string; sub?: string; onBack?: (() => void) | undefined; children: ReactNode; cta?: string | undefined; onCta?: (() => void) | undefined; disabled?: boolean; footer?: ReactNode; center?: boolean }) {
   return <div className="boost-reference fixed inset-0 z-[60] mx-auto flex max-w-[520px] flex-col">
-    <header className="relative flex shrink-0 items-center justify-center px-5 pb-1 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]">{onBack && <Button variant="ghost" size="icon" className="absolute bottom-0 left-4 text-foreground" aria-label="Volver" onClick={onBack}><ChevronLeft size={26} /></Button>}{title && <h2 className="text-lg font-semibold">{title}</h2>}</header>
+    <TopBar title={title ?? ""} onBack={onBack} border={false} transparent />
     <main className={"flex-1 overflow-y-auto px-6 pt-2 " + (cta || footer ? "pb-3 " : "pb-[max(0.75rem,calc(env(safe-area-inset-bottom)+0.5rem))] ") + (center ? "flex flex-col" : "")}>{sub && <p className="mb-3 text-center text-sm text-muted-foreground">{sub}</p>}{children}</main>
-    {(cta || footer) && <div className="shrink-0 px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">{cta && <Button onClick={onCta} disabled={disabled} className="h-[52px] w-full rounded-full bg-spot-gradient text-base text-foreground shadow-glow">{cta}</Button>}{footer}</div>}
+    {(cta || footer) && <div className="shrink-0 px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">{cta && <Button onClick={onCta} disabled={disabled} className="h-[3.25rem] w-full rounded-full bg-spot-gradient text-base text-foreground shadow-glow">{cta}</Button>}{footer}</div>}
   </div>;
 }
 
@@ -158,16 +158,16 @@ export function Verification({ onBack }: { onBack: () => void }) {
   /* ---- Lámina 2 · Tipos de verificación ---- */
   if (step === "intro") return (
     <Frame onBack={onBack} cta={tier === "basic" ? "Empezar verificación" : paid.includes(tier) ? "Empezar verificación" : `Continuar · ${eur(verificationPricesEur[tier])}`} onCta={() => { setIdTier(tier); if (tier === "basic") { setMethods(["selfie"]); setStep("selfie"); } else { setMethods(["doc", "selfie", ...presets[tier]]); if (paid.includes(tier)) setStep("methods"); else setPay(true); } }}
-      footer={<><button onClick={onBack} className="mt-2 w-full text-center text-xs font-semibold text-muted-foreground">Ahora no · solo escuchar y explorar</button><p className="mt-2 text-center text-[12px] text-muted-foreground"><span className="text-emerald-400">Tu información</span> está protegida y encriptada</p><p className="text-center text-[10px] text-muted-foreground">DEMO: en esta versión no se envía ni se guarda ningún dato.</p></>}>
-      <div className="spot-rise text-center" style={{ animationDelay: ".05s" }}><span className="flex justify-center"><Star size={22} /></span><h1 className="-mt-1 text-[27px] font-bold">Verificación Premium</h1><p className="mx-auto mt-2 max-w-[230px] text-[15px] leading-snug text-muted-foreground">Demuestra que eres real y destaca en Spotly</p></div>
-      <ul className="mx-auto mt-4 max-w-[330px] space-y-2.5">{([[Asterisk, "Asterisco verificado en tu perfil", "b"], [TrendingUp, "Más visibilidad y alcance", "b"], [Sparkles, "Acceso a funciones exclusivas", "b"], [Users, "Mayor confianza de la comunidad", "p"], [ShieldCheck, "Protección frente a suplantaciones", "p"]] as const).map(([I, t, c], i) => <li key={t} className="spot-rise flex items-center gap-3 text-[13.5px]" style={{ animationDelay: `${0.15 + i * 0.07}s` }}><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border-2" style={{ borderColor: c === "b" ? "var(--spot-blue)" : "var(--spot-fuchsia)", color: c === "b" ? "var(--spot-blue)" : "var(--spot-fuchsia)", boxShadow: `0 0 10px ${c === "b" ? "var(--spot-blue)" : "var(--spot-fuchsia)"}55` }}><I size={16} /></span>{t}</li>)}</ul>
-      <div className="mx-auto mt-5 grid max-w-[360px] grid-cols-3 items-end gap-2" role="radiogroup" aria-label="Tipo de verificación">
+      footer={<><button onClick={onBack} className="mt-2 w-full text-center text-xs font-semibold text-muted-foreground">Ahora no · solo escuchar y explorar</button><p className="mt-2 text-center text-[0.75rem] text-muted-foreground"><span className="text-emerald-400">Tu información</span> está protegida y encriptada</p><p className="text-center text-3xs text-muted-foreground">DEMO: en esta versión no se envía ni se guarda ningún dato.</p></>}>
+      <div className="spot-rise text-center" style={{ animationDelay: ".05s" }}><span className="flex justify-center"><Star size={22} /></span><h1 className="-mt-1 text-[1.6875rem] font-bold">Verificación Premium</h1><p className="mx-auto mt-2 max-w-[14.375rem] text-[0.9375rem] leading-snug text-muted-foreground">Demuestra que eres real y destaca en Spotly</p></div>
+      <ul className="mx-auto mt-4 max-w-[20.625rem] space-y-2.5">{([[Asterisk, "Asterisco verificado en tu perfil", "b"], [TrendingUp, "Más visibilidad y alcance", "b"], [Sparkles, "Acceso a funciones exclusivas", "b"], [Users, "Mayor confianza de la comunidad", "p"], [ShieldCheck, "Protección frente a suplantaciones", "p"]] as const).map(([I, t, c], i) => <li key={t} className="spot-rise flex items-center gap-3 text-[0.8125rem]" style={{ animationDelay: `${0.15 + i * 0.07}s` }}><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border-2" style={{ borderColor: c === "b" ? "var(--spot-blue)" : "var(--spot-fuchsia)", color: c === "b" ? "var(--spot-blue)" : "var(--spot-fuchsia)", boxShadow: `0 0 10px ${c === "b" ? "var(--spot-blue)" : "var(--spot-fuchsia)"}55` }}><I size={16} /></span>{t}</li>)}</ul>
+      <div className="mx-auto mt-5 grid max-w-[22.5rem] grid-cols-3 items-end gap-2" role="radiogroup" aria-label="Tipo de verificación">
         {(["basic", "premium", "creator"] as IdTier[]).map((k) => { const on = tier === k; const prem = k === "premium"; return (
           <button key={k} role="radio" aria-checked={on} onClick={() => setTier(k)} className={"relative flex flex-col items-center rounded-2xl border px-2 pb-4 pt-5 text-center transition " + (prem ? "-mt-3 pb-7 pt-7 " : "") + (on ? "border-transparent shadow-glow " : "border-border opacity-90 ") + (prem ? "bg-gradient-to-b from-[oklch(0.25_0.12_310)] to-[oklch(0.17_0.08_290)]" : "bg-card/70")} style={on ? { background: `linear-gradient(var(--card), var(--card)) padding-box, linear-gradient(135deg, var(--spot-blue), var(--spot-fuchsia)) border-box` } : undefined}>
-            {prem && <span className="absolute inset-x-2 -top-3 rounded-full bg-[var(--spot-fuchsia)] py-0.5 text-[9px] font-bold text-white">Popular</span>}
+            {prem && <span className="absolute inset-x-2 -top-3 rounded-full bg-[var(--spot-fuchsia)] py-0.5 text-4xs font-bold text-white">Popular</span>}
             <span className="grid h-12 w-12 place-items-center rounded-full bg-background/40">{k === "creator" ? <Crown size={28} className="text-premium" fill="currentColor" /> : <Star size={30} tone={prem ? "pink" : "blue"} />}</span>
-            <strong className="mt-2 text-[15px]">{tierInfo[k].name}</strong><small className="mt-1 text-[11px] leading-tight text-muted-foreground">{tierInfo[k].sub}</small><span className="mt-1.5 rounded-full bg-background/50 px-2 py-0.5 text-[11px] font-bold">{verificationPricesEur[k] === 0 ? "Gratis" : eur(verificationPricesEur[k])}</span>
-            {prem && <span className="absolute inset-x-2 -bottom-3 rounded-full bg-[var(--spot-fuchsia)] py-1 text-[9px] font-bold tracking-wide text-white">RECOMENDADO</span>}
+            <strong className="mt-2 text-[0.9375rem]">{tierInfo[k].name}</strong><small className="mt-1 text-2xs leading-tight text-muted-foreground">{tierInfo[k].sub}</small><span className="mt-1.5 rounded-full bg-background/50 px-2 py-0.5 text-2xs font-bold">{verificationPricesEur[k] === 0 ? "Gratis" : eur(verificationPricesEur[k])}</span>
+            {prem && <span className="absolute inset-x-2 -bottom-3 rounded-full bg-[var(--spot-fuchsia)] py-1 text-4xs font-bold tracking-wide text-white">RECOMENDADO</span>}
           </button>); })}
       </div>
       <button onClick={() => setShowExplain(!showExplain)} className="mx-auto mt-6 block text-xs font-semibold text-primary">{showExplain ? "Ocultar" : "¿En qué se diferencia de la identidad interna y de Premium?"}</button>
@@ -179,32 +179,32 @@ export function Verification({ onBack }: { onBack: () => void }) {
   /* ---- Lámina 3 · Selección de método ---- */
   if (step === "methods") return (
     <Frame onBack={goBack} cta="Continuar" onCta={() => setStep("doc")}>
-      <h1 className="mt-2 text-center text-[24px] font-bold">¿Cómo quieres verificarte?</h1>
-      <p className="mx-auto mb-4 mt-2 max-w-[280px] text-center text-[13px] leading-snug text-muted-foreground">Elige el método que prefieras. Puedes combinar varios para aumentar la confianza.</p>
+      <h1 className="mt-2 text-center text-[1.5rem] font-bold">¿Cómo quieres verificarte?</h1>
+      <p className="mx-auto mb-4 mt-2 max-w-[17.5rem] text-center text-[0.8125rem] leading-snug text-muted-foreground">Elige el método que prefieras. Puedes combinar varios para aumentar la confianza.</p>
       <div className="space-y-2.5">{methodsDef.filter((m) => methodsFor(tier).includes(m.id)).map((m, i) => { const on = methods.includes(m.id); const col = m.tone === "cyan" ? "var(--spot-blue)" : m.tone === "pink" ? "var(--spot-fuchsia)" : "oklch(0.66 0.2 285)"; return (
         <button key={m.id} aria-pressed={on} onClick={() => { if (m.need) toast("Este método es necesario para activar tu cuenta"); else toggle(m.id); }} className={"spot-rise relative flex w-full items-center gap-3.5 rounded-2xl border p-3 text-left transition " + (on ? "border-transparent shadow-glow" : "border-border")} style={{ animationDelay: `${i * 0.06}s`, background: on ? "linear-gradient(110deg, oklch(0.17 0.06 275), oklch(0.2 0.09 300)) padding-box, linear-gradient(110deg, var(--spot-blue), var(--spot-fuchsia)) border-box" : "color-mix(in oklab, var(--spot-blue) 6%, var(--background))" }}>
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border-2" style={{ borderColor: col, color: col, background: "color-mix(in oklab, " + col + " 14%, var(--background))" }}><m.icon size={22} /></span>
-          <span className="min-w-0 flex-1"><strong className="block text-[14.5px] leading-tight">{m.title}</strong><small className="mt-0.5 block text-[12px] text-muted-foreground">{m.sub}{m.need ? " · necesario" : ""}</small></span>
-          {m.rec && <span className="absolute -top-2.5 right-3 rounded-full bg-gradient-to-r from-[oklch(0.6_0.26_302)] to-[var(--spot-fuchsia)] px-2.5 py-0.5 text-[10px] font-bold text-white">Recomendado</span>}
+          <span className="min-w-0 flex-1"><strong className="block text-[0.9375rem] leading-tight">{m.title}</strong><small className="mt-0.5 block text-[0.75rem] text-muted-foreground">{m.sub}{m.need ? " · necesario" : ""}</small></span>
+          {m.rec && <span className="absolute -top-2.5 right-3 rounded-full bg-gradient-to-r from-[oklch(0.6_0.26_302)] to-[var(--spot-fuchsia)] px-2.5 py-0.5 text-3xs font-bold text-white">Recomendado</span>}
           {on ? <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground"><Check size={14} /></span> : <ChevronRight size={20} className="shrink-0 text-foreground" />}
         </button>); })}</div>
-      <p className="mt-3 text-center text-[11px] text-muted-foreground">«{tierInfo[tier].name}» incluye documento, selfie y teléfono{tier === "creator" ? " y revisión de creador" : ""}. Las redes sociales son opcionales.</p>
+      <p className="mt-3 text-center text-2xs text-muted-foreground">«{tierInfo[tier].name}» incluye documento, selfie y teléfono{tier === "creator" ? " y revisión de creador" : ""}. Las redes sociales son opcionales.</p>
     </Frame>
   );
 
   /* ---- Lámina 4 · Verificación de documento ---- */
   if (step === "doc") return (
     <Frame onBack={goBack} title="Verifica tu identidad" cta="Continuar" disabled={!docReady} onCta={goNext}>
-      <p className="mx-auto mb-3 max-w-[290px] text-center text-[13px] leading-snug text-muted-foreground">Sube fotos de tu documento de identidad. Aceptamos DNI, pasaporte o NIE.</p>
+      <p className="mx-auto mb-3 max-w-[18.125rem] text-center text-[0.8125rem] leading-snug text-muted-foreground">Sube fotos de tu documento de identidad. Aceptamos DNI, pasaporte o NIE.</p>
       <input ref={file} type="file" accept="image/jpeg,image/png" className="hidden" aria-label="Seleccionar foto del documento" onChange={(e) => pick(e.target.files?.[0])} />
       <button onClick={() => file.current?.click()} aria-label={`Subir foto del ${side === "front" ? "anverso" : "reverso"}`} className="relative mx-auto block aspect-[1.6] w-full overflow-hidden rounded-2xl border border-primary/40 shadow-glow">
         {img[side] ? <img src={img[side]!} alt={`Tu documento, ${side === "front" ? "anverso" : "reverso"}`} className="h-full w-full object-cover" /> : <SampleCard side={side} />}
-        {!img[side] && <span className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded-full bg-background/80 px-3 py-1 text-[11px] font-semibold"><Camera size={12} className="mr-1 inline" />Toca para subir tu foto</span>}
+        {!img[side] && <span className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded-full bg-background/80 px-3 py-1 text-2xs font-semibold"><Camera size={12} className="mr-1 inline" />Toca para subir tu foto</span>}
       </button>
-      <div className="mt-3 grid grid-cols-2 gap-3">{(passport ? (["front"] as const) : (["front", "back"] as const)).map((k) => <button key={k} aria-pressed={side === k} onClick={() => { setSide(k); if (!img[k]) window.setTimeout(() => file.current?.click(), 0); }} className={"relative overflow-hidden rounded-xl border-2 p-1 " + (side === k ? "border-primary shadow-glow" : "border-border")}><span className="block aspect-[1.6] overflow-hidden rounded-lg">{img[k] ? <img src={img[k]!} alt="" className="h-full w-full object-cover" /> : <SampleCard side={k} />}</span><span className="block py-1 text-[11px] font-semibold">{k === "front" ? "Anverso" : "Reverso"}</span>{img[k] && <span className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-emerald-500 text-white"><Check size={14} /></span>}</button>)}</div>
+      <div className="mt-3 grid grid-cols-2 gap-3">{(passport ? (["front"] as const) : (["front", "back"] as const)).map((k) => <button key={k} aria-pressed={side === k} onClick={() => { setSide(k); if (!img[k]) window.setTimeout(() => file.current?.click(), 0); }} className={"relative overflow-hidden rounded-xl border-2 p-1 " + (side === k ? "border-primary shadow-glow" : "border-border")}><span className="block aspect-[1.6] overflow-hidden rounded-lg">{img[k] ? <img src={img[k]!} alt="" className="h-full w-full object-cover" /> : <SampleCard side={k} />}</span><span className="block py-1 text-2xs font-semibold">{k === "front" ? "Anverso" : "Reverso"}</span>{img[k] && <span className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-full bg-emerald-500 text-white"><Check size={14} /></span>}</button>)}</div>
       <label className="mt-3 flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={passport} onChange={(e) => { setPassport(e.target.checked); setSide("front"); }} className="accent-[var(--primary)]" />Mi documento es un pasaporte (solo una cara)</label>
-      <ul className="mt-3 space-y-2 text-[13.5px]">{["Foto nítida y completa", "Sin brillos ni cortes", "Formato JPG o PNG", "Máx. 10 MB"].map((x) => <li key={x} className="flex items-center gap-3"><span className="grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-white"><Check size={12} /></span>{x}</li>)}</ul>
-      <p className="mt-3 text-[11px] text-muted-foreground">DEMO: la foto se queda en tu dispositivo; no se envía ni se guarda.</p>
+      <ul className="mt-3 space-y-2 text-[0.8125rem]">{["Foto nítida y completa", "Sin brillos ni cortes", "Formato JPG o PNG", "Máx. 10 MB"].map((x) => <li key={x} className="flex items-center gap-3"><span className="grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-white"><Check size={12} /></span>{x}</li>)}</ul>
+      <p className="mt-3 text-2xs text-muted-foreground">DEMO: la foto se queda en tu dispositivo; no se envía ni se guarda.</p>
     </Frame>
   );
 
@@ -220,7 +220,7 @@ export function Verification({ onBack }: { onBack: () => void }) {
       <p className="mb-3 text-sm text-muted-foreground">Te enviaremos un código por SMS. Un teléfono, una cuenta.</p>
       <label className="block text-xs text-muted-foreground">Número de teléfono<div className="mt-1 flex gap-2"><span className="grid h-12 place-items-center rounded-xl border border-border bg-card px-3 text-sm">🇪🇸 +34</span><input type="tel" inputMode="tel" autoFocus value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d ]/g, ""))} placeholder="600 000 000" className="h-12 min-w-0 flex-1 rounded-xl border border-border bg-card px-3 text-base text-foreground" /></div></label>
       {phone && phone.replace(/\D/g, "").length < 9 && <p className="mt-2 text-xs text-live">Introduce los 9 dígitos.</p>}
-      <p className="mt-3 text-[11px] text-muted-foreground">DEMO: no se envía ningún SMS real.</p>
+      <p className="mt-3 text-2xs text-muted-foreground">DEMO: no se envía ningún SMS real.</p>
     </Frame>
   );
 
@@ -229,7 +229,7 @@ export function Verification({ onBack }: { onBack: () => void }) {
       <p className="mb-3 text-sm text-muted-foreground">Introduce el código de 6 cifras enviado a +34 {phone}.</p>
       <input inputMode="numeric" autoFocus maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="••••••" aria-label="Código SMS" className="h-14 w-full rounded-xl border border-border bg-card text-center text-2xl tracking-[0.5em] text-foreground" />
       <div className="mt-3 flex items-center justify-between text-xs"><button className="text-primary disabled:text-muted-foreground" disabled={wait > 0} onClick={() => { setWait(30); toast("Código reenviado"); }}>{wait > 0 ? `Reenviar en ${wait} s` : "Reenviar código"}</button><button className="text-muted-foreground" onClick={() => { setStep("phone"); setCode(""); }}>Cambiar número</button></div>
-      <p className="mt-3 text-[11px] text-muted-foreground">DEMO: sirve cualquier código de 6 cifras.</p>
+      <p className="mt-3 text-2xs text-muted-foreground">DEMO: sirve cualquier código de 6 cifras.</p>
     </Frame>
   );
 
@@ -237,7 +237,7 @@ export function Verification({ onBack }: { onBack: () => void }) {
     <Frame onBack={goBack} title="Redes sociales" cta="Continuar" disabled={!socialReady} onCta={goNext}>
       <p className="mb-3 text-sm text-muted-foreground">Vincula al menos una cuenta. Sirve para reforzar la confianza; no se publica nada.</p>
       <div className="space-y-2.5">{Object.keys(social).map((n) => <label key={n} className="flex items-center gap-3 rounded-xl border border-border bg-card p-2 pl-3 text-sm"><span className="w-20 shrink-0 font-semibold">{n}</span><input value={social[n]} onChange={(e) => setSocial({ ...social, [n]: e.target.value.replace(/\s/g, "") })} placeholder="@tu_usuario" aria-label={`Usuario de ${n}`} className="h-10 min-w-0 flex-1 rounded-lg bg-background px-3 text-foreground" /></label>)}</div>
-      <p className="mt-3 text-[11px] text-muted-foreground">DEMO: no se conecta ninguna red. En producción se comprobará que la cuenta es tuya (OAuth o código en la bio).</p>
+      <p className="mt-3 text-2xs text-muted-foreground">DEMO: no se conecta ninguna red. En producción se comprobará que la cuenta es tuya (OAuth o código en la bio).</p>
     </Frame>
   );
 
@@ -246,7 +246,7 @@ export function Verification({ onBack }: { onBack: () => void }) {
       <p className="mb-3 text-sm text-muted-foreground">Cuéntanos a qué te dedicas. Una persona del equipo lo revisa; el distintivo Creador es aparte de tu identidad.</p>
       <div className="flex flex-wrap gap-2">{["Modelo", "Artista", "Músico", "Creador de contenido", "Deportista", "Otro"].map((c) => <Chip key={c} active={cat === c} onClick={() => setCat(c)}>{c}</Chip>)}</div>
       <textarea value={about} onChange={(e) => setAbout(e.target.value)} rows={4} maxLength={300} placeholder="Enlace a tu portfolio o una descripción de tu trabajo (mín. 10 caracteres)" aria-label="Sobre tu trabajo" className="mt-3 w-full resize-none rounded-xl border border-border bg-card p-3 text-sm text-foreground" />
-      <p className="mt-2 text-[11px] text-muted-foreground">DEMO: no se envía nada.</p>
+      <p className="mt-2 text-2xs text-muted-foreground">DEMO: no se envía nada.</p>
     </Frame>
   );
 
@@ -255,9 +255,9 @@ export function Verification({ onBack }: { onBack: () => void }) {
     <Frame center>
       <div className="flex flex-1 flex-col items-center justify-center">
         <span className="spot-pin-glow grid h-28 w-28 place-items-center rounded-3xl border-2 border-[var(--spot-fuchsia)]/70 bg-card/60"><Star size={64} /></span>
-        <h1 className="mt-6 text-[24px] font-bold">{progress < CHECKS.length ? "Verificando..." : "Casi listo…"}</h1>
-        <ul className="mt-5 w-full max-w-[260px] space-y-3" aria-live="polite">{CHECKS.map((c, i) => <li key={c} className={"flex items-center gap-3 text-[15px] transition-opacity " + (i < progress ? "opacity-100" : "opacity-30")}><span className={"grid h-6 w-6 place-items-center rounded-full " + (i < progress ? "bg-emerald-500 text-white" : "border border-muted-foreground")}>{i < progress && <Check size={14} />}</span>{c}</li>)}</ul>
-        <div className="mt-8 w-full rounded-xl border border-dashed border-border p-3 text-left"><p className="text-[11px] font-semibold text-muted-foreground">DEMO · ELIGE EL RESULTADO A VER (sin proveedor de identidad conectado)</p><div className="mt-2 flex flex-wrap gap-1.5">{OUTCOMES.map(([k, l]) => <Chip key={k} active={outcome === k} onClick={() => setOutcome(k)}>{l}</Chip>)}</div></div>
+        <h1 className="mt-6 text-[1.5rem] font-bold">{progress < CHECKS.length ? "Verificando..." : "Casi listo…"}</h1>
+        <ul className="mt-5 w-full max-w-[16.25rem] space-y-3" aria-live="polite">{CHECKS.map((c, i) => <li key={c} className={"flex items-center gap-3 text-[0.9375rem] transition-opacity " + (i < progress ? "opacity-100" : "opacity-30")}><span className={"grid h-6 w-6 place-items-center rounded-full " + (i < progress ? "bg-emerald-500 text-white" : "border border-muted-foreground")}>{i < progress && <Check size={14} />}</span>{c}</li>)}</ul>
+        <div className="mt-8 w-full rounded-xl border border-dashed border-border p-3 text-left"><p className="text-2xs font-semibold text-muted-foreground">DEMO · ELIGE EL RESULTADO A VER (sin proveedor de identidad conectado)</p><div className="mt-2 flex flex-wrap gap-1.5">{OUTCOMES.map(([k, l]) => <Chip key={k} active={outcome === k} onClick={() => setOutcome(k)}>{l}</Chip>)}</div></div>
       </div>
     </Frame>
   );
@@ -266,9 +266,9 @@ export function Verification({ onBack }: { onBack: () => void }) {
     <Frame cta="Continuar" onCta={onBack}>
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <span className="spot-pin-glow grid h-28 w-28 place-items-center rounded-full border-2 border-[var(--spot-fuchsia)]/70 bg-card/60"><Star size={64} /></span>
-        <h1 className="mt-6 text-[25px] font-bold">¡Verificación completada!</h1>
-        <p className="mt-2 max-w-[260px] text-[14px] leading-snug text-muted-foreground">{tierInfo[idTier].done}</p>
-        <p className="mt-6 flex items-center gap-1.5 text-[12px] text-emerald-400"><BadgeCheck size={14} />Identidad comprobada · interna, nadie ve tus datos legales</p>
+        <h1 className="mt-6 text-[1.5625rem] font-bold">¡Verificación completada!</h1>
+        <p className="mt-2 max-w-[16.25rem] text-[0.875rem] leading-snug text-muted-foreground">{tierInfo[idTier].done}</p>
+        <p className="mt-6 flex items-center gap-1.5 text-[0.75rem] text-emerald-400"><BadgeCheck size={14} />Identidad comprobada · interna, nadie ve tus datos legales</p>
       </div>
     </Frame>
   );

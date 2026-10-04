@@ -73,7 +73,7 @@ export function MediaViewer({ items, start = 0, onClose }: { items: MediaItem[];
 
   return (
     <div role="dialog" aria-modal="true" aria-label={item.kind === "video" ? "Vídeo" : "Foto"} className="fixed inset-0 z-[75] mx-auto flex max-w-[520px] flex-col bg-black text-white">
-      <header className="relative z-10 flex items-center justify-between px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <header className="relative z-10 flex items-center justify-between px-3 pb-2 pt-[var(--safe-header)]">
         <button onClick={onClose} aria-label="Cerrar" className="grid h-10 w-10 place-items-center rounded-full bg-white/10"><X size={20} /></button>
         <span className="text-sm font-semibold tabular-nums">{index + 1} / {items.length}</span>
         <button onClick={() => void share()} aria-label="Compartir" className="grid h-10 w-10 place-items-center rounded-full bg-white/10"><Share2 size={18} /></button>
@@ -99,7 +99,7 @@ export function MediaViewer({ items, start = 0, onClose }: { items: MediaItem[];
           )}
         </div>
         {item.kind === "video" && paused && <span className="pointer-events-none absolute left-1/2 top-1/2 grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-black/55"><Play size={30} fill="currentColor" /></span>}
-        {index > 0 && <button onClick={() => go(-1)} onPointerDown={(e) => e.stopPropagation()} aria-label="Anterior" className="absolute left-2 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/45"><ChevronLeft size={22} /></button>}
+        {index > 0 && <button onClick={() => go(-1)} onPointerDown={(e) => e.stopPropagation()} aria-label="Anterior" className="absolute left-2 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/45"><ChevronLeft size={24} /></button>}
         {index < items.length - 1 && <button onClick={() => go(1)} onPointerDown={(e) => e.stopPropagation()} aria-label="Siguiente" className="absolute right-2 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/45"><ChevronRight size={22} /></button>}
       </div>
 

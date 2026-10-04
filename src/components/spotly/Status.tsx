@@ -47,8 +47,8 @@ export function PermissionsScreen({ onBack }: { onBack: () => void }) {
   ] as const;
   return (
     <Screen title="Permisos" sub="Tú decides qué comparte Spotly" onBack={onBack} z={60}>
-      <div className="space-y-2">{rows.map(([k, I, t, d]) => <div key={k} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-secondary text-primary"><I size={18} /></span><span className="min-w-0 flex-1"><strong className="block text-sm">{t}</strong><small className="text-muted-foreground">{d}</small><small className={"mt-0.5 block text-[11px] font-semibold " + (perms[k] ? "text-primary" : "text-live")}>{perms[k] ? "Permitido" : "Denegado"}</small></span><Toggle on={perms[k]} onChange={(v) => { setPerm(k, v); toast(v ? `${t} permitido` : `${t} denegado`); }} label={t} /></div>)}</div>
-      <p className="mt-2 text-[11px] text-muted-foreground">En el móvil, este interruptor te llevará a los ajustes de iOS o Android para cambiar el permiso del sistema.</p>
+      <div className="space-y-2">{rows.map(([k, I, t, d]) => <div key={k} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-secondary text-primary"><I size={18} /></span><span className="min-w-0 flex-1"><strong className="block text-sm">{t}</strong><small className="text-muted-foreground">{d}</small><small className={"mt-0.5 block text-2xs font-semibold " + (perms[k] ? "text-primary" : "text-live")}>{perms[k] ? "Permitido" : "Denegado"}</small></span><Toggle on={perms[k]} onChange={(v) => { setPerm(k, v); toast(v ? `${t} permitido` : `${t} denegado`); }} label={t} /></div>)}</div>
+      <p className="mt-2 text-2xs text-muted-foreground">En el móvil, este interruptor te llevará a los ajustes de iOS o Android para cambiar el permiso del sistema.</p>
       <h3 className="mb-2 mt-6 text-sm font-bold">Instalar la app</h3>
       <InstallCard />
       <h3 className="mb-2 mt-6 text-sm font-bold">Apariencia</h3>
@@ -71,7 +71,7 @@ export function InstallCard() {
   };
   return (
     <div className="rounded-2xl border border-border bg-card p-4">
-      <div className="flex items-center gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-spot-gradient"><Download size={20} /></span><span className="min-w-0 flex-1"><strong className="block text-sm">Instalar Spotly</strong><small className="text-muted-foreground">iPhone · Android · Windows</small></span>{installed && <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary">INSTALADA</span>}</div>
+      <div className="flex items-center gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-spot-gradient"><Download size={20} /></span><span className="min-w-0 flex-1"><strong className="block text-sm">Instalar Spotly</strong><small className="text-muted-foreground">iPhone · Android · Windows</small></span>{installed && <span className="rounded-full bg-primary/20 px-2 py-0.5 text-3xs font-bold text-primary">INSTALADA</span>}</div>
       <p className="mt-3 text-xs text-muted-foreground">{how[platform]}</p>
       <div className="mt-3 flex gap-2">
         <Button className="flex-1" disabled={installed} onClick={async () => { const r = await install(); if (r === "manual") toast(platform === "ios" ? "Safari → Compartir → Añadir a pantalla de inicio" : "Usa el icono de instalar de tu navegador"); else if (r === "accepted") toast.success("Spotly instalada"); }}>{canPrompt ? <><Download size={15} />Instalar ahora</> : <><Monitor size={15} />Cómo instalar</>}</Button>

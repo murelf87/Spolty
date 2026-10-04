@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, Check, ChevronLeft, Flame, Ghost, Headphones, ImageIcon, MapPin, MessageCircle, Mic, Music, Pause, Play, Radio, RefreshCw, Rocket, Shield, Trash2, Users, X, Zap } from "lucide-react";
+import { Camera, Check, Flame, Ghost, Headphones, ImageIcon, MapPin, MessageCircle, Mic, Music, Pause, Play, Radio, RefreshCw, Rocket, Shield, Trash2, Users, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Toggle, Trust } from "./kit";
+import { Toggle, Trust, TopBar, BottomSheet } from "./kit";
 import { Wave, type MineSpot } from "./Feed";
 import { BoostFlow } from "./BoostFlow";
 import { IncognitoSheet } from "./Incognito";
 import { LiveBroadcast } from "./LiveBroadcast";
 import { useApp } from "./app-context";
 import { useGate } from "./Voice";
-import { useStore } from "@/lib/store";
+import { useStore, useMe } from "@/lib/store";
 import { commerce, locationPrecision } from "@/lib/spotlyConfig";
 import valenciaSunset from "@/assets/spotly-sevilla-noche-ref.jpg";
 import sevilleNight from "@/assets/seville-night.jpg";
+import { SignAs } from "./Author";
 
 const opts = {
   loc: ["Sevilla · Triana", "Sevilla · Alameda", "Sevilla · Centro", "Ubicación oculta"],
@@ -27,6 +28,10 @@ const fmtSecs = (s: number) => `0:${String(s).padStart(2, "0")}`;
 export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPublished: (m: NonNullable<MineSpot>) => void }) {
   const app = useApp();
   const { incognito, credits } = useStore();
+  const me = useMe();
+  /* Firma del Spot: tu nombre, o «Anónimo» con fantasma si tienes Incógnito (de pago) activo. */
+  const [anon, setAnon] = useState(incognito.active);
+  useEffect(() => { if (incognito.active) setAnon(true); }, [incognito.active]);
   const [broadcast, setBroadcast] = useState(false);
   const [step, setStep] = useState(0);
   const [hasMedia, setHasMedia] = useState(false);
@@ -65,13 +70,13 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
     setPublishing(true);
     window.setTimeout(() => { setPublishing(false); setPublished(true); }, 700);
   };
-  const finish = () => { onPublished({ boosted, incognito: incognito.active, text: "Atardecer en la Malvarrosa 🌅", visibility: opts.vis[sel.vis]! }); onClose(); };
+  const finish = () => { onPublished({ boosted, incognito: anon, text: "Atardecer en la Malvarrosa 🌅", visibility: opts.vis[sel.vis]! }); onClose(); };
 
   if (broadcast) return <LiveBroadcast onClose={onClose} />;
 
   if (published) {
     const list = [
-      incognito.active ? "Publicado como Incógnito verificado" : "Aparece en tu perfil",
+      anon ? "Publicado como «Anónimo» 👻 · Incógnito verificado" : `Publicado con tu nombre: ${me.name}`,
       sel.vis === 0 ? "En el feed Para todos y en Cerca de ti" : sel.vis === 1 ? "Solo para quien esté a menos de 1 km" : "Solo para tus seguidores",
       "En " + opts.loc[sel.loc],
       sel.precision === 2 ? "Sin ubicación en el mapa" : `En el mapa (${opts.precision[sel.precision]!.toLowerCase()})`,
@@ -91,10 +96,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
   if (boostOpen) return <BoostFlow preview={hasMedia ? valenciaSunset : undefined} onBack={() => setBoostOpen(false)} onDone={(b) => { setBoostOpen(false); if (b) { setBoosted(true); toast.success("Impulso añadido a tu Spot"); publish(); } else publish(); }} />;
 
   return <div className="fixed inset-0 z-40 overflow-y-auto bg-background">
-    <header className="sticky top-0 z-10 flex items-center justify-between bg-background/95 px-3 pb-3 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))] backdrop-blur">
-      <Button variant="ghost" size="icon" onClick={step === 0 ? onClose : () => setStep((s) => s - 1)} aria-label={step === 0 ? "Cerrar" : "Volver"}>{step === 0 ? <X /> : <ChevronLeft />}</Button>
-      <h2 className="font-bold">{step === 3 ? "Tu Spot está listo" : ""}</h2><span className="w-10" />
-    </header>
+    <TopBar title={step === 3 ? "Tu Spot está listo" : ""} onBack={step === 0 ? onClose : () => setStep((s) => s - 1)} close={step === 0} sticky border={false} />
     <main className="mx-auto max-w-md p-5 pb-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))]">
       {step === 0 && <>
         {/* Story-style top strip */}
@@ -108,7 +110,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
               else if (s === "👻 Incógnito") setIncogOpen(true);
             }} className="flex shrink-0 flex-col items-center gap-1.5">
               <span className="grid h-16 w-16 place-items-center rounded-full border-2 border-primary/60 bg-secondary text-2xl shadow-glow">{s.split(" ")[0]}</span>
-              <span className="text-[11px] text-muted-foreground">{s.split(" ")[1]}</span>
+              <span className="text-2xs text-muted-foreground">{s.split(" ")[1]}</span>
             </button>
           ))}
         </div>
@@ -137,14 +139,14 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
           <button onClick={() => { setHasMedia(false); setStep(2); }} className="relative overflow-hidden rounded-2xl bg-spot-gradient p-5 text-left shadow-glow">
             <Mic size={30} className="mb-3" />
             <strong className="block text-sm">Solo voz</strong>
-            <small className="block text-[11px] font-normal opacity-80">Tu historia, tu voz</small>
+            <small className="block text-2xs font-normal opacity-80">Tu historia, tu voz</small>
           </button>
 
           {/* Galería */}
           <button onClick={() => { setHasMedia(true); setStep(2); }} className="relative overflow-hidden rounded-2xl border border-border bg-card p-5 text-left">
             <ImageIcon size={30} className="mb-3 text-primary" />
             <strong className="block text-sm">Galería</strong>
-            <small className="block text-[11px] font-normal text-muted-foreground">Elige de tu móvil</small>
+            <small className="block text-2xs font-normal text-muted-foreground">Elige de tu móvil</small>
           </button>
 
           {/* Directo */}
@@ -155,7 +157,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
                 <strong className="block text-base text-live">Hacer un directo</strong>
                 <small className="text-muted-foreground">Emite con cámara o solo con tu voz</small>
               </div>
-              <span className="ml-auto flex items-center gap-1.5 rounded-full bg-live px-3 py-1 text-[11px] font-bold text-foreground"><span className="h-1.5 w-1.5 rounded-full bg-foreground spot-pulse" />EN VIVO</span>
+              <span className="ml-auto flex items-center gap-1.5 rounded-full bg-live px-3 py-1 text-2xs font-bold text-foreground"><span className="h-1.5 w-1.5 rounded-full bg-foreground spot-pulse" />EN VIVO</span>
             </div>
           </button>
         </div>
@@ -165,7 +167,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
           {([[Ghost, "Incógnito", "text-accent", () => setIncogOpen(true)], [Rocket, "Impulsar", "text-premium", () => setBoostOpen(true)], [Users, "Evento", "text-primary", () => { onClose(); app.open("crear-evento"); }]] as const).map(([I, l, c, f]) => (
             <button key={l} onClick={f} className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card py-4">
               <I size={20} className={c} />
-              <span className="text-[11px] font-semibold">{l}</span>
+              <span className="text-2xs font-semibold">{l}</span>
             </button>
           ))}
         </div>
@@ -175,12 +177,12 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
 
       {step === 1 && (gateCam
         ? <div className="mt-6 space-y-3">{gateCam}<Button variant="secondary" className="w-full" onClick={() => { setHasMedia(true); setStep(2); }}><ImageIcon size={16} />Usar una foto de la galería</Button><Button variant="ghost" className="w-full" onClick={() => { setHasMedia(false); setStep(2); }}>Publicar solo con voz</Button></div>
-        : <div className="-mx-5 flex min-h-[calc(100vh_-_4.5rem_-_max(2.75rem,calc(env(safe-area-inset-top)_+_0.5rem))_-_max(1.25rem,calc(env(safe-area-inset-bottom)_+_0.75rem)))] flex-col bg-background">
+        : <div className="-mx-5 flex min-h-[calc(100vh_-_4.5rem_-_var(--safe-header)_-_max(1.25rem,calc(env(safe-area-inset-bottom)_+_0.75rem)))] flex-col bg-background">
           <div className="relative mx-3 mt-2 flex-1 overflow-hidden rounded-3xl"><img src={valenciaSunset} alt="Vista de cámara" className="absolute inset-0 h-full w-full object-cover" />
             <div className="absolute inset-x-0 top-0 flex items-center justify-between p-3">{([[X, "Cerrar cámara", () => setStep(0)], [Zap, "Flash", () => setFlash(!flash)], [Music, "Añadir música", () => toast("Música de ejemplo añadida")], [RefreshCw, "Cambiar cámara", () => setFront(!front)]] as const).map(([I, l, f], i) => <button key={i} aria-label={l} onClick={f} className={"grid h-10 w-10 place-items-center rounded-full bg-background/50 backdrop-blur " + (i === 1 && flash ? "text-premium" : "")}><I size={18} /></button>)}</div>
             {front && <span className="absolute left-1/2 top-16 -translate-x-1/2 rounded-full bg-background/60 px-3 py-1 text-xs">Cámara frontal</span>}
-            <div className="absolute inset-x-0 bottom-3 flex justify-center gap-2">{["0,5", "1x", "2"].map((z) => <button key={z} onClick={() => setZoom(z)} className={"grid h-8 w-8 place-items-center rounded-full text-[11px] font-semibold backdrop-blur " + (zoom === z ? "bg-foreground/90 text-background" : "bg-background/50")}>{z}</button>)}</div></div>
-          <div className="mt-3 flex justify-center"><div className="flex rounded-full bg-secondary p-1 text-[11px] font-semibold">{(["VÍDEO", "FOTO"] as const).map((m) => <button key={m} onClick={() => setMode(m)} className={"rounded-full px-3 py-1 " + (mode === m ? "bg-foreground text-background" : "text-muted-foreground")}>{m}</button>)}</div></div>
+            <div className="absolute inset-x-0 bottom-3 flex justify-center gap-2">{["0,5", "1x", "2"].map((z) => <button key={z} onClick={() => setZoom(z)} className={"grid h-8 w-8 place-items-center rounded-full text-2xs font-semibold backdrop-blur " + (zoom === z ? "bg-foreground/90 text-background" : "bg-background/50")}>{z}</button>)}</div></div>
+          <div className="mt-3 flex justify-center"><div className="flex rounded-full bg-secondary p-1 text-2xs font-semibold">{(["VÍDEO", "FOTO"] as const).map((m) => <button key={m} onClick={() => setMode(m)} className={"rounded-full px-3 py-1 " + (mode === m ? "bg-foreground text-background" : "text-muted-foreground")}>{m}</button>)}</div></div>
           <div className="flex h-28 items-center justify-around"><button onClick={() => { setHasMedia(true); next(); }} aria-label="Elegir de la galería" className="h-12 w-12 overflow-hidden rounded-lg border border-border"><img src={sevilleNight} alt="Galería" className="h-full w-full object-cover" /></button>
             <button aria-label={mode === "VÍDEO" ? "Grabar vídeo" : "Hacer foto"} onClick={() => { setHasMedia(true); next(); }} className="grid h-20 w-20 place-items-center rounded-full border-[5px] border-foreground"><span className={mode === "VÍDEO" ? "h-14 w-14 rounded-full bg-live" : "h-14 w-14 rounded-full bg-foreground"} /></button>
             <Button variant="ghost" size="icon" aria-label="Girar cámara" onClick={() => setFront(!front)}><RefreshCw /></Button></div></div>)}
@@ -193,7 +195,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
           <div className="mt-5 flex items-center gap-2"><Wave active={recording} />
             <Button variant="ghost" onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); startRec(); }} onPointerUp={() => recording && stopRec()} onPointerCancel={() => recording && stopRec()} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startRec(); } }} onKeyUp={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (recording) stopRec(); } }} className={(recording ? "spot-pulse " : "") + "grid h-24 w-24 shrink-0 place-items-center rounded-full border-4 border-primary/60 bg-spot-gradient p-0 text-foreground shadow-glow touch-none"} aria-label="Mantener pulsado para grabar audio"><Mic size={38} /></Button><Wave active={recording} /></div>
           <p className="mt-5 text-sm">{recording ? "Grabando… suelta para terminar" : recorded ? "Audio grabado" : "Mantén pulsado para grabar"}</p>
-          <p className="mt-1 text-[11px] text-muted-foreground">Máximo {commerce.voiceMaxSeconds} s. Ahora mismo es una grabación de demostración: aún no se sube audio real.</p></>}
+          <p className="mt-1 text-2xs text-muted-foreground">Máximo {commerce.voiceMaxSeconds} s. Ahora mismo es una grabación de demostración: aún no se sube audio real.</p></>}
         <div className="mt-8 flex items-center justify-around"><Button variant="secondary" size="icon" aria-label="Cancelar" onClick={() => setStep(hasMedia ? 1 : 0)} className="h-12 w-12 rounded-full"><X size={20} /></Button><Button variant="secondary" size="icon" aria-label="Borrar audio" onClick={() => { if (timer.current) clearInterval(timer.current); setRecording(false); setRecorded(false); setSecs(0); }} className="h-12 w-12 rounded-full"><Trash2 size={20} /></Button><Button size="icon" aria-label="Usar este audio" disabled={!recorded} onClick={next} className="h-14 w-14 rounded-full bg-spot-gradient shadow-glow disabled:opacity-40"><Check size={24} /></Button></div>
       </div>}
 
@@ -201,7 +203,8 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
         <div className="relative mt-2 overflow-hidden rounded-xl border border-border">{hasMedia && <img src={valenciaSunset} alt="Vista previa del Spot" className="aspect-video w-full object-cover" />}
           <div className={hasMedia ? "absolute inset-x-3 bottom-3 flex items-center rounded-xl bg-background/90 p-2 backdrop-blur" : "flex items-center rounded-xl bg-card p-3"}><Button variant="icon" size="icon" aria-label="Reproducir audio de ejemplo" onClick={() => setPrev(!prev)}>{prev ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}</Button><Wave active={prev} /><span className="text-xs text-muted-foreground">{fmtSecs(secs || 12)}</span></div></div>
         <p className="mt-2 text-center text-xs text-muted-foreground">Vista de ejemplo · todavía no se graba ni guarda audio real.</p>
-        <h3 className="mt-5 text-base font-bold">Haz que encuentren tu voz</h3>
+        <div className="mt-5"><SignAs anon={anon} onChange={setAnon} /></div>
+        <h3 className="mt-6 text-base font-bold">Haz que encuentren tu voz</h3>
         <div className="mt-3 space-y-2">{([[Headphones, "Tema", "topic"], [MapPin, "Zona", "loc"], [Shield, "Precisión de la ubicación", "precision"], [Users, "Quién puede escucharte", "vis"]] as const).map(([I, a, k]) =>
           <Button key={a} variant="secondary" onClick={() => setPick(k)} className="flex h-auto w-full items-center justify-start gap-3 rounded-lg border border-border bg-card p-3 text-left"><I className="shrink-0 text-primary" size={19} /><span className="min-w-0 flex-1"><strong className="block text-sm">{a}</strong><small className="block font-normal text-muted-foreground">{opts[k][sel[k]]}</small></span><span className="text-muted-foreground">›</span></Button>)}</div>
         <h3 className="mt-6 text-base font-bold">Conversación</h3>
@@ -216,15 +219,14 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
           <Button variant="secondary" onClick={() => app.open("promo-perfil")} className="flex h-auto w-full items-center justify-start gap-3 rounded-lg border border-border bg-card p-3 text-left"><Users className="shrink-0 text-primary" size={19} /><span className="min-w-0 flex-1"><strong className="block text-sm">Promocionar perfil</strong><small className="block font-normal text-muted-foreground">Compra exposición, no seguidores</small></span><span className="text-muted-foreground">›</span></Button>
         </div>
         <div className="mt-4 flex items-center justify-between rounded-xl bg-secondary/60 p-3 text-sm"><span>Coste de publicar</span><strong className="text-primary">Gratis</strong></div>
-        {boosted && <p className="mt-1 text-[11px] text-muted-foreground">Impulso ya pagado con tu saldo o método de pago. Saldo actual: 💎 {credits.toLocaleString("es-ES")} · listo para usar.</p>}
+        {boosted && <p className="mt-1 text-2xs text-muted-foreground">Impulso ya pagado con tu saldo o método de pago. Saldo actual: 💎 {credits.toLocaleString("es-ES")} · listo para usar.</p>}
         {gatePub && <div className="mt-4">{gatePub}</div>}
         <Button className="mt-4 w-full bg-spot-gradient text-foreground" disabled={!!gatePub || publishing} onClick={publish}>{publishing ? "Publicando…" : "PUBLICAR SPOT"}</Button>
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">Publicar, ser descubierto y hacerte viral es gratis.</p>
+        <p className="mt-2 text-center text-2xs text-muted-foreground">Publicar, ser descubierto y hacerte viral es gratis.</p>
       </>}
 
-      {pick && <div className="fixed inset-0 z-[60] flex items-end bg-background/70 backdrop-blur-sm" onClick={() => setPick(null)}><div className="mx-auto w-full max-w-[520px] space-y-1 rounded-t-3xl border-t border-border bg-card p-4 pb-8" onClick={(e) => e.stopPropagation()}>
-        <h3 className="px-4 pb-2 font-bold">{titles[pick]}</h3>
-        {opts[pick].map((o, i) => <Button key={o} variant="ghost" onClick={() => { setSel({ ...sel, [pick]: i }); setPick(null); }} className="flex h-auto w-full items-center justify-between rounded-lg px-4 py-3 text-left text-sm text-foreground">{o}{sel[pick] === i && <Check size={16} className="text-primary" />}</Button>)}</div></div>}
+      {pick && <BottomSheet title={titles[pick]} onClose={() => setPick(null)} z={60}><div className="space-y-1">
+        {opts[pick].map((o, i) => <Button key={o} variant="ghost" onClick={() => { setSel({ ...sel, [pick]: i }); setPick(null); }} className="flex h-auto w-full items-center justify-between rounded-xl px-4 py-3 text-left text-sm text-foreground">{o}{sel[pick] === i && <Check size={16} className="text-primary" />}</Button>)}</div></BottomSheet>}
       {incogOpen && <IncognitoSheet onClose={() => setIncogOpen(false)} />}
     </main></div>;
 }

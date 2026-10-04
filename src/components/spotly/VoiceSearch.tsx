@@ -86,7 +86,7 @@ export function VoiceSearch({ onBack }: { onBack: () => void }) {
       {kind === "Lugares" && !q && <>
         <h3 className="mb-2 mt-5 flex items-center gap-1.5 text-sm font-bold"><Flame size={15} className="text-live" />Tendencias en Sevilla</h3>
         <div className="flex flex-wrap gap-2">{trends.map(([l, query, n], i) => <button key={l} onClick={() => run(query)} className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:border-primary"><span className="text-primary">{i + 1}</span>{l}<small className="font-normal text-muted-foreground">{n}</small></button>)}</div>
-        <p className="mt-1 text-[10px] text-muted-foreground">Cifras de ejemplo. Las tendencias reales salen de búsquedas y actividad verificadas, no de pagos.</p>
+        <p className="mt-1 text-3xs text-muted-foreground">Cifras de ejemplo. Las tendencias reales salen de búsquedas y actividad verificadas, no de pagos.</p>
         <h3 className="mb-2 mt-5 text-sm font-bold">Prueba a decir</h3>
         <div className="space-y-2">{examples.map((s) => <button key={s} onClick={() => run(s)} className="min-h-11 w-full rounded-xl border border-border bg-card p-3 text-left text-sm hover:border-primary">«{s}»</button>)}</div>
       </>}
@@ -108,12 +108,12 @@ export function VoiceSearch({ onBack }: { onBack: () => void }) {
           {results.sponsored.length > 0 && <>
             <h3 className="flex items-center gap-2 text-sm font-bold">DESTACADOS CERCA DE TI <SponsoredTag label="Patrocinados" /></h3>
             {results.sponsored.map((b, i) => <SponsoredSpot key={b.id} b={b} label={i === 0 ? "Patrocinado" : "Destacado"} />)}
-            <p className="text-[11px] text-muted-foreground">Estos negocios han contratado publicidad compatible con tu búsqueda. Pagar da visibilidad; no significa que sean los mejores.</p>
+            <p className="text-2xs text-muted-foreground">Estos negocios han contratado publicidad compatible con tu búsqueda. Pagar da visibilidad; no significa que sean los mejores.</p>
           </>}
           {intent.availableNow && !results.anyAvail && <StateCard icon={Store} tone="muted" title="Nadie indica disponibilidad ahora" text="Ningún negocio de esta categoría ha marcado huecos libres ahora mismo. Te mostramos los resultados normales." />}
           <h3 className="text-sm font-bold">Resultados cercanos</h3>
           {results.organic.length === 0 && results.sponsored.length === 0 && <StateCard icon={Search} tone="muted" title="Sin resultados" text="No hemos encontrado negocios de esta categoría en tu radio." />}
-          {results.organic.map((b) => <button key={b.id} onClick={() => app.openBiz(b.id)} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-3 text-left"><img src={b.img} alt="" className="h-14 w-14 rounded-lg object-cover" /><span className="min-w-0 flex-1"><strong className="block truncate text-sm">{b.name}</strong><small className="flex items-center gap-1 text-muted-foreground"><MapPin size={11} />{fmtDist(b.distM)} · <span className={b.open ? "text-primary" : ""}>{b.open ? "Abierto" : "Cerrado"}</span></small><small className="text-[10px] text-muted-foreground">{b.hours}</small></span><span className="text-xs text-primary">Ver ›</span></button>)}
+          {results.organic.map((b) => <button key={b.id} onClick={() => app.openBiz(b.id)} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-3 text-left"><img src={b.img} alt="" className="h-14 w-14 rounded-lg object-cover" /><span className="min-w-0 flex-1"><strong className="block truncate text-sm">{b.name}</strong><small className="flex items-center gap-1 text-muted-foreground"><MapPin size={11} />{fmtDist(b.distM)} · <span className={b.open ? "text-primary" : ""}>{b.open ? "Abierto" : "Cerrado"}</span></small><small className="text-3xs text-muted-foreground">{b.hours}</small></span><span className="text-xs text-primary">Ver ›</span></button>)}
         </>}
         <Trust>La búsqueda por voz interpreta intención, categoría, lugar, momento y disponibilidad. Hoy el reconocimiento es un ejemplo del navegador; el servidor lo hará en producción.</Trust>
       </div>}

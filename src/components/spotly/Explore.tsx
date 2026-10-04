@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, BadgeCheck, Camera, Check, Heart, Layers, MapPin, Mic, Navigation, Play, SlidersHorizontal, UserPlus, X } from "lucide-react";
+import { ChevronLeft, BadgeCheck, Camera, Check, Heart, Layers, MapPin, Mic, Navigation, Play, SlidersHorizontal, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { Sheet } from "./Extras";
@@ -9,6 +9,7 @@ import lauraPhoto from "@/assets/spotly-laura.jpg";
 import festival from "@/assets/spotly-sevilla-festival.jpg";
 import stage from "@/assets/spotly-live-stage.jpg";
 import beach from "@/assets/spotly-beach-club.jpg";
+import { BottomSheet } from "./kit";
 
 const imgs = [festival, beach, stage, valenciaSunset, sevilleNight, festival];
 const photos = [
@@ -54,7 +55,7 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
 
   return (
     <main className="min-h-screen pb-[calc(6rem+env(safe-area-inset-bottom))]">
-       <header className="px-4 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))]">
+       <header className="px-4 pt-[var(--safe-header)]">
          <Button variant="secondary" onClick={() => onOpen("buscar")} className="flex h-10 w-full justify-start gap-2 rounded-full border border-border bg-secondary text-left"><Mic size={16} className="text-primary" /><span className="text-sm text-muted-foreground">Sevilla</span></Button>
          <div className="mt-2 grid grid-cols-4 gap-1 rounded-xl bg-secondary p-1">
            {["Mapa", "Fotos", "Personas", "Eventos"].map((x) => <Button key={x} size="sm" variant={tab === x ? "default" : "ghost"} onClick={() => x === "Eventos" ? onOpen("eventos") : setTab(x)} className={tab === x ? "spot-active-pill rounded-lg text-xs" : "rounded-lg text-xs text-muted-foreground"}>{x}</Button>)}
@@ -62,7 +63,7 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
       </header>
 
       {tab === "Mapa" && (
-         <section className={`relative mx-4 mt-2 h-[min(72vh,680px)] overflow-hidden rounded-xl border border-border ${layer === "Oscuro" ? "bg-spot-surface" : "bg-secondary"}`}>
+         <section className={`relative mx-4 mt-2 h-[min(72vh,42.5rem)] overflow-hidden rounded-xl border border-border ${layer === "Oscuro" ? "bg-spot-surface" : "bg-secondary"}`}>
           {layer === "Satélite" && <img src={imgs[3]} alt="Vista satélite" className="absolute inset-0 h-full w-full object-cover opacity-50" />}
            {layer === "Oscuro" && <div className="spot-neon-map absolute inset-0" aria-hidden="true"><svg viewBox="0 0 360 620" preserveAspectRatio="xMidYMid slice" className="h-full w-full"><g fill="none" stroke="var(--spot-blue)" strokeWidth="1" opacity=".45"><path d="M-30 82 75 95 143 135 264 134 390 205M-20 180 82 196 170 181 250 205 390 252M-20 286 99 272 181 308 253 301 390 335M-20 430 76 407 165 442 256 415 390 458M-20 531 96 497 187 517 278 503 390 550M34-20 47 112 31 220 56 330 30 460 62 650M126-20 114 115 136 242 111 363 142 476 127 650M231-20 218 100 241 235 213 361 247 485 233 650M330-20 311 125 330 235 309 368 337 495 322 650"/><path stroke="var(--spot-fuchsia)" opacity=".8" strokeWidth="1.6" d="M-20 125 86 143 153 153 236 169 390 222M-20 360 77 355 157 386 243 379 390 402M94-20 96 97 82 196 100 272 76 407 96 497 95 650M280-20 272 134 250 205 253 301 256 415 278 503 265 650"/></g><g fill="var(--spot-blue)" opacity=".7"><circle cx="82" cy="196" r="2"/><circle cx="253" cy="301" r="2"/><circle cx="76" cy="407" r="2"/></g></svg></div>}
           {[88, 64, 42, 22].map((s) => <div key={s} className="spot-radar absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ width: `${s}%`, aspectRatio: "1" }} />)}
@@ -70,12 +71,12 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
            {pins.map(([x, y, c, s], i) => (
               <Button key={i} variant="ghost" aria-label="Ver Spot" onClick={() => setPin(i)} className="absolute flex h-auto -translate-x-1/2 -translate-y-full flex-col items-center p-0" style={{ left: `${x}%`, top: `${y}%` }}><span className={`relative rounded-full border-2 ${ring[c]} ${pin === i ? "ring-2 ring-primary" : ""}`} style={{ width: s + 12, height: s + 12 }}><img src={i === 0 ? lauraPhoto : imgs[i]} alt="" className={`h-full w-full rounded-full object-cover ${i === 0 ? "spot-pulse" : ""}`} />{i < 2 && <BadgeCheck size={14} className="absolute -right-1 -top-1 rounded-full bg-background text-primary" aria-label="Autor verificado de ejemplo" />}</span><span className={`-mt-0.5 h-2 w-2 rotate-45 ${dot[c]}`} /></Button>
           ))}
-            {mine && <Button variant="ghost" aria-label="Tu Spot" onClick={() => toast("Tu Spot · Hace 1 min · 1,2K vistas")} className="absolute left-1/2 top-1/2 h-auto -translate-x-1/2 -translate-y-1/2 flex-col p-0"><span className="h-24 w-24 overflow-hidden rounded-full border-[3px] border-accent shadow-glow"><img src={valenciaSunset} alt="" className="h-full w-full object-cover" /></span><span className="mt-1 rounded-full bg-background/90 px-3 py-1 text-[10px] font-bold text-foreground shadow-glow">TU SPOT</span></Button>}
+            {mine && <Button variant="ghost" aria-label="Tu Spot" onClick={() => toast("Tu Spot · Hace 1 min · 1,2K vistas")} className="absolute left-1/2 top-1/2 h-auto -translate-x-1/2 -translate-y-1/2 flex-col p-0"><span className="h-24 w-24 overflow-hidden rounded-full border-[3px] border-accent shadow-glow"><img src={valenciaSunset} alt="" className="h-full w-full object-cover" /></span><span className="mt-1 rounded-full bg-background/90 px-3 py-1 text-3xs font-bold text-foreground shadow-glow">TU SPOT</span></Button>}
           <div className="absolute right-3 top-3 flex flex-col gap-2">
             <Button size="icon" variant="secondary" aria-label="Cambiar capa" onClick={() => setLayer(layer === "Oscuro" ? "Satélite" : "Oscuro")}><Layers size={18} /></Button>
             <Button size="icon" variant="secondary" aria-label="Mi ubicación" onClick={() => toast("Centrado en tu ubicación")}><Navigation size={18} /></Button>
           </div>
-           <Button size="sm" variant="secondary" onClick={() => setFilters(true)} className="absolute left-3 top-3 h-7 rounded-full bg-background/80 px-2 text-[10px] font-semibold backdrop-blur"><SlidersHorizontal size={12} className="text-primary" />8 en directo · {layer}</Button>
+           <Button size="sm" variant="secondary" onClick={() => setFilters(true)} className="absolute left-3 top-3 h-7 rounded-full bg-background/80 px-2 text-3xs font-semibold backdrop-blur"><SlidersHorizontal size={12} className="text-primary" />8 en directo · {layer}</Button>
            {pin !== null ? (
             <div className="absolute inset-x-3 bottom-3 flex gap-3 rounded-xl border border-border bg-background/95 p-3 backdrop-blur">
               <img src={imgs[pin % imgs.length]} alt="" className="h-16 w-16 rounded-lg object-cover" />
@@ -99,7 +100,7 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
             {shownPhotos.map((p) => { const i = photos.indexOf(p); return (
               <button key={p.t} onClick={() => setPhoto(p)} className="relative mb-2 block w-full overflow-hidden rounded-xl">
                 <img src={imgs[i % imgs.length]} alt={p.t} loading="lazy" className={`w-full object-cover ${i % 3 === 0 ? "aspect-[3/4]" : "aspect-square"}`} />
-                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/90 to-transparent p-2 text-left text-[11px]"><strong className="block">{p.p}</strong>{p.d}{["Laura", "Sofía", "Carlos"].includes(p.u) && <BadgeCheck size={12} aria-label="Autor verificado de ejemplo" className="ml-1 inline text-primary" />}</span>
+                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/90 to-transparent p-2 text-left text-2xs"><strong className="block">{p.p}</strong>{p.d}{["Laura", "Sofía", "Carlos"].includes(p.u) && <BadgeCheck size={12} aria-label="Autor verificado de ejemplo" className="ml-1 inline text-primary" />}</span>
               </button>
             ); })}
           </div>
@@ -109,11 +110,11 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
       {tab === "Personas" && (
         <section className="space-y-3 p-4">
           <div className="flex gap-1 overflow-x-auto">{(["Cerca", "Nuevos", "Verificados", "Online"] as const).map(x=><Button key={x} size="sm" variant={peopleFilter===x?"default":"secondary"} onClick={()=>setPeopleFilter(x)} className={peopleFilter===x?"spot-active-pill rounded-full text-xs":"rounded-full text-xs"}>{x}</Button>)}</div>
-          <p className="text-[11px] text-muted-foreground">Personas y distintivos de ejemplo</p>
+          <p className="text-2xs text-muted-foreground">Personas y distintivos de ejemplo</p>
           {shownPeople.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">Nadie cumple estos filtros. Prueba a quitar alguno.</p>}
           {shownPeople.map((p) => (
             <button key={p.n} onClick={() => setPerson(p)} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-3 text-left">
-              <div className="relative h-12 w-12 shrink-0 rounded-full bg-spot-gradient p-[2px]"><img src={p.image} alt="" className="h-full w-full rounded-full object-cover"/>{p.live && <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card bg-live" />}</div>
+              <div className="relative h-12 w-12 shrink-0 rounded-full bg-spot-gradient p-[0.125rem]"><img src={p.image} alt="" className="h-full w-full rounded-full object-cover"/>{p.live && <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card bg-live" />}</div>
               <div className="flex-1"><p className="flex items-center gap-1 font-semibold">{p.n}{p.v && <BadgeCheck size={14} className="text-primary" />}</p><p className="text-xs text-muted-foreground">{p.d} · {p.i}</p></div>
               <span className="text-xs text-primary">Ver</span>
             </button>
@@ -174,14 +175,7 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end bg-background/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="mx-auto w-full max-w-[520px] rounded-t-3xl border-t border-border bg-card p-5 pb-8" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-center justify-between"><h3 className="font-bold">{title}</h3><button aria-label="Cerrar" onClick={onClose}><X size={18} /></button></div>
-        {children}
-      </div>
-    </div>
-  );
+  return <BottomSheet title={title} onClose={onClose} z={50}>{children}</BottomSheet>;
 }
 
 function PhotoDetail({ p, img, onBack }: { p: Photo; img: string; onBack: () => void }) {
@@ -194,7 +188,7 @@ function PhotoDetail({ p, img, onBack }: { p: Photo; img: string; onBack: () => 
         <img src={img} alt={p.t} className="h-full w-full object-cover" />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
         {/* Botón atrás */}
-        <button onClick={onBack} aria-label="Volver" className="absolute left-3 grid h-9 w-9 place-items-center rounded-full bg-black/50 text-white" style={{ top: "max(2.75rem, calc(env(safe-area-inset-top) + 0.5rem))" }}><ArrowLeft size={20} /></button>
+        <button onClick={onBack} aria-label="Volver" className="absolute left-3 grid h-10 w-10 place-items-center rounded-full bg-black/50 text-white backdrop-blur-sm" style={{ top: "var(--safe-header)" }}><ChevronLeft size={24} /></button>
         {/* Acciones laterales derecha */}
         <div className="absolute bottom-24 right-3 flex flex-col items-center gap-5">
           <button onClick={() => setLiked(!liked)} aria-label="Me gusta" className="flex flex-col items-center gap-1">
@@ -234,9 +228,9 @@ function PersonDetail({ p, onBack }: { p: Person; onBack: () => void }) {
   const [follow, setFollow] = useState(false);
   return (
     <div className="fixed inset-0 z-50 mx-auto max-w-[520px] overflow-y-auto bg-background pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-      <div className="bg-spot-surface px-4 pb-6 pt-[max(2.75rem,calc(env(safe-area-inset-top)+0.5rem))] text-center">
-        <div className="text-left"><Button variant="ghost" size="icon" aria-label="Volver" onClick={onBack}><ArrowLeft /></Button></div>
-        <div className="mx-auto h-24 w-24 rounded-full bg-spot-gradient p-[3px] shadow-glow"><img src={p.image} alt={p.n} className="h-full w-full rounded-full object-cover"/></div>
+      <div className="bg-spot-surface px-4 pb-6 pt-[var(--safe-header)] text-center">
+        <div className="text-left"><Button variant="ghost" size="icon" aria-label="Volver" onClick={onBack}><ChevronLeft size={24} /></Button></div>
+        <div className="mx-auto h-24 w-24 rounded-full bg-spot-gradient p-[0.1875rem] shadow-glow"><img src={p.image} alt={p.n} className="h-full w-full rounded-full object-cover"/></div>
         <h2 className="mt-3 flex items-center justify-center gap-1 text-xl font-bold">{p.n}{p.v && <BadgeCheck size={18} className="text-primary" />}</h2>
         <p className="text-sm text-muted-foreground">A {p.d} · {p.i}</p>
         {p.live && <p className="mt-1 text-xs text-live">● En directo ahora</p>}
