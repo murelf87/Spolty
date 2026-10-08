@@ -7,9 +7,9 @@
  */
 import { useSyncExternalStore } from "react";
 
-export type PlaybackSnapshot = { id: string | null; playing: boolean; positionMs: number; durationMs: number; loading: boolean };
+export type PlaybackSnapshot = { id: string | null; playing: boolean; positionMs: number; durationMs: number; loading: boolean; queueRemaining: number };
 
-const IDLE: PlaybackSnapshot = { id: null, playing: false, positionMs: 0, durationMs: 0, loading: false };
+const IDLE: PlaybackSnapshot = { id: null, playing: false, positionMs: 0, durationMs: 0, loading: false, queueRemaining: 0 };
 let snap: PlaybackSnapshot = IDLE;
 let audio: HTMLAudioElement | null = null;
 let fallbackDuration = 0;
@@ -21,7 +21,7 @@ const errorListeners = new Set<(message: string) => void>();
 const endListeners = new Set<(id: string) => void>();
 
 function emit(next: Partial<PlaybackSnapshot>) {
-  snap = { ...snap, ...next };
+  snap = { ...snap, ...next, queueRemaining: queue.length };
   listeners.forEach((l) => l());
 }
 
@@ -45,10 +45,10 @@ function element() {
   audio.addEventListener("ended", () => {
     cancelAnimationFrame(frame);
     const ended = snap.id;
-    emit({ playing: false, positionMs: 0 });
     if (ended) endListeners.forEach((l) => l(ended));
     const next = queue.shift();
     if (next) playVoice(next.id, next.src, next.durationMs, undefined, true);
+    else emit({ playing: false, positionMs: 0, loading: false });
   });
   audio.addEventListener("loadedmetadata", () => { if (audio) emit({ durationMs: durationOf(audio) }); });
   audio.addEventListener("error", () => {
@@ -61,7 +61,7 @@ function element() {
 
 /** Reproduce (o reanuda) la voz `id`; si sonaba otra, la pausa. `startMs` permite empezar en un punto. */
 export function playVoice(id: string, src: string, durationMs = 0, startMs?: number, fromQueue = false) {
-  if (!fromQueue) queue = [];
+  if (!fromQueue && snap.id !== id) queue = [];
   const el = element();
   if (snap.id !== id) {
     el.pause();
@@ -73,6 +73,7 @@ export function playVoice(id: string, src: string, durationMs = 0, startMs?: num
     el.currentTime = startMs / 1000;
   }
   void el.play().catch((e: unknown) => {
+    if (snap.id !== id) return;
     emit({ playing: false, loading: false });
     // NotAllowedError: el navegador pide un toque antes de sonar; AbortError: se cambió de audio a mitad.
     if (!(e instanceof DOMException && e.name === "AbortError")) errorListeners.forEach((l) => l("Toca de nuevo para escuchar."));
@@ -80,20 +81,36 @@ export function playVoice(id: string, src: string, durationMs = 0, startMs?: num
 }
 
 export function pauseVoice() { audio?.pause(); }
+export function resumeVoice() {
+  if (!audio || !snap.id) return;
+  const requestedId = snap.id;
+  void audio.play().catch((e: unknown) => {
+    if (snap.id !== requestedId) return;
+    emit({ playing: false, loading: false });
+    if (!(e instanceof DOMException && e.name === "AbortError")) errorListeners.forEach((l) => l("Toca de nuevo para escuchar."));
+  });
+}
+export function skipVoice() {
+  const next = queue.shift();
+  if (!next) return false;
+  playVoice(next.id, next.src, next.durationMs, undefined, true);
+  return true;
+}
 
 /** Reproduce varias voces seguidas (solo las que tienen audio). Devuelve cuántas van a sonar. */
 export function playVoiceQueue(items: { id: string; src?: string | undefined; durationMs: number }[]) {
   const playable = items.filter((i): i is { id: string; src: string; durationMs: number } => !!i.src);
   const first = playable[0];
   if (!first) return 0;
-  playVoice(first.id, first.src, first.durationMs);
   queue = playable.slice(1);
+  playVoice(first.id, first.src, first.durationMs, 0, true);
   return playable.length;
 }
 
 /** Play/pausa de la voz `id`. */
 export function toggleVoice(id: string, src: string, durationMs = 0) {
   if (snap.id === id && snap.playing) pauseVoice();
+  else if (snap.id === id) resumeVoice();
   else playVoice(id, src, durationMs);
 }
 
@@ -123,6 +140,8 @@ export const currentVoiceId = () => snap.id;
 const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
 const get = () => snap;
 const getServer = () => IDLE;
+
+export function useGlobalVoicePlayback() { return useSyncExternalStore(subscribe, get, getServer); }
 
 /** Estado del reproductor para una voz concreta (si no es la que suena, devuelve reposo). */
 export function useVoicePlayback(id: string) {
