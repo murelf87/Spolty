@@ -29,10 +29,13 @@ import { ProfilePromo, SuggestedPeople } from "@/components/spotly/PromoProfile"
 import { SpainScreen } from "@/components/spotly/SpainMap";
 import { PhotoWall } from "@/components/spotly/PhotoWall";
 import { SafetyCenter } from "@/components/spotly/Safety";
-import { getState, loadMe, setIdentity, setIdTier } from "@/lib/store";
+import { getState, loadMe, setDemo, setIdentity, setIdTier } from "@/lib/store";
 import { registerSW } from "@/lib/pwa";
 import { enableDragScroll } from "@/lib/dragScroll";
 import { supabase } from "@/integrations/supabase/client";
+import { VoiceErrorToasts } from "@/components/spotly/VoiceThread";
+import { stopAllVoices } from "@/lib/voice/player";
+import { loadVoiceNotes } from "@/lib/voice/notes";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
@@ -65,12 +68,15 @@ export function Index() {
   const [mine, setMine] = useState<MineSpot>(null);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   useEffect(() => { window.scrollTo(0, 0); }, [tab]);
+  /* Cambiar de pestaña, abrir otra pantalla o salir de un Spot/negocio corta el audio que sonara (una sola voz a la vez). */
+  useEffect(() => { stopAllVoices(); }, [tab, sheet, hotId, bizId, creating]);
   const close = useCallback(() => setSheet(null), []);
   /** Navegación de escritorio: cierra cualquier pantalla abierta y cambia de pestaña o abre una hoja. */
   const goTo = (t: Tab | null, sh: Sheet = null) => { setSheet(sh); setHotId(null); setBizId(null); setIncogPublic(false); setCreating(false); if (t) setTab(t); };
 
   useEffect(() => {
     loadMe(); // tu nombre y tu foto guardados en este dispositivo
+    void loadVoiceNotes(); // tus voces guardadas en este dispositivo
     registerSW();
     const off = enableDragScroll();
     const a = new URLSearchParams(window.location.search).get("accion");
@@ -88,9 +94,9 @@ export function Index() {
     }).catch(() => { if (active) setAuthReady(true); });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
-      if (event === "SIGNED_OUT") { setAccountEmail(null); setWelcome(true); setTab("inicio"); }
+      if (event === "SIGNED_OUT") { stopAllVoices(); setDemo(false); setAccountEmail(null); setWelcome(true); setTab("inicio"); }
       else if (event === "PASSWORD_RECOVERY") { setRecovery(true); setWelcome(false); }
-      else if ((event === "SIGNED_IN" || event === "USER_UPDATED") && session?.user) { setAccountEmail(session.user.email ?? "Cuenta Apple"); setWelcome(false); if (event === "SIGNED_IN" && !session.user.user_metadata?.['onboarded']) setOnb(true); }
+      else if ((event === "SIGNED_IN" || event === "USER_UPDATED") && session?.user) { setDemo(false); setAccountEmail(session.user.email ?? "Cuenta Apple"); setWelcome(false); if (event === "SIGNED_IN" && !session.user.user_metadata?.['onboarded']) setOnb(true); }
     });
     return () => { active = false; subscription.unsubscribe(); };
   }, []);
@@ -112,13 +118,15 @@ export function Index() {
 
   return (
     <AppCtx.Provider value={actions}>
+      <NavGradients />
       <DesktopSidebars tab={tab} goTo={goTo} onCreate={() => setCreating(true)} onOpenHot={(id) => setHotId(id)} onPlace={(c) => actions.openPhotoWall(c)} />
-      <div className="mx-auto min-h-screen w-full max-w-[520px] overflow-hidden bg-background text-foreground shadow-2xl sm:border-x sm:border-border">
+      {/* overflow-x-clip (no hidden): recorta lo que sobresale a los lados sin romper las cabeceras sticky. */}
+      <div className="mx-auto min-h-screen w-full max-w-[520px] overflow-x-clip bg-background text-foreground shadow-2xl sm:border-x sm:border-border">
         {content}
-        <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto grid min-[1100px]:hidden h-[calc(4.25rem+env(safe-area-inset-bottom))] max-w-[520px] grid-cols-5 items-center border-t border-border bg-background/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur" aria-label="Navegación principal">
-          {navItems.slice(0, 2).map(([id, Icon, label]) => <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? "page" : undefined} className={tab === id ? "grid place-items-center gap-1 text-primary" : "grid place-items-center gap-1 text-muted-foreground"}><Icon size={21} /><span className="text-3xs">{id === "explorar" ? "Mapa" : label}</span></button>)}
+        <nav className="fixed inset-x-0 bottom-0 z-30 mx-auto grid min-[1100px]:hidden h-[var(--nav-h)] max-w-[520px] grid-cols-5 items-center border-t border-border bg-background/95 px-2 pb-[env(safe-area-inset-bottom)] backdrop-blur" aria-label="Navegación principal">
+          {navItems.slice(0, 2).map(([id, Icon, label], i) => <NavButton key={id} n={i + 1} on={tab === id} Icon={Icon} label={id === "explorar" ? "Mapa" : label} onClick={() => setTab(id)} />)}
           <button onClick={() => setCreating(true)} className="spot-create-button mx-auto grid h-14 w-14 -translate-y-3 place-items-center rounded-full" aria-label="Crear Spot" title="Crear Spot"><SpotPin size={25} /></button>
-          {navItems.slice(2).map(([id, Icon, label]) => <button key={id} onClick={() => id === "actividad" ? setSheet("chats") : setTab(id)} className={tab === id && id !== "actividad" ? "grid place-items-center gap-1 text-primary" : "grid place-items-center gap-1 text-muted-foreground"}>{id === "actividad" ? <Mic size={21} /> : <Icon size={21} />}<span className="text-3xs">{id === "actividad" ? "Chats" : label}</span></button>)}
+          {navItems.slice(2).map(([id, Icon, label], i) => <NavButton key={id} n={i + 3} on={tab === id && id !== "actividad"} Icon={id === "actividad" ? Mic : Icon} label={id === "actividad" ? "Chats" : label} onClick={() => id === "actividad" ? setSheet("chats") : setTab(id)} />)}
         </nav>
 
         <IncognitoBanner onOpen={() => setSheet("incognito")} />
@@ -149,13 +157,40 @@ export function Index() {
         {incogPublic && <IncognitoPublicProfile onClose={() => setIncogPublic(false)} />}
 
         {splash && <Splash onDone={() => setSplash(false)} waitFor={authReady} />}
-        {!splash && welcome && <Welcome onEnter={() => { setWelcome(false); setOnb(true); }} onAuthenticated={() => setWelcome(false)} onSkipAll={() => { setWelcome(false); setOnb(false); setIdentity("approved"); setIdTier("premium"); toast("Modo demostración: todo desbloqueado para que lo pruebes.", { duration: 4000, position: "top-center" }); }} />}
+        {!splash && welcome && <Welcome onEnter={() => { setWelcome(false); setOnb(true); }} onAuthenticated={() => setWelcome(false)} onSkipAll={() => { setWelcome(false); setOnb(false); setDemo(true); setIdentity("approved"); setIdTier("premium"); toast("Modo demostración: todo desbloqueado para que lo pruebes.", { duration: 4000, position: "top-center" }); }} />}
         {onb && <Onboarding onBack={() => { setOnb(false); setWelcome(true); }} onDone={() => { setOnb(false); void supabase.auth.updateUser({ data: { onboarded: true } }).catch(() => undefined); if (getState().identity !== "approved") setSheet("verificacion"); }} />}
         {recovery && <NewPassword mode="recovery" onDone={() => setRecovery(false)} />}
         <OfflineBanner />
+        <VoiceErrorToasts />
         <Toaster mobileOffset={{ top: "calc(env(safe-area-inset-top) + 0.625rem)", bottom: "calc(env(safe-area-inset-bottom) + 5.25rem)" }} />
       </div>
     </AppCtx.Provider>
+  );
+}
+
+/** Degradados de los iconos de navegación (uno por pestaña). Se pintan una vez y los iconos los usan con stroke="url(#…)". */
+function NavGradients() {
+  return (
+    <svg aria-hidden="true" focusable="false" width="0" height="0" style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }}>
+      <defs>
+        {[1, 2, 3, 4].map((n) => (
+          <linearGradient key={n} id={`spot-nav-g${n}`} className={`spot-nav-${n}`} gradientUnits="userSpaceOnUse" x1="2" y1="2" x2="22" y2="22">
+            <stop offset="0" className="spot-nav-stop-from" />
+            <stop offset="1" className="spot-nav-stop-to" />
+          </linearGradient>
+        ))}
+      </defs>
+    </svg>
+  );
+}
+
+/** Botón de la barra inferior: icono con su degradado de marca; la pestaña activa brilla y su nombre toma el degradado. */
+function NavButton({ n, on, Icon, label, onClick }: { n: number; on: boolean; Icon: typeof Home; label: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} aria-current={on ? "page" : undefined} className={`spot-nav-${n} grid place-items-center gap-1 ${on ? "spot-nav-on" : ""}`}>
+      <Icon size={21} color={`url(#spot-nav-g${n})`} className="spot-nav-icon" />
+      <span className="spot-nav-label text-3xs">{label}</span>
+    </button>
   );
 }
 
@@ -170,7 +205,7 @@ function DesktopSidebars({ tab, goTo, onCreate, onOpenHot, onPlace }: { tab: Tab
     <>
       <aside aria-label="Navegación" className="fixed inset-y-0 z-[80] hidden w-[18.75rem] flex-col gap-1 border-r border-border bg-background px-5 py-6 min-[1100px]:flex" style={{ left: "calc(50% - 560px)" }}>
         <Logo className="mb-6 self-start" />
-        {nav.map(([l, I, f, on]) => <button key={l} onClick={f} aria-current={on ? "page" : undefined} className={"flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold " + (on ? "spot-active-pill" : "text-foreground/80 hover:bg-secondary")}><I size={18} />{l}</button>)}
+        {nav.map(([l, I, f, on], i) => { const n = (i % 4) + 1; return <button key={l} onClick={f} aria-current={on ? "page" : undefined} className={`spot-nav-${n} flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold ` + (on ? "spot-active-pill" : "text-foreground/80 hover:bg-secondary")}><I size={18} color={on ? "currentColor" : `url(#spot-nav-g${n})`} className={on ? undefined : "spot-nav-icon"} />{l}</button>; })}
         <button onClick={onCreate} className="mt-4 flex h-12 items-center justify-center gap-2 rounded-full bg-spot-gradient font-bold text-foreground shadow-glow"><Plus size={18} />Crear Spot</button>
         <button onClick={() => goTo(null, "permisos")} className="mt-auto flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-muted-foreground hover:bg-secondary"><Download size={14} />Instalar la app de Spotly</button>
       </aside>

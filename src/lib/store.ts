@@ -19,8 +19,12 @@ export type Campaign = { id: string; radiusId: string; from: string; to: string;
 export type FlashOffer = { id: string; title: string; discount: number; endsAt: number };
 export type Availability = { on: boolean; slots: number; until: number; radiusKm: number };
 export type Report = { id: string; what: string; reason: string; status: "review" | "resolved" | "removed"; when: string };
-/** Tu perfil público: nombre, usuario, descripción y foto (URL o imagen recortada en data URL; null = sin foto). */
-export type Me = { name: string; user: string; bio: string; avatar: string | null };
+/**
+ * Tu perfil público: nombre, usuario, foto (URL o imagen recortada en data URL; null = sin foto), tu ciudad o pueblo y
+ * la portada (foto tuya en data URL o un fondo de Spotly «preset:…»). `bio` queda por compatibilidad: en Spotly la
+ * presentación es de voz.
+ */
+export type Me = { name: string; user: string; bio: string; avatar: string | null; city: string; cover?: string | null | undefined };
 
 type State = {
   credits: number;
@@ -41,6 +45,8 @@ type State = {
   following: string[];
   incognitoNote: string | null;
   me: Me;
+  /** Modo demostración («Saltar todo»): se ven contenidos de ejemplo marcados como tales. */
+  demo: boolean;
 };
 
 let state: State = {
@@ -70,7 +76,8 @@ let state: State = {
   confirmed: [],
   following: [],
   incognitoNote: null,
-  me: { name: "Tú", user: "tu.spotly", bio: "Contando Sevilla con mi voz 🎙️", avatar: demoAvatar },
+  me: { name: "Tú", user: "tu.spotly", bio: "", avatar: demoAvatar, city: "Sevilla", cover: "preset:neon" },
+  demo: false,
 };
 
 const listeners = new Set<() => void>();
@@ -127,6 +134,7 @@ export const setIdTier = (idTier: IdTier) => setState({ idTier });
 export const setIdentity = (identity: IdentityStatus) => setState({ identity });
 export const setPerm = (k: keyof State["perms"], v: boolean) => setState((s) => ({ perms: { ...s.perms, [k]: v } }));
 export const setOffline = (offline: boolean) => setState({ offline });
+export const setDemo = (demo: boolean) => setState({ demo });
 /** Una cuenta solo es plenamente operativa con identidad aprobada. */
 export const isVerified = () => state.identity === "approved";
 
@@ -164,6 +172,8 @@ export function saveMe(me: Me) {
   catch { /* sin espacio o sin permiso: el cambio dura hasta cerrar la app */ }
 }
 export const DEMO_AVATAR = demoAvatar;
+/** Guarda tu ciudad o pueblo (onboarding, Crear Spot…). */
+export const saveMyCity = (city: string) => saveMe({ ...state.me, city });
 
 /* ---------- Tiempo ---------- */
 /** Reloj compartido. Empieza en 0 para no romper la hidratación (SSR). */

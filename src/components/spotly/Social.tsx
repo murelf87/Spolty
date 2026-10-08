@@ -10,6 +10,25 @@ import stage from "@/assets/spotly-live-stage.jpg";
 import beach from "@/assets/spotly-beach-club.jpg";
 import lauraPhoto from "@/assets/spotly-laura.jpg";
 import { TopBar, BottomSheet } from "./kit";
+import { TalkBar, VoiceComposer, VoiceItem, VoiceThread } from "./VoiceThread";
+import { addVoiceNote } from "@/lib/voice/notes";
+import { sampleThread } from "@/lib/voice/samples";
+
+/** Conversación de voz de un grupo (comunidad o evento): todos pueden hablar y responderse, solo con voz. */
+function GroupVoices({ threadId, title, root, seedNames }: { threadId: string; title: string; root: { name: string; durationMs: number }; seedNames: string[] }) {
+  const seed = sampleThread(threadId, seedNames.map((name, i) => ({ key: `g${i}`, name, img: [lauraPhoto, stage, beach, festival][i % 4], minsAgo: 6 + i * 11, dur: `0:${String(9 + ((i * 7) % 20)).padStart(2, "0")}`, likes: 3 + ((i * 5) % 17), ...(i === 2 ? { replyTo: "g0", replyAt: "0:06" } : {}) })));
+  const [talk, setTalk] = useState(false);
+  const [fresh, setFresh] = useState<string | null>(null);
+  return (
+    <section className="mt-4">
+      <h3 className="mb-2 text-sm font-bold">{title}</h3>
+      <div className="mb-3">{talk
+        ? <VoiceComposer autoFocus target={{ name: root.name, atMs: 0, durationMs: root.durationMs }} onClose={() => setTalk(false)} onSend={(clip, anon) => { const n = addVoiceNote({ threadId, clip, anon }); setFresh(n.id); setTalk(false); toast.success(anon ? "Voz enviada como «Anónimo»" : "Voz enviada al grupo"); }} />
+        : <TalkBar onTalk={() => setTalk(true)} label="Habla al grupo…" />}</div>
+      <VoiceThread threadId={threadId} seed={seed} freshId={fresh} emptyText="Aún no ha hablado nadie. Rompe el hielo con tu voz." />
+    </section>
+  );
+}
 
 /* ---------- Comunidades de voz ---------- */
 const communities = [
@@ -78,7 +97,7 @@ export function Communities({ onBack }: { onBack: () => void }) {
   const [joined, setJoined] = useState<string[]>(["Música en directo"]);
   const [room, setRoom] = useState<string | null>(null);
   const [tab, setTab] = useState<"Descubrir" | "Mis comunidades">("Descubrir");
-  const [inner, setInner] = useState<"Salas" | "Spots" | "Miembros">("Salas");
+  const [inner, setInner] = useState<"Voces" | "Salas" | "Spots" | "Miembros">("Voces");
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<string[]>([]);
   const all = [...communities, ...created.map((name) => ({ name, icon: Trophy, members: "1", live: 0 }))];
@@ -101,9 +120,10 @@ export function Communities({ onBack }: { onBack: () => void }) {
         <Button className="mt-4 w-full" variant={isJoined ? "secondary" : "primary"} onClick={() => { setJoined((j) => isJoined ? j.filter((n) => n !== c.name) : [...j, c.name]); toast.success(isJoined ? "Has salido de la comunidad" : "Te has unido a la comunidad"); }}>
           {isJoined ? "Miembro ✓ · Salir" : "Unirme"}
         </Button>
-        <div className="mt-5 grid grid-cols-3 gap-1 rounded-full bg-secondary p-1">
-          {(["Salas", "Spots", "Miembros"] as const).map((t) => <button key={t} onClick={() => setInner(t)} className={inner === t ? "rounded-full bg-primary py-1.5 text-xs font-semibold text-primary-foreground" : "py-1.5 text-xs text-muted-foreground"}>{t}</button>)}
+        <div className="mt-5 grid grid-cols-4 gap-1 rounded-full bg-secondary p-1">
+          {(["Voces", "Salas", "Spots", "Miembros"] as const).map((t) => <button key={t} onClick={() => setInner(t)} className={inner === t ? "rounded-full bg-primary py-1.5 text-xs font-semibold text-primary-foreground" : "py-1.5 text-xs text-muted-foreground"}>{t}</button>)}
         </div>
+        {inner === "Voces" && <GroupVoices threadId={`group:${c.name}`} title="Conversación del grupo" root={{ name: c.name, durationMs: 0 }} seedNames={["Laura", "Carlos", "Marta", "Sergio"]} />}
         {inner === "Salas" && <div className="mt-4 space-y-2">
           {["Quedada de esta noche", "Recomendaciones del barrio"].map((r, i) => (
             <button key={r} onClick={() => i === 0 ? setRoom(r) : toast.success("Te avisaremos a las 20:00")} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left hover:border-primary">
@@ -134,7 +154,7 @@ export function Communities({ onBack }: { onBack: () => void }) {
       <div className="mt-4 space-y-2">
         {list.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">Aún no te has unido a ninguna comunidad.</p>}
         {list.map((c) => (
-          <button key={c.name} onClick={() => { setOpen(c.name); setInner("Salas"); }} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left hover:border-primary">
+          <button key={c.name} onClick={() => { setOpen(c.name); setInner("Voces"); }} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left hover:border-primary">
             <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl"><img src={[stage, festival, beach, sevilleNight][all.indexOf(c) % 4]} alt="" className="h-full w-full object-cover" /><span className="absolute bottom-0.5 right-0.5 grid h-5 w-5 place-items-center rounded-full bg-background/80 text-primary"><c.icon size={11} /></span></span>
             <span className="flex-1"><strong className="block text-sm">{c.name}</strong><small className="text-muted-foreground">{c.members} miembros{c.live > 0 ? ` · ${c.live} en directo` : ""}</small></span>
             {c.live > 0 && <span className="rounded-md bg-live px-2 py-1 text-3xs font-bold">EN DIRECTO</span>}
@@ -200,8 +220,8 @@ export function Events({ onBack, create = false }: { onBack: () => void; create?
           <h2 className="mt-1 text-2xl font-bold">{detail.title}</h2>
           <p className="text-sm text-muted-foreground">{detail.place}</p>
           <div className="mt-4 flex items-center gap-2"><div className="flex -space-x-2">{[lauraPhoto, beach, festival, stage].map((image,i) => <span key={image} className="relative h-8 w-8 rounded-full border-2 border-background"><img src={image} alt="" className="h-full w-full rounded-full object-cover"/>{i < 2 && <BadgeCheck size={11} aria-label="Asistente verificado de ejemplo" className="absolute -right-1 -top-1 rounded-full bg-background text-primary"/>}</span>)}</div><span className="text-xs text-muted-foreground">{48 + (isGoing ? 1 : 0)} asistirán · 2 distintivos de ejemplo</span></div>
-          <button onClick={() => toast("Reproduciendo la presentación de voz")} className="mt-4 flex w-full items-center gap-2 rounded-xl border border-border bg-secondary p-3 text-left text-sm"><span className="grid h-9 w-9 place-items-center rounded-full bg-primary text-primary-foreground"><Mic size={16} /></span><span className="min-w-0"><strong className="block truncate">{detail.by}</strong><small className="text-muted-foreground">Organizador · nota de voz 0:22</small></span></button>
-          <Button variant="outline" className="mt-3 w-full" onClick={() => toast.success("Pregunta de voz enviada al organizador")}><Mic size={16} />Preguntar con tu voz</Button>
+          <div className="mt-4"><VoiceItem note={{ id: `event:${detail.title}:presentacion`, threadId: `event:${detail.title}`, parentId: null, author: { name: detail.by, avatar: detail.img, verified: true }, createdAt: Date.now() - 3 * 3600000, durationMs: 22000, peaks: sampleThread(`event-pres:${detail.title}`, [{ key: "p", name: detail.by, minsAgo: 180, dur: "0:22", likes: 0 }])[0]!.peaks, likes: 31, sample: true, liked: false, replies: 0 }} /></div>
+          <GroupVoices threadId={`event:${detail.title}`} title="Preguntas y voces de quien va" root={{ name: detail.by, durationMs: 22000 }} seedNames={["Rocío", "Manu", "Lucía"]} />
         </div>
 
         {/* Footer */}

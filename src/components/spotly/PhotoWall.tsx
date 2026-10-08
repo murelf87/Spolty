@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button";
 import { AudioRow, BottomSheet, Chip, Screen, StateCard, Trust } from "./kit";
 import { useApp } from "./app-context";
 import { VoiceReply, useGate } from "./Voice";
+import { VoiceItem, VoiceThread } from "./VoiceThread";
+import { useThread } from "@/lib/voice/notes";
+import { sampleThread } from "@/lib/voice/samples";
+import { clockToMs } from "@/lib/voice/notes";
+import { seededPeaks } from "@/lib/voice/recorder";
 import { LocationOff } from "./Status";
 import { SpainMap, spainCities } from "./SpainMap";
 import { PlaceBrowser } from "./Places";
@@ -303,8 +308,13 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
   const [saved, setSaved] = useState(false);
   const [reply, setReply] = useState(false);
   const [menu, setMenu] = useState(false);
-  const [comment, setComment] = useState("");
-  const [comments, setComments] = useState<string[]>([]);
+  /* Comentarios de la foto: solo voz, con respuestas encadenadas. */
+  const threadId = `photo:${p.id}`;
+  const seed = useMemo(() => sampleThread(threadId, [
+    { key: "a", name: authors[(p.id + 1) % authors.length]!, img: imgs[(p.id + 2) % imgs.length], minsAgo: p.mins + 12, dur: "0:09", likes: 6 },
+    { key: "b", name: authors[(p.id + 3) % authors.length]!, img: imgs[(p.id + 4) % imgs.length], minsAgo: p.mins + 5, dur: "0:13", likes: 3, replyTo: "a", replyAt: "0:04" },
+  ]), [threadId, p.id, p.mins]);
+  const thread = useThread(threadId, seed);
   const gate = useGate({ verified: true, online: true });
   const follows = following.includes(p.author);
   const clip = p.type !== "Fotos" ? videoFor(p.img) : undefined;
@@ -334,7 +344,7 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
           </button>
           <button onClick={() => setReply(true)} aria-label="Comentar" className="flex flex-col items-center gap-1">
             <MessageCircle size={26} className="text-white" />
-            <span className="text-xs font-bold text-white">{comments.length + 98}</span>
+            <span className="text-xs font-bold text-white">{thread.length}</span>
           </button>
           <button onClick={share} aria-label="Compartir" className="flex flex-col items-center gap-1">
             <Share2 size={26} className="text-white" />
@@ -361,9 +371,10 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
           </span>
           {!p.mine && <Button size="sm" variant={follows ? "secondary" : "default"} onClick={() => { toggleFollow(p.author); toast(follows ? `Dejaste de seguir a ${p.author}` : `Sigues a ${p.author}`); }}>{follows ? "Siguiendo" : "Seguir"}</Button>}
         </div>
-        <div className="mt-3"><AudioRow name={p.mine ? me.name : p.author} img={p.mine ? me.avatar ?? undefined : undefined} dur={p.dur} seed={p.id + 1} /></div>
-        <p className="mt-2 text-sm">{p.caption}. Siempre es un plan perfecto.</p>
-        {comments.map((c, i) => <p key={i} className="mt-2 rounded-xl bg-secondary/60 p-2.5 text-sm"><strong>Tú</strong> · {c}</p>)}
+        <p className="mt-3 text-base font-bold">{p.caption}</p>
+        <div className="mt-2"><VoiceItem note={{ id: `${threadId}:audio`, threadId, parentId: null, author: { name: p.author, avatar: p.mine ? undefined : p.img, mine: p.mine, verified: p.verified }, createdAt: Date.now() - p.mins * 60000, durationMs: clockToMs(p.dur), peaks: seededPeaks(`${threadId}:audio`), likes: p.likes, sample: !p.mine, liked: false, replies: thread.length }} onReply={() => setReply(true)} /></div>
+        <h4 className="mb-2 mt-4 text-sm font-bold">Comentarios de voz <span className="font-normal text-muted-foreground">{thread.length}</span></h4>
+        <VoiceThread threadId={threadId} seed={seed} root={{ name: p.mine ? me.name : p.author, atMs: 0, durationMs: clockToMs(p.dur) }} emptyText="Aún no hay voces en esta foto. Comenta con la tuya." />
         {gate && <div className="mt-3">{gate}</div>}
       </div>
 
@@ -373,7 +384,7 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
         <span className="text-xs text-muted-foreground">Pulsa para comentar con voz</span>
       </div>
 
-      {reply && <VoiceReply name={p.author} onClose={() => setReply(false)} />}
+      {reply && <VoiceReply name={p.mine ? me.name : p.author} threadId={threadId} target={{ name: p.mine ? me.name : p.author, author: { name: p.author, avatar: p.mine ? undefined : p.img, mine: p.mine }, atMs: 0, durationMs: clockToMs(p.dur) }} onClose={() => setReply(false)} />}
       {menu && <BottomSheet onClose={() => setMenu(false)} z={70}>{["Copiar enlace", "No me interesa", "Denunciar foto"].map((a) => <button key={a} className={"block w-full rounded-xl px-3 py-3 text-left text-sm hover:bg-secondary " + (a.startsWith("Den") ? "text-live" : "")} onClick={() => { setMenu(false); toast(a === "Denunciar foto" ? "Gracias. Revisaremos esta foto." : a === "Copiar enlace" ? "Enlace copiado" : "Verás menos fotos así"); }}>{a}</button>)}</BottomSheet>}
     </div>
   );

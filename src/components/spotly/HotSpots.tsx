@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Bookmark, Camera, Check, ChevronLeft, Flag, Flame, Heart, MapPin, Mic, Navigation, Share2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AudioRow, Chip, Screen, Trust } from "./kit";
 import { useApp } from "./app-context";
 import { VoiceReply, useGate } from "./Voice";
+import { VoiceThread } from "./VoiceThread";
+import { useThread } from "@/lib/voice/notes";
+import { sampleThread } from "@/lib/voice/samples";
 import { addReport, toggleConfirm, useStore } from "@/lib/store";
 import { fmtDist, hotspots, people, type HotSpot } from "@/lib/sampleData";
 import { LocationOff } from "./Status";
@@ -27,7 +30,14 @@ export function HotSpotCard({ h = hotspots[0]! }: { h?: HotSpot }) {
   );
 }
 
-const audios = [["Laura", "0:18", "hace 2 min"], ["Carlos", "0:12", "hace 4 min"], ["Ana", "0:24", "hace 6 min"], ["Javi", "0:09", "hace 8 min"], ["Marta", "0:15", "hace 9 min"]] as const;
+/* Voces de ejemplo del Hot Spot (sin audio), con una respuesta encadenada: la conversación real llega del backend. */
+const hotVoices = (id: string) => sampleThread(`hot:${id}`, [
+  { key: "v1", name: "Laura", img: people.find((p) => p.name === "Laura")?.img, minsAgo: 2, dur: "0:18", likes: 21, verified: true },
+  { key: "v2", name: "Carlos", img: people.find((p) => p.name === "Carlos")?.img, minsAgo: 4, dur: "0:12", likes: 9 },
+  { key: "v3", name: "Ana", img: people.find((p) => p.name === "Ana")?.img, minsAgo: 3, dur: "0:24", likes: 5, replyTo: "v2", replyAt: "0:07" },
+  { key: "v4", name: "Javi", img: people.find((p) => p.name === "Javi")?.img, minsAgo: 8, dur: "0:09", likes: 4 },
+  { key: "v5", name: "Marta", img: people.find((p) => p.name === "Marta")?.img, minsAgo: 9, dur: "0:15", likes: 7 },
+]);
 
 export function HotSpotView({ id, onBack }: { id: string; onBack: () => void }) {
   const h = hotspots.find((x) => x.id === id) ?? hotspots[0]!;
@@ -36,6 +46,8 @@ export function HotSpotView({ id, onBack }: { id: string; onBack: () => void }) 
   const mine = confirmed.includes(h.id);
   const [tab, setTab] = useState<"Audios" | "Fotos">("Audios");
   const [reply, setReply] = useState(false);
+  const seed = useMemo(() => hotVoices(h.id), [h.id]);
+  const thread = useThread(`hot:${h.id}`, seed);
   const gate = useGate({ verified: true });
   const total = h.confirmedBase + (mine ? 1 : 0);
   const photos = [h.img, people[0]!.img, people[1]!.img, people[2]!.img, people[3]!.img, people[4]!.img];
@@ -86,8 +98,8 @@ export function HotSpotView({ id, onBack }: { id: string; onBack: () => void }) 
         <p className="mt-2 text-2xs text-muted-foreground">Es una señal comunitaria de personas próximas. <b>Spotly no certifica que la información sea verdadera.</b></p>
       </div>
 
-      <div className="mt-4 flex gap-2"><Chip active={tab === "Audios"} onClick={() => setTab("Audios")}>Audio Wall · {h.audios}</Chip><Chip active={tab === "Fotos"} onClick={() => setTab("Fotos")}>Fotos · {h.photos}</Chip></div>
-      {tab === "Audios" ? <div className="mt-3 space-y-2">{audios.map(([n, d, a], i) => <AudioRow key={n} name={n} img={people.find((p) => p.name === n)?.img} dur={d} ago={a} seed={i + 2} right={<Button variant="ghost" size="icon" className="h-8 w-8 text-accent" aria-label={`Responder a ${n}`} onClick={() => setReply(true)}><Mic size={15} /></Button>} />)}<p className="text-center text-2xs text-muted-foreground">Conversación de ejemplo</p></div>
+      <div className="mt-4 flex gap-2"><Chip active={tab === "Audios"} onClick={() => setTab("Audios")}>Audio Wall · {thread.length}</Chip><Chip active={tab === "Fotos"} onClick={() => setTab("Fotos")}>Fotos · {h.photos}</Chip></div>
+      {tab === "Audios" ? <div className="mt-3"><VoiceThread threadId={`hot:${h.id}`} seed={seed} root={{ name: h.title, atMs: 0, durationMs: 0 }} emptyText="Aún no hay voces aquí. Cuenta lo que ves." /></div>
         : <div className="mt-3 grid grid-cols-3 gap-1.5">{photos.map((p, i) => <button key={i} onClick={() => toast("Foto " + (i + 1) + " · con audio del autor")} className="overflow-hidden rounded-lg"><img src={p} alt={`Foto ${i + 1} del Hot Spot`} loading="lazy" className="aspect-square w-full object-cover" /></button>)}</div>}
 
       <div className="mt-4 grid grid-cols-2 gap-2"><Button variant="secondary" onClick={() => { onBack(); app.goMap(); }}><MapPin size={16} />Ver en el mapa</Button><Button variant="secondary" onClick={() => { addReport(`Hot Spot: ${h.title}`, "Información falsa"); toast.success("Denuncia enviada"); }}><Flag size={16} />Denunciar</Button></div>
@@ -99,7 +111,7 @@ export function HotSpotView({ id, onBack }: { id: string; onBack: () => void }) 
         <Button className="h-12 w-full rounded-full bg-spot-gradient text-base text-foreground" onClick={() => setReply(true)}><Mic size={18} />Responder hablando</Button>
       </div>
 
-      {reply && <VoiceReply name={h.title} onClose={() => setReply(false)} />}
+      {reply && <VoiceReply name={h.title} threadId={`hot:${h.id}`} onClose={() => setReply(false)} />}
     </div>
   );
 }

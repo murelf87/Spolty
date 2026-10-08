@@ -68,6 +68,10 @@ img { max-width: revert-layer; }
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+/* El feed de Inicio encaja por páginas en el documento (html.spot-feed-snap); aquí quien desplaza es #root.
+   Al arrastrar con el ratón se suspende el encaje y phone-runtime lleva la pantalla a la página más cercana. */
+html.spot-feed-snap #root { scroll-snap-type: y mandatory; scroll-padding-top: var(--home-header-h, 0px); }
+html.spot-feed-snap.pv-dragging #root, html.spot-feed-snap.pv-snapping #root { scroll-snap-type: none; }
 
 /* Botones laterales: quedan fuera de la pantalla, por eso cuelgan de <html>. */
 html::before, html::after {

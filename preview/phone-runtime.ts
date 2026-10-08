@@ -104,7 +104,33 @@ export function installPhoneRuntime() {
     const scale = parseFloat(html.style.getPropertyValue("--pv-s")) || 1;
     scroller.scrollTop = startTop - dy / scale;
   }, true);
-  const endDrag = () => { scroller = null; html.classList.remove("pv-dragging"); window.setTimeout(() => { dragged = false; }, 0); };
+  /* Si la pantalla encaja por páginas (feed de Inicio), al soltar se va a la página siguiente o anterior según el
+     sentido del arrastre, igual que un dedo, y luego se reactiva el encaje nativo. */
+  const snapAfterDrag = (el: HTMLElement) => {
+    if (!html.classList.contains("spot-feed-snap") || el !== screenEl()) return;
+    const scale = parseFloat(html.style.getPropertyValue("--pv-s")) || 1;
+    const pad = parseFloat(getComputedStyle(el).scrollPaddingTop) || 0;
+    const box = el.getBoundingClientRect();
+    const stops = [...el.querySelectorAll<HTMLElement>(".spot-feed-page, .spot-feed-snap-start")]
+      .map((t) => Math.max(0, Math.min(el.scrollHeight - el.clientHeight, (t.getBoundingClientRect().top - box.top) / scale + el.scrollTop - pad)))
+      .sort((a, b) => a - b);
+    if (!stops.length) return;
+    const nearest = (y: number) => stops.reduce((best, s, i) => (Math.abs(s - y) < Math.abs(stops[best]! - y) ? i : best), 0);
+    const from = nearest(startTop), moved = el.scrollTop - startTop;
+    const to = Math.abs(moved) > 40 ? Math.min(stops.length - 1, Math.max(0, from + Math.sign(moved))) : from;
+    html.classList.add("pv-snapping");
+    el.scrollTo({ top: stops[to]!, behavior: "smooth" });
+    const done = () => { html.classList.remove("pv-snapping"); el.removeEventListener("scrollend", done); };
+    el.addEventListener("scrollend", done);
+    window.setTimeout(done, 700);
+  };
+  const endDrag = () => {
+    const el = scroller;
+    scroller = null;
+    if (el && dragged) snapAfterDrag(el);
+    html.classList.remove("pv-dragging");
+    window.setTimeout(() => { dragged = false; }, 0);
+  };
   window.addEventListener("pointerup", endDrag, true);
   window.addEventListener("pointercancel", endDrag, true);
   window.addEventListener("click", (e) => { if (dragged) { e.preventDefault(); e.stopPropagation(); dragged = false; } }, true);

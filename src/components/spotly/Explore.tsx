@@ -10,6 +10,9 @@ import festival from "@/assets/spotly-sevilla-festival.jpg";
 import stage from "@/assets/spotly-live-stage.jpg";
 import beach from "@/assets/spotly-beach-club.jpg";
 import { BottomSheet } from "./kit";
+import { MediaViewer } from "./MediaViewer";
+import { VoiceReply } from "./Voice";
+import { sampleMedia } from "@/lib/media";
 
 const imgs = [festival, beach, stage, valenciaSunset, sevilleNight, festival];
 const photos = [
@@ -109,7 +112,7 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
 
       {tab === "Personas" && (
         <section className="space-y-3 p-4">
-          <div className="flex gap-1 overflow-x-auto">{(["Cerca", "Nuevos", "Verificados", "Online"] as const).map(x=><Button key={x} size="sm" variant={peopleFilter===x?"default":"secondary"} onClick={()=>setPeopleFilter(x)} className={peopleFilter===x?"spot-active-pill rounded-full text-xs":"rounded-full text-xs"}>{x}</Button>)}</div>
+          <div className="flex gap-1 overflow-x-auto">{(["Cerca", "Nuevos", "Verificados", "Online"] as const).map(x=><Button key={x} size="sm" variant={peopleFilter===x?"default":"secondary"} onClick={()=>setPeopleFilter(x)} className={peopleFilter===x?"spot-active-pill rounded-full text-xs":"rounded-full text-xs"}>{x === "Online" ? <><span className="h-2 w-2 shrink-0 rounded-full bg-online" aria-hidden="true" />En línea</> : x}</Button>)}</div>
           <p className="text-2xs text-muted-foreground">Personas y distintivos de ejemplo</p>
           {shownPeople.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">Nadie cumple estos filtros. Prueba a quitar alguno.</p>}
           {shownPeople.map((p) => (
@@ -226,6 +229,9 @@ function PhotoDetail({ p, img, onBack }: { p: Photo; img: string; onBack: () => 
 
 function PersonDetail({ p, onBack }: { p: Person; onBack: () => void }) {
   const [follow, setFollow] = useState(false);
+  const [viewer, setViewer] = useState<number | null>(null);
+  const [voice, setVoice] = useState(false);
+  const grid = [0, 1, 2, 3, 4, 5].map((i) => imgs[i % imgs.length]!);
   return (
     <div className="fixed inset-0 z-50 mx-auto max-w-[520px] overflow-y-auto bg-background pb-[max(1.5rem,env(safe-area-inset-bottom))]">
       <div className="bg-spot-surface px-4 pb-6 pt-[var(--safe-header)] text-center">
@@ -236,10 +242,15 @@ function PersonDetail({ p, onBack }: { p: Person; onBack: () => void }) {
         {p.live && <p className="mt-1 text-xs text-live">● En directo ahora</p>}
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Button variant={follow ? "secondary" : "default"} onClick={() => { setFollow(!follow); if (!follow) toast.success(`Sigues a ${p.n}`); }}>{follow ? <Check size={16} /> : <UserPlus size={16} />}{follow ? "Siguiendo" : "Seguir"}</Button>
-          <Button variant="secondary" onClick={() => toast.success(`Nota de voz para ${p.n} grabando…`)}><Mic size={16} />Mensaje de voz</Button>
+          <Button variant="secondary" className="whitespace-nowrap px-3" onClick={() => setVoice(true)}><Mic size={16} />Mensaje de voz</Button>
         </div>
       </div>
-      <section className="grid grid-cols-3 gap-1 p-1">{[0, 1, 2, 3, 4, 5].map((i) => <img key={i} src={imgs[i % imgs.length]} alt="Spot" loading="lazy" className="aspect-square w-full object-cover" />)}</section>
+      <section className="grid grid-cols-3 gap-1 p-1">{grid.map((img, i) => <button key={i} onClick={() => setViewer(i)} aria-label={`Ver foto ${i + 1} de ${p.n}`} className="block overflow-hidden"><img src={img} alt="" loading="lazy" className="aspect-square w-full object-cover transition-transform active:scale-95" /></button>)}</section>
+      {viewer !== null && <MediaViewer start={viewer} onClose={() => setViewer(null)} items={grid.map((img, k) => {
+        const m = sampleMedia.find((x) => x.img === img);
+        return { kind: "foto" as const, src: img, caption: m?.caption ?? `Foto de ${p.n}`, place: m?.place ?? "Sevilla", likes: (m?.likes ?? 120) + k * 7 };
+      })} />}
+      {voice && <VoiceReply name={p.n} mode="message" onClose={() => setVoice(false)} />}
     </div>
   );
 }

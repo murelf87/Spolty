@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import sevilleNight from "@/assets/seville-night.jpg";
 import valenciaSunset from "@/assets/valencia-sunset.jpg";
 import { searchPlaces, provinceOfPlace } from "@/lib/geo";
+import { getState, saveMyCity } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Logo } from "./Logo";
 import { BottomSheet } from "./kit";
@@ -43,7 +44,9 @@ export function Onboarding({ onDone, onBack }: { onDone: () => void; onBack?: ((
   const [picked, setPicked] = useState<string[]>([]);
   const [ok, setOk] = useState<string[]>([]);
   const [loc, setLoc] = useState<"idle" | "asking" | "granted" | "denied">("idle");
-  const [city, setCity] = useState("Sevilla");
+  const [city, setCityState] = useState(() => getState().me.city || "Sevilla");
+  /* Tu ciudad queda guardada en tu perfil: Crear Spot y el feed la usan. */
+  const setCity = (c: string) => { setCityState(c); saveMyCity(c); };
   const [cityPick, setCityPick] = useState(false);
   const [q, setQ] = useState("");
   const [mode, setMode] = useState("Personal");

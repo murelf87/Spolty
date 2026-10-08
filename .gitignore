@@ -7,3 +7,5 @@ dist-preview/
 *.log
 .DS_Store
 dist-mobile/
+.output/
+.wrangler/

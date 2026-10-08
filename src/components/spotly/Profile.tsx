@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { BadgeCheck, Bookmark, Calendar, Heart, Lock, Store, Users, Wallet as WalletIcon, Check, Crown, Grid3x3, Mic, Pause, Pencil, Play, Settings, Square, Waves, Image as ImageIcon, Video, Camera } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { BadgeCheck, Bookmark, Calendar, Eye, Heart, Lock, MapPin, Store, Trash2, UserPlus, Users, Wallet as WalletIcon, Check, Crown, Grid3x3, Mic, Pencil, Settings, Waves, Image as ImageIcon, Video, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Shell, type Sheet } from "./Extras";
@@ -12,6 +12,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { sampleMedia, type SampleMedia } from "@/lib/media";
 import { saveMe, toggleFollow, useMe, useStore } from "@/lib/store";
+import { VoiceComposer, VoiceItem, VoiceThread } from "./VoiceThread";
+import { addVoiceNote, removeVoiceNote, useThread } from "@/lib/voice/notes";
+import { sampleThread } from "@/lib/voice/samples";
+import { formatClock } from "@/lib/voice/recorder";
+import { useMySpots, type MySpot } from "@/lib/spots";
 
 /* Contenido del perfil (demo): cada miniatura abre su Spot, su foto o su vídeo. */
 type GridTab = "Spots" | "Fotos" | "Vídeos" | "Guardados";
@@ -49,21 +54,139 @@ function Bars({ on }: { on?: boolean }) {
   return <span className="flex h-6 flex-1 items-center gap-[0.125rem]">{Array.from({ length: 26 }, (_, i) => <span key={i} className={`w-[0.1875rem] rounded-full ${on ? "bg-primary" : "bg-muted-foreground/50"}`} style={{ height: `${25 + ((i * 37) % 70)}%` }} />)}</span>;
 }
 
+const COVER_PRESETS = [["neon", "Neón"], ["aurora", "Aurora"], ["atardecer", "Atardecer"], ["noche", "Noche"], ["ondas", "Ondas"]] as const;
+const DEMO_FOLLOWED = ["Laura", "Marta", "Ana"];
+
+/** Portada del perfil: tu foto o uno de los fondos de Spotly. */
+export function Cover({ cover, className = "" }: { cover?: string | null | undefined; className?: string }) {
+  if (cover && !cover.startsWith("preset:")) return <img src={cover} alt="" className={"object-cover " + className} />;
+  const name = cover?.slice(7) || "neon";
+  return <div aria-hidden="true" className={`spot-cover-${name} ` + className} />;
+}
+
+/** Recorta una foto a 16:9 (1280×720) para la portada. */
+async function coverFromFile(file: File): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = () => reject(new Error("img")); i.src = url; });
+    const W = 1280, H = 720, c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const ctx = c.getContext("2d");
+    if (!ctx) throw new Error("canvas");
+    const s = Math.max(W / img.naturalWidth, H / img.naturalHeight), w = img.naturalWidth * s, h = img.naturalHeight * s;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+    return c.toDataURL("image/jpeg", 0.82);
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/** Cambiar la portada: foto de la galería o de la cámara, o un fondo de Spotly. */
+function CoverSheet({ onClose }: { onClose: () => void }) {
+  const me = useMe();
+  const gallery = useRef<HTMLInputElement | null>(null);
+  const camera = useRef<HTMLInputElement | null>(null);
+  const set = (cover: string) => { saveMe({ ...me, cover }); toast.success("Portada actualizada"); onClose(); };
+  const fromFile = async (f?: File | null) => {
+    if (!f) return;
+    if (!f.type.startsWith("image/") || f.size > 15 * 1024 * 1024) { toast.error("Elige una foto de hasta 15 MB."); return; }
+    try { set(await coverFromFile(f)); } catch { toast.error("No se ha podido abrir esa foto"); }
+  };
+  return (
+    <BottomSheet title="Portada del perfil" onClose={onClose} z={75}>
+      <input ref={gallery} type="file" accept="image/*" className="hidden" aria-label="Elegir portada de la galería" onChange={(e) => { void fromFile(e.target.files?.[0]); e.target.value = ""; }} />
+      <input ref={camera} type="file" accept="image/*" capture="environment" className="hidden" aria-label="Hacer una foto para la portada" onChange={(e) => { void fromFile(e.target.files?.[0]); e.target.value = ""; }} />
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant="secondary" className="h-12 gap-2" onClick={() => gallery.current?.click()}><ImageIcon size={18} className="text-primary" />Galería</Button>
+        <Button variant="secondary" className="h-12 gap-2" onClick={() => camera.current?.click()}><Camera size={18} className="text-primary" />Cámara</Button>
+      </div>
+      <p className="mb-2 mt-4 text-xs font-semibold text-muted-foreground">Fondos de Spotly</p>
+      <div className="grid grid-cols-5 gap-2">
+        {COVER_PRESETS.map(([k, l]) => <button key={k} onClick={() => set(`preset:${k}`)} aria-label={`Fondo ${l}`} aria-pressed={me.cover === `preset:${k}`} className={"overflow-hidden rounded-xl border-2 " + (me.cover === `preset:${k}` ? "border-primary" : "border-transparent")}><Cover cover={`preset:${k}`} className="block aspect-[3/4] w-full" /><span className="block py-1 text-center text-4xs">{l}</span></button>)}
+      </div>
+    </BottomSheet>
+  );
+}
+
+/** Tu presentación de voz (en Spotly no hay biografía escrita). */
+function VoicePresentation() {
+  const me = useMe();
+  const notes = useThread(PRESENTATION);
+  const mine = notes.filter((n) => n.author.mine).sort((a, b) => b.createdAt - a.createdAt)[0];
+  const [rec, setRec] = useState(false);
+  return (
+    <section className="mt-4" aria-label="Presentación de voz">
+      {mine ? <VoiceItem compact note={mine} onMore={() => setRec(true)} right={<span className="text-2xs text-muted-foreground">Tu presentación</span>} />
+        : <button onClick={() => setRec(true)} className="flex w-full items-center gap-3 rounded-3xl border border-dashed border-primary/60 bg-card/60 p-3 text-left">
+            <span className="spot-voice-send grid h-11 w-11 shrink-0 place-items-center rounded-full text-white"><Mic size={20} /></span>
+            <span className="min-w-0"><strong className="block text-sm">Graba tu presentación de voz</strong><small className="text-xs text-muted-foreground">Quién eres y qué te gusta de {me.city}, en 30 segundos</small></span>
+          </button>}
+      {rec && <BottomSheet title="Tu presentación de voz" onClose={() => setRec(false)} z={75}>
+        <VoiceComposer autoFocus allowAnon={false} sendLabel="Guardar presentación" onClose={() => setRec(false)} onSend={(clip) => { notes.filter((n) => n.author.mine).forEach((n) => removeVoiceNote(n.id)); addVoiceNote({ threadId: PRESENTATION, clip }); setRec(false); toast.success("Presentación de voz guardada"); }} />
+        {mine && <Button variant="ghost" className="mt-2 w-full text-live" onClick={() => { removeVoiceNote(mine.id); setRec(false); toast("Presentación eliminada"); }}><Trash2 size={16} />Eliminar mi presentación</Button>}
+      </BottomSheet>}
+    </section>
+  );
+}
+const PRESENTATION = "presentacion:yo";
+
+/** Tus Spots con sus vistas (las vistas cuentan escuchas de otras personas). */
+function SpotsSheet({ onClose, onOpen }: { onClose: () => void; onOpen: (s: MySpot) => void }) {
+  const mySpots = useMySpots();
+  const { demo } = useStore();
+  return (
+    <BottomSheet title={`Tus Spots · ${mySpots.length + (demo ? grid.Spots.length : 0)}`} onClose={onClose} z={65}>
+      {mySpots.length === 0 && !demo && <p className="py-8 text-center text-sm text-muted-foreground">Aún no has publicado ningún Spot. Pulsa el botón central para crear el primero.</p>}
+      <div className="space-y-2">
+        {mySpots.map((s) => (
+          <button key={s.id} onClick={() => onOpen(s)} className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-2 text-left">
+            <SpotThumb s={s} className="h-14 w-14 rounded-xl" />
+            <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{s.title}</strong><small className="block truncate text-xs text-muted-foreground">{s.zone} · {new Date(s.createdAt).toLocaleDateString("es-ES", { day: "numeric", month: "short" })} · {formatClock(s.audio.durationMs)}</small></span>
+            <span className="flex shrink-0 flex-col items-end text-xs"><span className="flex items-center gap-1 font-bold"><Eye size={14} className="text-primary" />{s.views.toLocaleString("es-ES")}</span><small className="text-3xs text-muted-foreground">vistas</small></span>
+          </button>
+        ))}
+        {demo && grid.Spots.map((m, i) => (
+          <div key={m.caption} className="flex items-center gap-3 rounded-2xl border border-dashed border-border bg-card/60 p-2">
+            <img src={m.img} alt="" className="h-14 w-14 rounded-xl object-cover" />
+            <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{m.caption}</strong><small className="block truncate text-xs text-muted-foreground">{m.place} · ejemplo</small></span>
+            <span className="flex shrink-0 flex-col items-end text-xs"><span className="flex items-center gap-1 font-bold"><Eye size={14} className="text-primary" />{likesLabel(m.likes * 7 + i * 13)}</span><small className="text-3xs text-muted-foreground">vistas</small></span>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-2xs text-muted-foreground">Las vistas son escuchas de otras personas. Mientras tus Spots se guardan solo en este dispositivo, cuentan 0.</p>
+    </BottomSheet>
+  );
+}
+
+/** Miniatura de tu Spot: su foto o vídeo, o tu onda si es solo voz. */
+function SpotThumb({ s, className = "" }: { s: MySpot; className?: string }) {
+  if (s.media?.kind === "photo") return <img src={s.media.src} alt="" className={"shrink-0 object-cover " + className} />;
+  if (s.media?.kind === "video") return <video src={s.media.src} muted playsInline preload="metadata" className={"shrink-0 bg-black object-cover " + className} />;
+  return <span className={"flex shrink-0 items-center justify-center gap-[0.125rem] bg-spot-surface px-1.5 " + className} aria-hidden="true">{s.audio.peaks.filter((_, i) => i % 4 === 0).map((h, i) => <i key={i} className="w-[0.1875rem] rounded-full bg-spot-gradient" style={{ height: `${Math.round(h * 70)}%` }} />)}</span>;
+}
+
+const mySpotInfo = (s: MySpot, name: string): SpotInfo => ({ id: s.id, name, city: s.city, ago: "poco", text: s.title, img: s.media?.kind === "photo" ? s.media.src : "", dur: formatClock(s.audio.durationMs), dist: s.zone, incognito: s.anon, own: true, audio: s.audio });
+
 export function ProfileView({ onOpen, accountEmail }: { onOpen: (s: Sheet) => void; accountEmail: string | null }) {
   const [tab, setTab] = useState("Spots");
   const [edit, setEdit] = useState(false);
   const me = useMe();
-  const [wall, setWall] = useState(wall0);
-  const [playing, setPlaying] = useState<number | null>(null);
+  const { demo, following } = useStore();
+  const mySpots = useMySpots();
   const [badgesOpen, setBadgesOpen] = useState(false);
-  const [rec, setRec] = useState(false);
   const [settings, setSettings] = useState(false);
+  const [coverSheet, setCoverSheet] = useState(false);
+  const [spotsSheet, setSpotsSheet] = useState(false);
   const [viewer, setViewer] = useState<{ items: MediaItem[]; start: number } | null>(null);
   const [spot, setSpot] = useState<{ s: SpotInfo; author: string | null } | null>(null);
   const [author, setAuthor] = useState<string | null>(null);
   const [list, setList] = useState<"Seguidores" | "Siguiendo" | null>(null);
   const gridRef = useRef<HTMLDivElement | null>(null);
+  const wallSeed = useMemo(() => (demo ? sampleThread(`muro:${me.user}`, [{ key: "1", name: "Laura", img: lauraPhoto, minsAgo: 5, dur: "0:18", likes: 12, verified: true }, { key: "2", name: "Carlos", img: sampleMedia[2]!.img, minsAgo: 20, dur: "0:32", likes: 8 }, { key: "3", name: "Marta", img: sampleMedia[3]!.img, minsAgo: 60, dur: "0:11", likes: 4, replyTo: "1", replyAt: "0:09" }]) : []), [demo, me.user]);
   if (badgesOpen) return <Badges onBack={() => setBadgesOpen(false)} />;
+  const followingCount = new Set([...(demo ? DEMO_FOLLOWED : []), ...following]).size;
+  const followersCount = demo ? people.length : 0;
+  const spotsCount = mySpots.length + (demo ? grid.Spots.length : 0);
+  const fmtCount = (n: number) => (n >= 10000 ? likesLabel(n) : n.toLocaleString("es-ES"));
   const openItem = (t: GridTab, i: number) => {
     const items = grid[t];
     const m = items[i]!;
@@ -72,89 +195,114 @@ export function ProfileView({ onOpen, accountEmail }: { onOpen: (s: Sheet) => vo
     else if (t === "Guardados") setSpot({ s: toSpot(m, i, savedAuthors[i]), author: savedAuthors[i] ?? null });
     else setSpot({ s: toSpot(m, i), author: null });
   };
+  const mine = tab === "Fotos" ? mySpots.filter((s) => s.media?.kind === "photo") : tab === "Vídeos" ? mySpots.filter((s) => s.media?.kind === "video") : tab === "Spots" ? mySpots : [];
+  const samples = demo && tab !== "Audio Wall" ? grid[tab as GridTab] : [];
 
   return (
     <main className="pb-[calc(6rem+env(safe-area-inset-bottom))]">
-       <div className="relative px-4 pb-4 pt-[var(--safe-header)]">
-         <div className="relative flex min-h-10 items-center justify-between gap-1"><h2 className="text-lg font-bold">Tu perfil</h2><div className="flex gap-1">
-          <Button variant="ghost" size="icon" aria-label="Editar perfil" onClick={() => setEdit(true)}><Pencil size={18} /></Button>
-          <Button variant="ghost" size="icon" aria-label="Ajustes" onClick={() => setSettings(true)}><Settings size={18} /></Button>
-         </div></div>
-        <div className="relative text-center">
-           <button onClick={() => setEdit(true)} aria-label="Cambiar foto y datos del perfil" className="mx-auto mt-3 block h-24 w-24 rounded-full bg-spot-gradient p-[0.1875rem] shadow-glow"><MeAvatar className="h-full w-full text-3xl" /></button>
-           <h1 className="mt-2 text-xl font-bold">{me.name}</h1>
-           <p className="text-xs text-muted-foreground">@{me.user}</p>
-           <div className="mx-auto mt-4 grid max-w-sm grid-cols-3">
-             <button onClick={() => { setTab("Spots"); gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className="rounded-lg py-1"><strong>248</strong><small className="block text-2xs text-muted-foreground">Spots</small></button>
-             <button onClick={() => setList("Seguidores")} className="rounded-lg py-1"><strong>12,4K</strong><small className="block text-2xs text-muted-foreground">Seguidores</small></button>
-             <button onClick={() => setList("Siguiendo")} className="rounded-lg py-1"><strong>680</strong><small className="block text-2xs text-muted-foreground">Siguiendo</small></button>
-           </div>
+      {/* Portada cambiable con la cabecera encima */}
+      <div className="relative">
+        <Cover cover={me.cover} className="absolute inset-0 h-full w-full" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-background" />
+        <div className="relative flex h-[calc(9.5rem+var(--safe-header))] flex-col px-3 pt-[var(--safe-header)]">
+          <div className="flex min-h-10 items-center justify-between gap-1">
+            <h2 className="rounded-full bg-background/45 px-3 py-1 text-sm font-bold backdrop-blur">Tu perfil</h2>
+            <div className="flex gap-1">
+              <button onClick={() => setCoverSheet(true)} aria-label="Cambiar portada" className="flex h-10 items-center gap-1.5 rounded-full bg-background/45 px-3 text-2xs font-semibold backdrop-blur"><ImageIcon size={15} />Portada</button>
+              <Button variant="ghost" size="icon" className="bg-background/45 backdrop-blur" aria-label="Editar perfil" onClick={() => setEdit(true)}><Pencil size={18} /></Button>
+              <Button variant="ghost" size="icon" className="bg-background/45 backdrop-blur" aria-label="Ajustes" onClick={() => setSettings(true)}><Settings size={18} /></Button>
+            </div>
+          </div>
         </div>
       </div>
-       <div ref={gridRef} className="@container grid scroll-mt-4 grid-cols-5 gap-1 px-3 py-2">
-         {([["Spots", Grid3x3], ["Fotos", ImageIcon], ["Vídeos", Video], ["Voz", Waves], ["Guardados", Bookmark]] as const).map(([l, I]) => <Button key={l} size="sm" variant={(tab === l || (l === "Voz" && tab === "Audio Wall")) ? "default" : "secondary"} onClick={() => setTab(l === "Voz" ? "Audio Wall" : l)} className={`h-8 min-w-0 gap-1 rounded-full px-1 text-3xs ${(tab === l || (l === "Voz" && tab === "Audio Wall")) ? "spot-active-pill" : ""}`}><I size={12} className="@max-[20rem]:hidden" />{l}</Button>)}
+      <div className="relative px-4">
+        <div className="pointer-events-none -mt-10 flex items-end gap-3">
+          <button onClick={() => setEdit(true)} aria-label="Cambiar foto y datos del perfil" className="pointer-events-auto block h-[5.5rem] w-[5.5rem] shrink-0 rounded-full bg-spot-gradient p-[0.1875rem] shadow-glow"><MeAvatar className="h-full w-full border-2 border-background text-3xl" /></button>
+          <div className="min-w-0 flex-1 pb-1">
+            <h1 className="truncate text-xl font-bold leading-tight">{me.name}</h1>
+            <p className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground"><span className="truncate">@{me.user}</span><span>·</span><MapPin size={12} className="shrink-0 text-primary" /><span className="truncate">{me.city}</span></p>
+          </div>
+        </div>
+        <VoicePresentation />
+        {/* Cifras tappables: abren tus Spots con sus vistas, tus seguidores y a quién sigues */}
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {([[Mic, spotsCount, "Spots", () => setSpotsSheet(true)], [Users, followersCount, "Seguidores", () => setList("Seguidores")], [UserPlus, followingCount, "Siguiendo", () => setList("Siguiendo")]] as const).map(([I, n, l, f]) => (
+            <button key={l} onClick={f} className="spot-voice-card flex flex-col items-center gap-0.5 rounded-2xl py-2.5">
+              <I size={16} className="text-primary" />
+              <strong className="text-base tabular-nums leading-tight">{fmtCount(n)}</strong>
+              <small className="text-2xs text-muted-foreground">{l}</small>
+            </button>
+          ))}
+        </div>
+        {demo && <p className="mt-1 text-center text-3xs text-muted-foreground">Modo demostración: incluye contenido de ejemplo</p>}
+      </div>
+      <div ref={gridRef} className="@container mt-3 grid scroll-mt-4 grid-cols-5 gap-1 px-3 py-2">
+        {([["Spots", Grid3x3], ["Fotos", ImageIcon], ["Vídeos", Video], ["Voz", Waves], ["Guardados", Bookmark]] as const).map(([l, I]) => <Button key={l} size="sm" variant={(tab === l || (l === "Voz" && tab === "Audio Wall")) ? "default" : "secondary"} onClick={() => setTab(l === "Voz" ? "Audio Wall" : l)} className={`h-8 min-w-0 gap-1 rounded-full px-1 text-3xs ${(tab === l || (l === "Voz" && tab === "Audio Wall")) ? "spot-active-pill" : ""}`}><I size={12} className="@max-[20rem]:hidden" />{l}</Button>)}
       </div>
       {tab !== "Audio Wall" ? (
         <section className="grid grid-cols-3 gap-1 p-1">
-           {grid[tab as GridTab].map((m, i) => (
-             <button key={tab + i} onClick={() => openItem(tab as GridTab, i)} aria-label={`${tab === "Vídeos" ? "Ver vídeo" : tab === "Fotos" ? "Ver foto" : "Abrir Spot"}: ${m.caption}`} className="relative overflow-hidden rounded-md">
-               <img src={m.img} alt="" loading="lazy" className={"aspect-[3/4] w-full rounded-md object-cover " + (tab === "Spots" && i === 0 ? "ring-2 ring-inset ring-primary" : "")} />
-               <span className="absolute bottom-1 left-1 flex items-center gap-0.5 text-3xs font-semibold text-white drop-shadow"><Heart size={10} fill="currentColor" className="text-live" />{likesLabel(m.likes)}</span>
-               {tab === "Vídeos" && <span className="absolute right-1 top-1 flex items-center gap-0.5 rounded bg-black/55 px-1 py-0.5 text-4xs font-semibold text-white"><Play size={9} fill="currentColor" />0:07</span>}
-             </button>
-           ))}
+          {mine.map((s) => (
+            <button key={s.id} onClick={() => setSpot({ s: mySpotInfo(s, me.name), author: null })} aria-label={`Abrir tu Spot: ${s.title}`} className="relative overflow-hidden rounded-md">
+              <SpotThumb s={s} className="aspect-[3/4] w-full rounded-md" />
+              <span className="absolute bottom-1 left-1 flex items-center gap-0.5 text-3xs font-semibold text-white drop-shadow"><Eye size={10} />{s.views}</span>
+            </button>
+          ))}
+          {samples.map((m, i) => (
+            <button key={tab + i} onClick={() => openItem(tab as GridTab, i)} aria-label={`${tab === "Vídeos" ? "Ver vídeo" : tab === "Fotos" ? "Ver foto" : "Abrir Spot"} de ejemplo: ${m.caption}`} className="relative overflow-hidden rounded-md">
+              <img src={m.img} alt="" loading="lazy" className="aspect-[3/4] w-full rounded-md object-cover" />
+              <span className="absolute bottom-1 left-1 flex items-center gap-0.5 text-3xs font-semibold text-white drop-shadow"><Heart size={10} fill="currentColor" className="text-live" />{likesLabel(m.likes)}</span>
+              <span className="absolute right-1 top-1 rounded bg-black/55 px-1 py-0.5 text-4xs font-semibold text-white">ejemplo</span>
+            </button>
+          ))}
+          {mine.length === 0 && samples.length === 0 && <p className="col-span-3 py-10 text-center text-sm text-muted-foreground">{tab === "Guardados" ? "Guarda Spots con el marcador y aparecerán aquí." : tab === "Spots" ? "Aún no has publicado ningún Spot." : `Aún no tienes ${tab.toLowerCase()} en tus Spots.`}</p>}
         </section>
       ) : (
         <section className="space-y-3 p-4">
-          <p className="text-xs text-muted-foreground">Tus visitas te dejan mensajes de voz aquí.</p>
+          <p className="text-xs text-muted-foreground">Tus visitas te dejan mensajes de voz aquí y puedes responderles.</p>
           <Button variant="secondary" className="w-full rounded-lg border border-primary/50" onClick={() => onOpen("audio-wall")}><Mic size={17} className="text-primary" />Explorar Audio Wall en directo</Button>
-          {wall.map((w, i) => (
-            <div key={i} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-spot-gradient font-bold">{w.u[0]}</div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold">{w.u} <span className="text-xs font-normal text-muted-foreground">· {w.t}</span></p>
-                <button onClick={() => setPlaying(playing === i ? null : i)} className="mt-1 flex w-full items-center gap-2">{playing === i ? <Pause size={14} className="text-primary" /> : <Play size={14} className="text-primary" />}<Bars on={playing === i} /><span className="text-xs">{w.d}</span></button>
-              </div>
-            </div>
-          ))}
-          <button onClick={() => { if (rec) { setWall([{ u: me.name, d: "0:07", t: "Ahora", l: 0 }, ...wall]); toast.success("Mensaje añadido a tu Audio Wall"); } setRec(!rec); }} className="flex w-full items-center justify-center gap-2 rounded-full bg-spot-gradient py-3 font-semibold shadow-glow">{rec ? <Square size={16} /> : <Mic size={18} />}{rec ? "Grabando… pulsa para publicar" : "Dejar mensaje de voz"}</button>
+          <VoiceThread threadId={`muro:${me.user}`} seed={wallSeed} emptyText="Aún no te han dejado mensajes de voz." />
         </section>
       )}
-       <div className="px-4 py-5"><Button variant="secondary" className="w-full" onClick={() => onOpen("verificacion")}><BadgeCheck size={16} className="text-primary" />Verificación · ver ejemplo</Button><Button variant="ghost" className="mt-2 w-full" onClick={() => setBadgesOpen(true)}>{badges.map(([l, I]) => <span key={l} className="flex items-center gap-1 text-3xs text-muted-foreground"><I size={11} className="text-primary" />{l}</span>)}</Button><div className="mt-3 grid grid-cols-3 gap-2">{([["wallet", "Wallet", WalletIcon], ["chats", "Chats de voz", Mic], ["local", "Panel Local", Store], ["comunidades", "Comunidades", Users], ["eventos", "Eventos", Calendar], ["privacidad", "Privacidad", Lock]] as [Sheet, string, typeof Mic][]).map(([k, l, I]) => <Button key={l} variant="secondary" onClick={() => onOpen(k)} className="flex h-16 flex-col gap-1 rounded-lg border border-border text-2xs"><I size={18} className="text-primary" />{l}</Button>)}</div><Button variant="ghost" onClick={() => toast("Reproduciendo tu presentación de voz")} className="mt-3 w-full"><Play size={14} className="text-primary" /><Bars on /><span className="text-xs">0:09</span></Button></div>
-       {edit && <EditProfile onClose={() => setEdit(false)} />}
-       {settings && <SettingsScreen accountEmail={accountEmail} onBack={() => setSettings(false)} onOpen={(s) => { setSettings(false); onOpen(s); }} />}
-       {viewer && <MediaViewer items={viewer.items} start={viewer.start} onClose={() => setViewer(null)} />}
-       {spot && <SpotDetail s={spot.s} onClose={() => setSpot(null)} onAuthor={() => { if (spot.author) setAuthor(spot.author); else setSpot(null); }} />}
-       {author && <AuthorProfile name={author} onClose={() => setAuthor(null)} />}
-       {list && <PeopleList kind={list} onSwitch={setList} onClose={() => setList(null)} onAuthor={(n) => { setList(null); setAuthor(n); }} />}
+      <div className="px-4 py-5"><Button variant="secondary" className="w-full" onClick={() => onOpen("verificacion")}><BadgeCheck size={16} className="text-primary" />Verificación · ver ejemplo</Button><Button variant="ghost" className="mt-2 w-full" onClick={() => setBadgesOpen(true)}>{badges.map(([l, I]) => <span key={l} className="flex items-center gap-1 text-3xs text-muted-foreground"><I size={11} className="text-primary" />{l}</span>)}</Button><div className="mt-3 grid grid-cols-3 gap-2">{([["wallet", "Wallet", WalletIcon], ["chats", "Chats de voz", Mic], ["local", "Panel Local", Store], ["comunidades", "Comunidades", Users], ["eventos", "Eventos", Calendar], ["privacidad", "Privacidad", Lock]] as [Sheet, string, typeof Mic][]).map(([k, l, I]) => <Button key={l} variant="secondary" onClick={() => onOpen(k)} className="flex h-16 flex-col gap-1 rounded-lg border border-border text-2xs"><I size={18} className="text-primary" />{l}</Button>)}</div></div>
+      {edit && <EditProfile onClose={() => setEdit(false)} onCover={() => { setEdit(false); setCoverSheet(true); }} />}
+      {coverSheet && <CoverSheet onClose={() => setCoverSheet(false)} />}
+      {spotsSheet && <SpotsSheet onClose={() => setSpotsSheet(false)} onOpen={(s) => { setSpotsSheet(false); setSpot({ s: mySpotInfo(s, me.name), author: null }); }} />}
+      {settings && <SettingsScreen accountEmail={accountEmail} onBack={() => setSettings(false)} onOpen={(s) => { setSettings(false); onOpen(s); }} />}
+      {viewer && <MediaViewer items={viewer.items} start={viewer.start} onClose={() => setViewer(null)} />}
+      {spot && <SpotDetail s={spot.s} onClose={() => setSpot(null)} onAuthor={() => { if (spot.author) setAuthor(spot.author); else setSpot(null); }} />}
+      {author && <AuthorProfile name={author} onClose={() => setAuthor(null)} />}
+      {list && <PeopleList kind={list} onSwitch={setList} onClose={() => setList(null)} onAuthor={(n) => { setList(null); setAuthor(n); }} />}
     </main>
   );
 }
 
-/** Seguidores y Siguiendo (demo): seguir o dejar de seguir se refleja en el resto de la app. */
+/** Seguidores y Siguiendo: a quién sigues es real (se guarda en el dispositivo); los seguidores llegan con el backend. En modo demostración se añaden perfiles de ejemplo. */
 function PeopleList({ kind, onSwitch, onClose, onAuthor }: { kind: "Seguidores" | "Siguiendo"; onSwitch: (k: "Seguidores" | "Siguiendo") => void; onClose: () => void; onAuthor: (name: string) => void }) {
-  const { following } = useStore();
-  const [followed, setFollowed] = useState<string[]>(() => [...new Set(["Laura", "Marta", "Ana", ...following])]);
+  const { following, demo } = useStore();
+  const [demoFollowed, setDemoFollowed] = useState<string[]>(() => (demo ? DEMO_FOLLOWED : []));
+  const isOn = (name: string) => following.includes(name) || demoFollowed.includes(name);
   const setFollow = (name: string, on: boolean) => {
-    setFollowed((f) => (on ? [...f, name] : f.filter((n) => n !== name)));
+    if (!on) setDemoFollowed((f) => f.filter((n) => n !== name));
     if (following.includes(name) !== on) toggleFollow(name);
     toast(on ? `Sigues a ${name}` : `Dejaste de seguir a ${name}`);
   };
-  const shown = kind === "Siguiendo" ? people.filter((p) => followed.includes(p.name)) : people;
+  const known = new Map(people.map((p) => [p.name, p]));
+  const followingList = [...new Set([...demoFollowed, ...following])].map((n) => known.get(n) ?? { name: n, img: "", sub: "Perfil de Spotly" });
+  const shown = kind === "Siguiendo" ? followingList : demo ? people : [];
   return (
     <BottomSheet title={kind} onClose={onClose} z={65}>
       <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-secondary p-1">
         {(["Seguidores", "Siguiendo"] as const).map((k) => <button key={k} onClick={() => onSwitch(k)} aria-pressed={k === kind} className={"rounded-lg py-2 text-xs font-semibold " + (k === kind ? "spot-active-pill text-foreground" : "text-muted-foreground")}>{k}</button>)}
       </div>
-      {shown.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Aún no sigues a nadie de esta lista.</p>}
+      {shown.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">{kind === "Siguiendo" ? "Aún no sigues a nadie. Sigue a personas desde sus Spots o su perfil." : "Aún no tienes seguidores. Cuando alguien te siga, aparecerá aquí."}</p>}
       <div className="space-y-1">
         {shown.map((p) => {
-          const on = followed.includes(p.name);
+          const on = isOn(p.name);
           return (
             <div key={p.name} className="flex items-center gap-3 rounded-xl px-1 py-2">
               <button onClick={() => onAuthor(p.name)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                <img src={p.img} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
-                <span className="min-w-0"><strong className="block truncate text-sm">{p.name}</strong><small className="block truncate text-xs text-muted-foreground">{p.sub}</small></span>
+                {p.img ? <img src={p.img} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" /> : <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-secondary font-bold">{p.name[0]}</span>}
+                <span className="min-w-0"><strong className="block truncate text-sm">{p.name}</strong><small className="block truncate text-xs text-muted-foreground">{p.sub}{demo && known.has(p.name) ? " · ejemplo" : ""}</small></span>
               </button>
               <Button size="sm" variant={on ? "secondary" : "default"} onClick={() => setFollow(p.name, !on)} className="shrink-0 rounded-full">{on ? "Siguiendo" : kind === "Seguidores" ? "Seguir también" : "Seguir"}</Button>
             </div>
@@ -165,18 +313,17 @@ function PeopleList({ kind, onSwitch, onClose, onAuthor }: { kind: "Seguidores" 
   );
 }
 
-function EditProfile({ onClose }: { onClose: () => void }) {
+function EditProfile({ onClose, onCover }: { onClose: () => void; onCover: () => void }) {
   const me = useMe();
   const [v, setV] = useState(me);
-  const [rec, setRec] = useState(false);
   const [source, setSource] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const save = () => {
-    saveMe({ ...me, name: v.name.trim() || me.name, user: v.user.trim().replace(/^@+/, "").replace(/\s+/g, ".") || me.user, bio: v.bio.trim() });
+    saveMe({ ...me, name: v.name.trim() || me.name, user: v.user.trim().replace(/^@+/, "").replace(/\s+/g, ".") || me.user });
     toast.success("Perfil actualizado");
     onClose();
   };
-  /* La foto se aplica al momento (como en cualquier red social); nombre, usuario y descripción, al pulsar Guardar. */
+  /* La foto se aplica al momento (como en cualquier red social); nombre y usuario, al pulsar Guardar. */
   const setPhoto = (avatar: string | null) => { saveMe({ ...me, avatar }); setV((x) => ({ ...x, avatar })); };
   return (
     <div className="fixed inset-0 z-50 mx-auto flex max-w-[520px] flex-col bg-background">
@@ -189,13 +336,14 @@ function EditProfile({ onClose }: { onClose: () => void }) {
           </button>
           <Button variant="ghost" size="sm" className="mt-2 text-primary" onClick={() => setSource(true)}>{v.avatar ? "Cambiar foto" : "Añadir foto"}</Button>
         </div>
-        {(["name", "user", "bio"] as const).map((k) => (
-          <label key={k} className="mt-4 block text-xs text-muted-foreground">{k === "name" ? "Nombre" : k === "user" ? "Usuario" : "Descripción"}
-            <input value={v[k]} maxLength={k === "bio" ? 120 : 30} onChange={(e) => setV({ ...v, [k]: e.target.value })} className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-3 text-sm text-foreground outline-none focus:border-primary" /></label>
+        {(["name", "user"] as const).map((k) => (
+          <label key={k} className="mt-4 block text-xs text-muted-foreground">{k === "name" ? "Nombre" : "Usuario"}
+            <input value={v[k]} maxLength={30} onChange={(e) => setV({ ...v, [k]: e.target.value })} className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-3 text-sm text-foreground outline-none focus:border-primary" /></label>
         ))}
-        <p className="mt-2 text-2xs text-muted-foreground">Tu nombre y tu foto aparecen en cada audio que envías. Solo con Incógnito (de pago) salen como «Anónimo».</p>
-        <p className="mt-5 text-xs text-muted-foreground">Presentación de voz</p>
-        <button onClick={() => { setRec(!rec); if (rec) toast.success("Presentación de voz guardada"); }} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-primary/40 bg-card py-4 text-sm">{rec ? <Square size={16} className="text-live" /> : <Mic size={18} className="text-primary" />}{rec ? "Grabando… pulsa para terminar" : "Regrabar presentación"}</button>
+        <p className="mt-2 text-2xs text-muted-foreground">Tu nombre y tu foto aparecen en cada audio que envías. Solo con Incógnito (de pago) salen como «Anónimo». En Spotly no hay biografía escrita: preséntate con tu voz.</p>
+        <button onClick={onCover} className="mt-5 flex w-full items-center gap-3 overflow-hidden rounded-2xl border border-border bg-card text-left"><Cover cover={me.cover} className="h-14 w-24 shrink-0" /><span className="flex-1 text-sm font-semibold">Portada del perfil</span><span className="pr-3 text-xs text-primary">Cambiar</span></button>
+        <p className="mb-1 mt-5 text-xs text-muted-foreground">Presentación de voz</p>
+        <VoicePresentation />
       </main>
       {source && <PhotoSourceSheet hasPhoto={!!v.avatar} onClose={() => setSource(false)} onFile={(f) => { setSource(false); setFile(f); }} onRemove={() => { setSource(false); setPhoto(null); toast("Foto de perfil quitada"); }} />}
       {file && <PhotoCropper file={file} onCancel={() => setFile(null)} onDone={(url) => { setFile(null); setPhoto(url); toast.success("Foto de perfil actualizada"); }} />}
@@ -255,19 +403,17 @@ const faqs = [
 
 function Help({ onBack }: { onBack: () => void }) {
   const [open, setOpen] = useState<number | null>(0);
-  const [rec, setRec] = useState(false); const [sent, setSent] = useState(false);
+  const [sent, setSent] = useState(false);
   return (
     <Shell title="Ayuda y soporte" onBack={onBack}>
       <h3 className="mb-2 text-xs font-bold tracking-wider text-muted-foreground">PREGUNTAS FRECUENTES</h3>
       <div className="divide-y divide-border rounded-xl border border-border bg-card px-4">
         {faqs.map(([q, a], i) => <div key={q}><button onClick={() => setOpen(open === i ? null : i)} className="flex w-full justify-between py-3 text-left text-sm font-medium">{q}<span className="text-primary">{open === i ? "−" : "+"}</span></button>{open === i && <p className="pb-3 text-sm text-muted-foreground">{a}</p>}</div>)}
       </div>
-      <div className="mt-5 rounded-2xl border border-primary/30 bg-card p-5 text-center">
-        {sent ? <><Check className="mx-auto text-primary" size={32} /><p className="mt-2 font-bold">Mensaje enviado</p><p className="text-sm text-muted-foreground">Te responderemos con una nota de voz en 24 h.</p></> : <>
-          <p className="font-bold">¿No encuentras la respuesta?</p><p className="text-sm text-muted-foreground">Cuéntanos tu problema con tu voz</p>
-          <button onClick={() => setRec(!rec)} aria-label={rec ? "Detener grabación" : "Grabar mensaje"} className={(rec ? "spot-pulse " : "") + "mx-auto mt-4 grid h-16 w-16 place-items-center rounded-full bg-spot-gradient shadow-glow"}><Mic size={26} /></button>
-          <p className="mt-2 text-sm">{rec ? "0:09" : "0:00"}</p>
-          <Button className="mt-3 w-full" disabled={!rec} onClick={() => setSent(true)}>Enviar a soporte</Button></>}
+      <div className="mt-5 rounded-2xl border border-primary/30 bg-card p-4 text-center">
+        {sent ? <><Check className="mx-auto text-primary" size={32} /><p className="mt-2 font-bold">Mensaje de voz guardado</p><p className="text-sm text-muted-foreground">Queda en «soporte» con tu cuenta; el equipo lo escucha desde el panel de soporte cuando el servidor está conectado.</p></> : <>
+          <p className="font-bold">¿No encuentras la respuesta?</p><p className="mb-3 text-sm text-muted-foreground">Cuéntanos tu problema con tu voz</p>
+          <VoiceComposer allowAnon={false} sendLabel="Enviar a soporte" onSend={(clip) => { addVoiceNote({ threadId: "soporte", clip }); setSent(true); }} /></>}
       </div>
     </Shell>
   );

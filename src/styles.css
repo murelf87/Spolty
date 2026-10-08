@@ -74,6 +74,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --color-live: var(--live);
   --color-premium: var(--premium);
+  --color-online: var(--online);
 }
 
 :root {
@@ -101,11 +102,24 @@
   --ring: oklch(0.73 0.18 207);
   --live: oklch(0.64 0.26 18);
   --premium: oklch(0.83 0.17 81);
+  /* Presencia: «En línea» siempre en verde. */
+  --online: oklch(0.8 0.2 150);
   --spot-gradient: linear-gradient(110deg, oklch(0.78 0.16 205), oklch(0.63 0.27 292), oklch(0.67 0.3 329));
   --spot-surface: linear-gradient(180deg, oklch(0.2 0.09 278), oklch(0.15 0.07 270));
   --spot-glow: 0 0 28px oklch(0.65 0.25 300 / 45%);
   --spot-blue: oklch(0.7 0.2 230);
   --spot-fuchsia: oklch(0.69 0.29 327);
+  /* Iconos de la navegación: cada uno con su degradado de los colores de marca (cian, azul, violeta, fucsia). */
+  --nav-1a: oklch(0.84 0.14 200); --nav-1b: oklch(0.7 0.2 235);
+  --nav-2a: oklch(0.74 0.18 232); --nav-2b: oklch(0.66 0.25 290);
+  --nav-3a: oklch(0.68 0.25 292); --nav-3b: oklch(0.72 0.28 330);
+  --nav-4a: oklch(0.72 0.28 330); --nav-4b: oklch(0.82 0.15 205);
+  /* Alto de la barra de navegación inferior (en escritorio no hay barra). */
+  --nav-h: calc(4.25rem + env(safe-area-inset-bottom));
+  /* Voz: lo escuchado va de fucsia a violeta; lo que falta, en gris. */
+  --wave-from: oklch(0.7 0.27 345);
+  --wave-to: oklch(0.63 0.25 295);
+  --wave-rest: oklch(0.72 0.02 270 / 42%);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -147,6 +161,14 @@
   --spot-glow: 0 6px 22px oklch(0.6 0.2 285 / 26%);
   --spot-blue: oklch(0.6 0.17 235);
   --spot-fuchsia: oklch(0.6 0.25 325);
+  --online: oklch(0.56 0.16 152);
+  --wave-from: oklch(0.6 0.26 345);
+  --wave-to: oklch(0.52 0.24 295);
+  --wave-rest: oklch(0.55 0.03 270 / 38%);
+  --nav-1a: oklch(0.66 0.14 210); --nav-1b: oklch(0.56 0.19 240);
+  --nav-2a: oklch(0.58 0.18 238); --nav-2b: oklch(0.54 0.24 290);
+  --nav-3a: oklch(0.55 0.24 292); --nav-3b: oklch(0.58 0.26 330);
+  --nav-4a: oklch(0.58 0.26 330); --nav-4b: oklch(0.62 0.15 215);
 }
 :root.light body { background-image: radial-gradient(120% 45% at 50% 0%, oklch(0.93 0.05 265 / 85%), transparent 62%); background-attachment: fixed; }
 :root.light .bg-spot-gradient, :root.light .spot-active-pill { color: oklch(0.995 0 0); }
@@ -297,6 +319,51 @@
 /* Botón central de crear: el icono de Spotly (pin con onda de voz) sobre fondo oscuro con aro de neón, como el icono de la app. */
 .spot-create-button { border: 2px solid transparent; background: linear-gradient(var(--background), var(--background)) padding-box, var(--spot-gradient) border-box; box-shadow: 0 0 8px var(--primary), 0 0 21px var(--spot-fuchsia); }
 .spot-create-button svg { filter: drop-shadow(0 0 6px color-mix(in oklab, var(--spot-fuchsia) 55%, transparent)); }
+
+/* Navegación multicolor: el trazo del icono usa un degradado SVG (#spot-nav-gN) y la pestaña activa brilla con su color. */
+.spot-nav-1 { --nav-from: var(--nav-1a); --nav-to: var(--nav-1b); }
+.spot-nav-2 { --nav-from: var(--nav-2a); --nav-to: var(--nav-2b); }
+.spot-nav-3 { --nav-from: var(--nav-3a); --nav-to: var(--nav-3b); }
+.spot-nav-4 { --nav-from: var(--nav-4a); --nav-to: var(--nav-4b); }
+.spot-nav-stop-from { stop-color: var(--nav-from); }
+.spot-nav-stop-to { stop-color: var(--nav-to); }
+.spot-nav-icon { opacity: 0.8; transition: opacity 0.2s, filter 0.2s, transform 0.2s; }
+.spot-nav-on .spot-nav-icon { opacity: 1; transform: translateY(-1px); filter: drop-shadow(0 0 6px color-mix(in oklab, var(--nav-from) 65%, transparent)); }
+.spot-nav-label { color: var(--muted-foreground); }
+.spot-nav-on .spot-nav-label { font-weight: 600; color: transparent; background-image: linear-gradient(90deg, var(--nav-from), var(--nav-to)); -webkit-background-clip: text; background-clip: text; }
+
+/* Inicio a pantalla completa: cada Spot ocupa exactamente el hueco entre la cabecera fija y la barra inferior y el
+   desplazamiento encaja de uno en uno. --home-header-h lo mide Inicio con la altura real de su cabecera. */
+@media (min-width: 1100px) { :root { --nav-h: 0px; } }
+html.spot-feed-snap { scroll-snap-type: y mandatory; scroll-padding-top: var(--home-header-h, 0px); }
+.spot-feed-page {
+  height: calc(100vh - var(--home-header-h, 7.5rem) - var(--nav-h));
+  height: calc(100dvh - var(--home-header-h, 7.5rem) - var(--nav-h));
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+.spot-feed-snap-start { scroll-snap-align: start; }
+/* Voz (VoiceThread.tsx): tarjeta, aro del avatar, barras de la onda, punto de reproducción y panel de respuesta. */
+.spot-voice-card { background: color-mix(in oklab, var(--card) 88%, transparent); border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent); }
+.spot-voice-highlight { box-shadow: 0 0 0 1.5px var(--wave-from), 0 0 22px color-mix(in oklab, var(--wave-from) 35%, transparent); }
+.spot-voice-ring { display: inline-block; background: linear-gradient(135deg, var(--wave-from), var(--wave-to)); }
+.spot-voice-bar { display: block; flex: 1 1 0; min-width: 1px; max-width: 0.1875rem; min-height: 0.1875rem; border-radius: 999px; background: var(--wave-rest); }
+.spot-voice-head { position: absolute; top: 50%; width: 0.625rem; height: 0.625rem; border-radius: 999px; transform: translate(-50%, -50%); background: var(--wave-from); box-shadow: 0 0 10px var(--wave-from); pointer-events: none; }
+.spot-voice-composer { background: linear-gradient(100deg, var(--wave-to), var(--wave-from)); box-shadow: 0 0 24px color-mix(in oklab, var(--wave-from) 32%, transparent); }
+.spot-voice-stop { background: var(--wave-from); box-shadow: 0 0 0 4px color-mix(in oklab, var(--wave-from) 22%, transparent), 0 0 20px color-mix(in oklab, var(--wave-from) 60%, transparent); }
+.spot-voice-send { background: linear-gradient(135deg, var(--wave-from), var(--wave-to)); box-shadow: 0 0 18px color-mix(in oklab, var(--wave-from) 45%, transparent); }
+.spot-voice-pointer { position: absolute; top: -0.4375rem; left: 1.75rem; z-index: 1; width: 0.875rem; height: 0.875rem; transform: rotate(45deg); border-radius: 0.1875rem 0 0 0; background: var(--card); border-left: 1.5px solid var(--wave-to); border-top: 1.5px solid var(--wave-to); }
+
+/* Portadas de perfil de Spotly (fondos que se pueden elegir detrás del perfil). */
+.spot-cover-neon { background: radial-gradient(70% 90% at 15% 20%, color-mix(in oklab, var(--spot-fuchsia) 75%, transparent), transparent 60%), radial-gradient(60% 80% at 85% 30%, color-mix(in oklab, var(--spot-blue) 80%, transparent), transparent 62%), linear-gradient(160deg, oklch(0.24 0.12 290), oklch(0.14 0.07 270)); }
+.spot-cover-aurora { background: radial-gradient(80% 70% at 30% 0%, oklch(0.75 0.17 170 / 75%), transparent 60%), radial-gradient(70% 80% at 80% 20%, oklch(0.62 0.25 300 / 70%), transparent 60%), linear-gradient(180deg, oklch(0.22 0.1 260), oklch(0.13 0.06 265)); }
+.spot-cover-atardecer { background: radial-gradient(90% 70% at 50% 100%, oklch(0.75 0.19 55 / 85%), transparent 60%), linear-gradient(180deg, oklch(0.42 0.2 330), oklch(0.62 0.22 20) 60%, oklch(0.78 0.16 70)); }
+.spot-cover-noche { background: radial-gradient(1px 1px at 20% 30%, white, transparent), radial-gradient(1px 1px at 70% 20%, white, transparent), radial-gradient(1.5px 1.5px at 85% 60%, white, transparent), radial-gradient(1px 1px at 40% 70%, white, transparent), radial-gradient(60% 60% at 80% 10%, oklch(0.55 0.15 260 / 60%), transparent 60%), linear-gradient(180deg, oklch(0.16 0.06 265), oklch(0.1 0.04 270)); }
+.spot-cover-ondas { background: repeating-radial-gradient(circle at 50% 120%, color-mix(in oklab, var(--spot-fuchsia) 45%, transparent) 0 2px, transparent 2px 18px), linear-gradient(135deg, oklch(0.3 0.16 300), oklch(0.2 0.12 250)); }
+
+/* En móviles bajos (iPhone SE) la foto tiene menos alto: las acciones laterales se juntan para no pisar la cabecera. */
+.spot-card-media { container-type: size; }
+@container (max-height: 26rem) { .spot-card-actions { gap: 0.5rem; } }
 .spot-neon-map {
   background: radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--spot-fuchsia) 25%, transparent), transparent 53%), var(--background);
 }

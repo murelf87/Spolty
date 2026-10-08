@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { Fragment, useMemo, useState, useEffect, useRef, type ReactNode } from "react";
 import { Bell, Bookmark, Check, ChevronLeft, ChevronRight, Compass, Flame, Heart, Linkedin, MapPin, MoreHorizontal, Mic, Pause, Play, Search, Share2, WifiOff, Ghost, RefreshCw, X } from "lucide-react";
 import { siX, siFacebook, siInstagram, siWhatsapp, siTelegram, siTiktok, siSnapchat, siMessenger, siReddit, siPinterest, siThreads, siBluesky } from "simple-icons";
 import { toast } from "sonner";
@@ -7,6 +7,12 @@ import { Logo } from "./Logo";
 import { useApp } from "./app-context";
 import { AuthorProfile, SpotDetail } from "./SpotDetail";
 import { VoiceReply } from "./Voice";
+import { VoiceWave } from "./VoiceThread";
+import { spotKeyOf } from "./SpotDetail";
+import { clockToMs, useThread } from "@/lib/voice/notes";
+import { formatClock, seededPeaks } from "@/lib/voice/recorder";
+import { playVoice, seekVoice, toggleVoice, useVoicePlayback } from "@/lib/voice/player";
+import { deleteSpot, useMySpots, type MySpot } from "@/lib/spots";
 import { NowStrip } from "./NowStrip";
 import { HotSpotCard } from "./HotSpots";
 import { FlashOfferCard, SponsoredSpot, getBiz } from "./Local";
@@ -24,8 +30,10 @@ import stagePhoto from "@/assets/spotly-live-stage.jpg";
 import lauraPhoto from "@/assets/spotly-laura.jpg";
 import festivalPhoto from "@/assets/spotly-sevilla-festival.jpg";
 import beachPhoto from "@/assets/spotly-beach-club.jpg";
+import sevilleNightPhoto from "@/assets/seville-night.jpg";
 
-export type MineSpot = { boosted: boolean; incognito: boolean; text: string; visibility: string } | null;
+/** Último Spot que acabas de publicar (Inicio vuelve arriba para enseñártelo). */
+export type MineSpot = MySpot | null;
 
 /* ---------- Stories ---------- */
 const storyPeople = [
@@ -42,7 +50,7 @@ function StoryViewer({ stories, startIndex, onClose }: { stories: typeof storyPe
   const [progress, setProgress] = useState(0);
   const [paused, setPaused] = useState(false);
   const [liked, setLiked] = useState<boolean[]>(stories.map(() => false));
-  const [recording, setRecording] = useState(false);
+  const [reply, setReply] = useState(false);
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number | null>(null);
   const DURATION = 5000;
@@ -54,7 +62,7 @@ function StoryViewer({ stories, startIndex, onClose }: { stories: typeof storyPe
   };
 
   useEffect(() => {
-    if (paused) { if (rafRef.current) cancelAnimationFrame(rafRef.current); return; }
+    if (paused || reply) { if (rafRef.current) cancelAnimationFrame(rafRef.current); return; }
     const tick = (now: number) => {
       if (!startRef.current) startRef.current = now;
       const p = Math.min((now - startRef.current) / DURATION, 1);
@@ -64,7 +72,7 @@ function StoryViewer({ stories, startIndex, onClose }: { stories: typeof storyPe
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [idx, paused]);
+  }, [idx, paused, reply]);
 
   const s = stories[idx]!;
   return (
@@ -101,8 +109,8 @@ function StoryViewer({ stories, startIndex, onClose }: { stories: typeof storyPe
           <Heart size={28} className={liked[idx] ? "text-accent" : "text-white"} fill={liked[idx] ? "currentColor" : "none"} />
           <span className="text-xs font-bold text-white">{liked[idx] ? 128 : 127}</span>
         </button>
-        <button onClick={() => { setRecording(r => !r); toast(recording ? "Respuesta enviada" : "Grabando…"); }} className="flex flex-col items-center gap-1">
-          <Mic size={26} className={recording ? "text-live" : "text-white"} />
+        <button onClick={(e) => { e.stopPropagation(); setReply(true); }} aria-label={`Responder a la historia de ${s.name} con tu voz`} className="flex flex-col items-center gap-1">
+          <Mic size={26} className="text-white" />
           <span className="text-xs font-bold text-white">Voz</span>
         </button>
         <button onClick={() => toast.success("Enlace copiado")} className="flex flex-col items-center gap-1">
@@ -118,15 +126,16 @@ function StoryViewer({ stories, startIndex, onClose }: { stories: typeof storyPe
       </div>
       {/* Footer respuesta voz */}
       <div className="absolute inset-x-0 bottom-0 flex items-center gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3" style={{ zIndex: 3 }}>
-        <button onClick={() => { setRecording(r => !r); toast(recording ? "Respuesta enviada" : "Grabando…"); }}
+        <button onClick={(e) => { e.stopPropagation(); setReply(true); }} aria-label={`Responder a la historia de ${s.name} con tu voz`}
           className="grid h-12 w-12 shrink-0 place-items-center rounded-full shadow-glow"
-          style={{ background: recording ? "#ef4444" : "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
+          style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
           <Mic size={22} className="text-white" />
         </button>
-        <div className="flex-1 rounded-full border border-white/30 bg-white/10 px-4 py-2.5 text-sm backdrop-blur-sm" style={{ color: recording ? "white" : "rgba(255,255,255,0.5)" }}>
-          {recording ? <span className="animate-pulse">Grabando…</span> : "Responde con tu voz…"}
-        </div>
+        <button onClick={(e) => { e.stopPropagation(); setReply(true); }} className="flex-1 rounded-full border border-white/30 bg-white/10 px-4 py-2.5 text-left text-sm text-white/60 backdrop-blur-sm">
+          Responde con tu voz…
+        </button>
       </div>
+      {reply && <div onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}><VoiceReply name={s.name} mode="message" onClose={() => setReply(false)} /></div>}
     </div>
   );
 }
@@ -267,7 +276,8 @@ function ShareSheet({ s, onClose }: { s: SpotData; onClose: () => void }) {
   </BottomSheet>;
 }
 
-type SpotData = { id: string; name: string; handle?: string; city: string; province?: string; ago: string; img: string; tag: string; tagLive?: boolean; dist: string; text: string; dur: string; likes: number; replies?: number; shares?: number; hashtag?: string; tags?: string[]; verified?: boolean; boosted?: boolean; incognito?: boolean; own?: boolean };
+type SpotData = { id: string; name: string; handle?: string; city: string; province?: string; ago: string; img: string; tag: string; tagLive?: boolean; dist: string; text: string; dur: string; likes: number; replies?: number; shares?: number; hashtag?: string; tags?: string[]; verified?: boolean; boosted?: boolean; incognito?: boolean; own?: boolean;
+  /** Audio real (tus Spots); los de ejemplo no tienen. */ audio?: MySpot["audio"] | undefined; /** Vídeo real de tu Spot. */ video?: string | undefined };
 const spots: Record<string, SpotData> = {
   laura: { id: "laura", name: "Lucíaa", handle: "luciaa", city: "Marbella", province: "Málaga", ago: "Ahora", img: sevilleEvening, tag: "Está pasando", tagLive: true, dist: "320 m", text: "Chicos  no vais a creer con quién me he encontrado esta noche en Marbella... 👀🔥", dur: "0:14", likes: 1200, replies: 342, shares: 87, hashtag: "Cotilleo", tags: ["Marbella", "Vida nocturna", "Famosos"], verified: true },
   andrea: { id: "andrea", name: "andreaa.s", handle: "andreaas", city: "Madrid", province: "Madrid", ago: "12 min", img: stagePhoto, tag: "En directo", tagLive: true, dist: "2,1 km", text: "Lo que está pasando ahora mismo en Gran Vía… nadie se lo espera 😱", dur: "0:22", likes: 890, replies: 211, shares: 45, hashtag: "Madrid", tags: ["Madrid", "Centro", "Sorpresa"], verified: true },
@@ -291,7 +301,7 @@ function SpotMenu({ s, onClose, onStatus }: { s: SpotData; onClose: () => void; 
       {s.own ? <>
         <button className={row} onClick={() => { onClose(); app.open("impulso"); }}>Impulsar este Spot</button>
         <button className={row} onClick={copy}>Copiar enlace</button>
-        <button className={row + " text-live"} onClick={() => { onStatus("deleted"); toast("Spot eliminado"); onClose(); }}>Eliminar Spot</button>
+        <button className={row + " text-live"} onClick={() => { onStatus("deleted"); deleteSpot(s.id); toast("Spot eliminado"); onClose(); }}>Eliminar Spot</button>
       </> : <>
         {!s.incognito && <button className={row} onClick={() => { toggleFollow(s.name); toast(follows ? `Has dejado de seguir a ${s.name}` : `Ahora sigues a ${s.name}`); onClose(); }}>{follows ? "Dejar de seguir" : "Seguir al autor"}</button>}
         <button className={row} onClick={() => { onStatus("hidden"); toast("Verás menos Spots así", { action: { label: "Deshacer", onClick: () => onStatus("ok") } }); onClose(); }}>No me interesa</button>
@@ -308,10 +318,9 @@ function SpotMenu({ s, onClose, onStatus }: { s: SpotData; onClose: () => void; 
 }
 
 export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean }) {
-  const { blocked } = useStore();
+  const { blocked, demo } = useStore();
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [playing, setPlaying] = useState(false);
   const [reply, setReply] = useState(false);
   const [share, setShare] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -323,6 +332,14 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
   const blockKey = s.incognito ? "Incógnito #4821" : s.name;
   /* Nombre que se ve en el audio: el tuyo en tus Spots; «Anónimo» (con fantasma) solo con Incógnito de pago. */
   const who = s.incognito ? "Anónimo" : s.own ? me.name : s.name;
+  /* Audio del Spot en el reproductor único (solo uno suena a la vez) y su conversación de voz. */
+  const key = spotKeyOf(s);
+  const audioId = `spot-audio:${key}`;
+  const pb = useVoicePlayback(audioId);
+  const myReplies = useThread(`spot:${key}`).length;
+  const peaks = useMemo(() => s.audio?.peaks ?? seededPeaks(key, 40), [s.audio, key]);
+  const totalMs = s.audio?.durationMs ?? clockToMs(s.dur);
+  const play = () => { if (!s.audio) { toast("Spot de ejemplo: no tiene audio. Los Spots grabados con tu voz se escuchan aquí."); return; } toggleVoice(audioId, s.audio.src, s.audio.durationMs); };
   if (status === "hidden") return null;
   if (status === "deleted") return <ContentState kind="deleted" who={s.name} />;
   if (status === "reported") return <ContentState kind="reported" who={s.name} onUndo={() => setStatus("ok")} />;
@@ -350,11 +367,18 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
     </article>;
   }
 
-  /* Card principal TikTok-style */
-  return <article className="relative overflow-hidden rounded-none bg-black" style={{ minHeight: "calc(100svh - 8rem)" }}>
+  /* Card principal TikTok-style: llena la página del feed (h-full) — la foto ocupa todo el alto libre y la zona del
+     audio queda pegada abajo, así todas las tarjetas terminan en el mismo sitio en cualquier móvil. */
+  return <article className="relative flex h-full flex-col overflow-hidden rounded-none bg-black">
     {/* Foto fullscreen */}
-    <div className="relative w-full" style={{ aspectRatio: "9/14", maxHeight: "68vh" }} onClick={() => setDetail(true)}>
-      <img src={s.img} alt={s.text} className="h-full w-full cursor-pointer object-cover" loading="lazy" />
+    <div className="spot-card-media relative min-h-0 w-full flex-1" onClick={() => setDetail(true)}>
+      {s.video
+        ? <video src={s.video} autoPlay muted loop playsInline aria-label={s.text} className="absolute inset-0 h-full w-full cursor-pointer object-cover" />
+        : s.img
+          ? <img src={s.img} alt={s.text} className="absolute inset-0 h-full w-full cursor-pointer object-cover" loading="lazy" />
+          : <div className="absolute inset-0 grid cursor-pointer place-items-center bg-spot-surface" aria-label={`Spot de voz: ${s.text}`}>
+              <div className="flex h-2/5 w-4/5 items-center justify-between gap-1" aria-hidden="true">{peaks.map((h, i) => <span key={i} className="w-1.5 rounded-full bg-spot-gradient opacity-90" style={{ height: `${Math.round(h * 100)}%` }} />)}</div>
+            </div>}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
 
       {/* Header autor — arriba izquierda */}
@@ -371,6 +395,8 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
           </p>
           <p className="flex items-center gap-1 text-2xs text-white/75">
             <MapPin size={10} className="shrink-0" />{s.city}{s.province ? `, ${s.province}` : ""} · {s.ago}
+            {/* Con una cuenta real, el contenido de muestra se rotula hasta que llegue el de la comunidad. */}
+            {!s.own && !demo && <span className="ml-1 rounded-full border border-white/40 px-1.5 text-4xs">ejemplo</span>}
           </p>
           {s.tagLive && <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-black/50 px-2.5 py-0.5 text-3xs font-bold text-white backdrop-blur-sm" style={{ border: "1px solid rgba(255,255,255,0.25)" }}>
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#a855f7]" />Está pasando
@@ -387,7 +413,7 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
       </button>
 
       {/* Acciones laterales — derecha centro-abajo */}
-      <div className="absolute bottom-24 right-3 flex flex-col items-center gap-5" style={{ zIndex: 2 }}>
+      <div className="spot-card-actions absolute bottom-3 right-3 flex flex-col items-center gap-5" style={{ zIndex: 2 }}>
         <button onClick={(e) => { e.stopPropagation(); setLiked(!liked); }} className="flex flex-col items-center gap-0.5">
           <Heart size={30} className={liked ? "text-[#ef4444]" : "text-white"} fill={liked ? "currentColor" : "none"} style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.7))" }} />
           <span className="text-2xs font-bold text-white drop-shadow">{fmt(s.likes + (liked ? 1 : 0))}</span>
@@ -396,7 +422,7 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
           <div className="grid h-[2.125rem] w-[2.125rem] place-items-center rounded-full border-2 border-white/80 bg-black/30 backdrop-blur-sm">
             <Mic size={17} className="text-white" />
           </div>
-          <span className="text-2xs font-bold text-white drop-shadow">{fmt(s.replies ?? 0)}</span>
+          <span className="text-2xs font-bold text-white drop-shadow">{fmt((s.replies ?? 0) + myReplies)}</span>
         </button>
         <button onClick={(e) => { e.stopPropagation(); setShare(true); }} className="flex flex-col items-center gap-0.5">
           <div className="grid h-[2.125rem] w-[2.125rem] place-items-center">
@@ -412,36 +438,36 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
     </div>
 
     {/* Zona inferior: player + texto + tags */}
-    <div className="bg-black px-3 pb-3 pt-2">
+    <div className="shrink-0 bg-black px-3 pb-2.5 pt-2">
       {/* Player de audio oscuro */}
       <div className="flex items-center gap-3 rounded-full px-3 py-1.5" style={{ background: "rgba(20,20,40,0.9)", border: "1px solid rgba(255,255,255,0.12)" }}>
-        <button onClick={() => setPlaying(!playing)} aria-label={playing ? "Pausar" : "Reproducir"} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white">
-          {playing ? <Pause size={14} fill="#0f0f1e" className="text-[#0f0f1e]" /> : <Play size={14} fill="#0f0f1e" className="ml-0.5 text-[#0f0f1e]" />}
+        <button onClick={play} aria-label={pb.playing ? `Pausar el audio de ${who}` : `Escuchar el audio de ${who}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white">
+          {pb.playing ? <Pause size={14} fill="#0f0f1e" className="text-[#0f0f1e]" /> : <Play size={14} fill="#0f0f1e" className="ml-0.5 text-[#0f0f1e]" />}
         </button>
-        <Wave active={playing} />
-        <span className="shrink-0 text-xs font-medium text-white/70">{s.dur}</span>
+        <VoiceWave peaks={peaks} progress={pb.active && totalMs ? pb.positionMs / totalMs : 0} playhead={pb.active} className="h-7 flex-1" label={`Audio de ${who}`} onSeek={s.audio ? (r) => { const a = s.audio!; if (pb.active) seekVoice(audioId, r * a.durationMs); else playVoice(audioId, a.src, a.durationMs, r * a.durationMs); } : undefined} />
+        <span className="shrink-0 text-xs font-medium tabular-nums text-white/70">{pb.active ? formatClock(pb.positionMs) : s.dur}</span>
         <button onClick={() => setReply(true)} className="shrink-0 flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-white" style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
           <Mic size={12} className="text-white" />Voz
         </button>
       </div>
 
-      {/* Texto del spot */}
-      <p className="mt-2 text-sm leading-snug text-white">{s.text}</p>
+      {/* Título del spot (lo único escrito: todo lo demás es voz) */}
+      <p className="mt-2 line-clamp-2 text-sm leading-snug text-white">{s.text}</p>
 
-      {/* Tags */}
-      <div className="mt-2 flex flex-wrap gap-2">
+      {/* Tags: una sola línea para que todas las tarjetas midan lo mismo */}
+      <div className="mt-2 flex gap-2 overflow-hidden">
         {(s.tags ?? [s.city]).map((t) => (
-          <span key={t} className="flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-2xs text-white/80 backdrop-blur-sm">
+          <span key={t} className="flex shrink-0 items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-2xs text-white/80 backdrop-blur-sm">
             {t === s.city || t === (s.province ?? "") ? <MapPin size={9} className="shrink-0" /> : t.includes("nocturna") || t.includes("Fiesta") ? <span className="text-4xs">🍸</span> : <span className="text-4xs">👤</span>}{t}
           </span>
         ))}
       </div>
 
       {/* Desliza hint */}
-      <p className="mt-3 text-center text-2xs text-white/40">Desliza para ver el siguiente cotilleo <span className="text-white/60">↓</span></p>
+      <p className="mt-2 text-center text-2xs text-white/40">Desliza para ver el siguiente cotilleo <span className="text-white/60">↓</span></p>
     </div>
 
-    {reply && <VoiceReply name={who} onClose={() => setReply(false)} />}
+    {reply && <VoiceReply name={who} threadId={`spot:${key}`} target={{ name: who, author: { name: s.name, avatar: s.img || undefined, anon: s.incognito, mine: s.own }, atMs: pb.active ? pb.positionMs : 0, durationMs: totalMs }} onClose={() => setReply(false)} />}
     {share && <ShareSheet s={s} onClose={() => setShare(false)} />}
     {menu && <SpotMenu s={s} onClose={() => setMenu(false)} onStatus={setStatus} />}
     {detail && <SpotDetail s={s} onClose={() => setDetail(false)} onAuthor={() => setAuthor(true)} />}
@@ -449,7 +475,11 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
   </article>;
 }
 
-const mineData = (m: NonNullable<MineSpot>, name = "Tú"): SpotData => ({ id: "mine", name, city: "Sevilla", province: "Sevilla", ago: "Ahora", img: valenciaSunset, tag: "En directo", tagLive: true, dist: "Aquí", text: m.text, dur: "0:12", likes: 0, replies: 0, shares: 0, hashtag: "Cotilleo", tags: ["Sevilla"], boosted: m.boosted, incognito: m.incognito, own: true });
+/** Etiqueta del Spot según su tema. */
+const TOPIC_TAG: Record<string, string> = { "¿Qué está pasando?": "Cotilleo", Planes: "Planes", Música: "Música", Comida: "Comida", Opiniones: "Opinión", "Algo que contar": "Historia" };
+const agoOf = (t: number) => { const m = Math.max(0, Math.round((Date.now() - t) / 60000)); return m < 1 ? "Ahora" : m < 60 ? `${m} min` : m < 1440 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} d`; };
+/** Tu Spot en el formato del feed: título, voz real y tu foto o vídeo (sin foto, la tarjeta pinta tu onda). */
+const mineData = (m: MySpot, name = "Tú"): SpotData => ({ id: m.id, name, city: m.city, ago: agoOf(m.createdAt), img: m.media?.kind === "photo" ? m.media.src : "", video: m.media?.kind === "video" ? m.media.src : undefined, tag: m.happeningNow ? "Está pasando" : "Tuyo", tagLive: m.happeningNow, dist: "Aquí", text: m.title, dur: formatClock(m.audio.durationMs), likes: 0, replies: 0, shares: 0, hashtag: TOPIC_TAG[m.topic] ?? "Spot", tags: [m.city, m.zone].filter((x, i, a) => x && a.indexOf(x) === i), boosted: m.boosted, incognito: m.anon, own: true, audio: m.audio });
 
 /* Tabs de feed con iconos estilo diseño */
 const TAB_ICONS: Record<string, ReactNode> = {
@@ -472,7 +502,8 @@ export function HomeView({ mine, onBell }: { mine: MineSpot; onBell: () => void 
     setPhase("loading");
     window.setTimeout(() => setPhase("ok"), 350);
   };
-  const mineCard = mine ? <SpotCard key="mine" s={mineData(mine, me.name)} /> : null;
+  /* Tus Spots publicados (guardados con su voz) van primero en Todo, Cerca y España. */
+  const mySpots = useMySpots();
   const carmenOn = !!bizCampaign && now > 0 && campaignEligible(bizCampaign, getBiz("carmen").distM, new Date(now));
   const sponsor = <SponsoredSpot key="sp" b={getBiz(carmenOn ? "carmen" : "trinche")} />;
 
@@ -485,12 +516,26 @@ export function HomeView({ mine, onBell }: { mine: MineSpot; onBell: () => void 
   };
 
   const spotItems = spotLists[filter];
-  const allCards: SpotData[] = mine ? [mineData(mine, me.name), ...spotItems] : spotItems;
+  const allCards: SpotData[] = filter === "Suscrito" ? spotItems : [...mySpots.map((m) => mineData(m, me.name)), ...spotItems];
   const empty = filter === "Suscrito" && allCards.length === 0;
+
+  /* Feed a pantalla completa: mientras Inicio está abierto el documento encaja por páginas y la cabecera fija
+     publica su alto real, que las páginas restan para terminar justo encima de la barra inferior. */
+  const headerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const root = document.documentElement;
+    const el = headerRef.current;
+    const apply = () => { if (el) root.style.setProperty("--home-header-h", `${el.offsetHeight}px`); };
+    apply();
+    root.classList.add("spot-feed-snap");
+    const ro = el && typeof ResizeObserver !== "undefined" ? new ResizeObserver(apply) : null;
+    if (ro && el) ro.observe(el);
+    return () => { ro?.disconnect(); root.classList.remove("spot-feed-snap"); root.style.removeProperty("--home-header-h"); };
+  }, []);
 
   return <>
     {/* ── HEADER fijo ── */}
-    <header className="sticky top-0 z-20 bg-background/95 px-3 pb-2 pt-[var(--safe-header)] backdrop-blur-md">
+    <header ref={headerRef} className="sticky top-0 z-20 bg-background/95 px-3 pb-2 pt-[var(--safe-header)] backdrop-blur-md">
       <div className="grid grid-cols-[1fr_auto_1fr] items-center">
         <div className="flex min-w-0">
           <Button variant="ghost" size="icon" aria-label="Tu ubicación" onClick={() => toast("Ubicación: Sevilla, España")}><MapPin size={19} /></Button>
@@ -516,56 +561,68 @@ export function HomeView({ mine, onBell }: { mine: MineSpot; onBell: () => void 
     </header>
 
     {/* ── MAIN ── */}
-    <main className="pb-[calc(8rem+env(safe-area-inset-bottom))] pt-1">
-      {/* Historias */}
-      <div className="pt-1 pb-3">
-        <StoriesStrip onOpenCreate={() => app.create()} />
+    <main className="pb-[calc(var(--nav-h)+1rem)] pt-1">
+      {/* Arriba: historias y «Ahora en Spotly» (primera parada del desplazamiento) */}
+      <div className="spot-feed-snap-start pb-3">
+        <div className="pt-1 pb-3">
+          <StoriesStrip onOpenCreate={() => app.create()} />
+        </div>
+        <NowStrip />
+        <IncognitoExpiredNote />
       </div>
 
-      <NowStrip />
-      <IncognitoExpiredNote />
-
       {phase === "loading" && (
-        <div className="space-y-1 bg-black" aria-busy="true">
-          <Skeleton className="h-[68vh] rounded-none" />
-          <Skeleton className="mx-3 h-24 rounded-2xl" />
+        <div className="spot-feed-page bg-black" aria-busy="true">
+          <Skeleton className="h-full rounded-none" />
         </div>
       )}
       {phase === "error" && (
-        <div className="px-3">
+        <div className="spot-feed-page grid place-items-center px-3">
           <StateCard icon={WifiOff} tone="muted" title="No se pudo cargar el feed" text="Sin conexión." action="Reintentar" onAction={() => { if (offline) toast.error("Sigues sin conexión"); else load(filter); }} />
         </div>
       )}
       {phase === "ok" && (empty ? (
-        <div className="mx-3 rounded-2xl border border-dashed border-border p-8 text-center">
-          <Bell className="mx-auto text-primary" size={36} />
-          <h3 className="mt-3 font-bold">Aún no sigues a nadie</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Descubre personas cerca de ti.</p>
-          <Button className="mt-5" onClick={() => app.open("personas")}>Descubrir personas</Button>
+        <div className="spot-feed-page grid place-items-center px-3">
+          <div className="w-full rounded-2xl border border-dashed border-border p-8 text-center">
+            <Bell className="mx-auto text-primary" size={36} />
+            <h3 className="mt-3 font-bold">Aún no sigues a nadie</h3>
+            <p className="mt-1 text-sm text-muted-foreground">Descubre personas cerca de ti.</p>
+            <Button className="mt-5" onClick={() => app.open("personas")}>Descubrir personas</Button>
+          </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-0">
-          {allCards.map((s, i) => {
-            const isLast = i === allCards.length - 1;
-            return (
-              <div key={s.id + i}>
-                <SpotCard s={s} />
-                {/* Sponsor después del primer spot */}
-                {i === 0 && sponsor}
-                {/* HotSpot card cada 3 spots */}
-                {i === 2 && <div className="my-2 px-3"><HotSpotCard h={hotspots[0]!} /></div>}
-                {i === 4 && <div className="my-2"><IncognitoSpotCard /></div>}
-              </div>
-            );
-          })}
-          <PeopleStrip />
-          <FlashOfferCard />
-          <p className="px-6 pb-2 pt-4 text-center text-2xs text-muted-foreground">
-            <Flame size={12} className="mr-1 inline text-live" />Lo pagado se etiqueta "Impulsado" o "Patrocinado".
-            <button onClick={() => load(filter)} className="ml-2 inline-flex items-center gap-1 text-primary"><RefreshCw size={11} />Actualizar</button>
-          </p>
-        </div>
+        <>
+          {allCards.map((s, i) => (
+            <Fragment key={s.id + i}>
+              {/* Una página = un Spot: ocupa toda la pantalla y encaja al deslizar */}
+              <section className="spot-feed-page" aria-label={`Spot de ${s.incognito ? "Anónimo" : s.own ? me.name : s.name}`}><SpotCard s={s} /></section>
+              {/* Lo patrocinado y los Hot Spots también ocupan su propia página, sobre su foto difuminada */}
+              {i === 0 && <FeedInsert img={getBiz(carmenOn ? "carmen" : "trinche").img}>{sponsor}</FeedInsert>}
+              {i === 2 && <FeedInsert img={hotspots[0]!.img}><HotSpotCard h={hotspots[0]!} /></FeedInsert>}
+              {i === 4 && <FeedInsert img={sevilleNightPhoto}><IncognitoSpotCard /></FeedInsert>}
+            </Fragment>
+          ))}
+          <div className="spot-feed-snap-start pt-3">
+            <PeopleStrip />
+            <FlashOfferCard />
+            <p className="px-6 pb-2 pt-4 text-center text-2xs text-muted-foreground">
+              <Flame size={12} className="mr-1 inline text-live" />Lo pagado se etiqueta "Impulsado" o "Patrocinado".
+              <button onClick={() => load(filter)} className="ml-2 inline-flex items-center gap-1 text-primary"><RefreshCw size={11} />Actualizar</button>
+            </p>
+          </div>
+        </>
       ))}
     </main>
   </>;
+}
+
+/** Página del feed para tarjetas que no son un Spot (patrocinado, Hot Spot, incógnito): centradas sobre su propia foto. */
+function FeedInsert({ img, children }: { img: string; children: ReactNode }) {
+  return (
+    <section className="spot-feed-page relative grid place-items-center overflow-hidden bg-black">
+      <img src={img} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl" />
+      <div className="absolute inset-0 bg-background/45" />
+      <div className="relative max-h-full w-full overflow-y-auto py-3">{children}</div>
+    </section>
+  );
 }

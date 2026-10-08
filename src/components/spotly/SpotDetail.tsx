@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { ChevronLeft, Bookmark, Check, ChevronRight, Heart, ListMusic, MapPin, Mic, MoreHorizontal, Pause, Play, RotateCcw, RotateCw, Share2, UserPlus, X, AlignJustify, Music, Map, Flag, BellOff, Navigation } from "lucide-react";
 import { toast } from "sonner";
 import { NewFollowers } from "./LocalAd";
@@ -8,6 +8,11 @@ import { MediaViewer } from "./MediaViewer";
 import { sampleMedia } from "@/lib/media";
 import { addReport, toggleFollow, useStore, useMe } from "@/lib/store";
 import { VoiceReply } from "./Voice";
+import { TalkBar, VoiceComposer, VoiceItem, VoiceThread, type ReplyTarget } from "./VoiceThread";
+import { addVoiceNote, clockToMs, useThread } from "@/lib/voice/notes";
+import { sampleThread, type SampleVoice } from "@/lib/voice/samples";
+import { formatClock } from "@/lib/voice/recorder";
+import { playVoiceQueue, seekVoice, toggleVoice, useVoicePlayback } from "@/lib/voice/player";
 import { AnonAvatar, MeAvatar } from "./Author";
 import { Button } from "@/components/ui/button";
 import festival from "@/assets/spotly-sevilla-festival.jpg";
@@ -36,21 +41,20 @@ function ColorWave({ active, big = false }: { active: boolean; big?: boolean }) 
   );
 }
 
-/* ── Datos de muestra ── */
-const AUDIO_COMMENTS = [
-  { id: "c1", name: "Carlos",  img: stage,     ago: "Hace 1 h", dur: "0:12", likes: 16, text: "Qué ambiente más increíble 😄" },
-  { id: "c2", name: "María",   img: lauraPhoto, ago: "Hace 1 h", dur: "0:08", likes: 8,  text: "Se nota la magia de Sevilla..." },
-  { id: "c3", name: "Javi",    img: festival,   ago: "Hace 2 h", dur: "0:20", likes: 12, text: "Ese sonido me trae muchos recuerdos ❤️" },
-  { id: "c4", name: "Ana",     img: beach,      ago: "Hace 2 h", dur: "0:15", likes: 5,  text: "Precioso... parece que estoy allí 🎉" },
-  { id: "c5", name: "Lucía",   img: lauraPhoto, ago: "Hace 2 h", dur: "0:10", likes: 7,  text: "Qué ganas de volver a Triana!" },
-  { id: "c6", name: "David",   img: stage,      ago: "Hace 2 h", dur: "0:18", likes: 9,  text: "La mejor ciudad del mundo 🔥" },
-  { id: "c7", name: "Elena",   img: beach,      ago: "Hace 3 h", dur: "0:09", likes: 4,  text: "Ambiente único, se vive de otra forma." },
+/* ── Datos de muestra: comentarios de voz de ejemplo (sin audio) con alguna respuesta encadenada ── */
+const SAMPLE_COMMENTS: SampleVoice[] = [
+  { key: "c1", name: "Carlos", img: stage, minsAgo: 64, dur: "0:12", likes: 16, verified: true },
+  { key: "c2", name: "María", img: lauraPhoto, minsAgo: 58, dur: "0:08", likes: 8, replyTo: "c1", replyAt: "0:05" },
+  { key: "c3", name: "Javi", img: festival, minsAgo: 121, dur: "0:20", likes: 12 },
+  { key: "c4", name: "Ana", img: beach, minsAgo: 125, dur: "0:15", likes: 5, replyTo: "c3", replyAt: "0:11" },
+  { key: "c5", name: "Lucía", img: lauraPhoto, minsAgo: 130, dur: "0:10", likes: 7, verified: true },
+  { key: "c6", name: "David", img: stage, minsAgo: 140, dur: "0:18", likes: 9 },
+  { key: "c7", name: "Elena", img: beach, minsAgo: 185, dur: "0:09", likes: 4 },
 ];
-const MORE_COMMENTS = [
-  { id: "c8",  name: "Pablo",  img: festival,   ago: "Hace 3 h", dur: "0:14", likes: 3, text: "Mañana me paso por allí 🙌" },
-  { id: "c9",  name: "Irene",  img: lauraPhoto, ago: "Hace 4 h", dur: "0:11", likes: 6, text: "Qué bonito se escucha desde el puente" },
-  { id: "c10", name: "Sergio", img: stage,      ago: "Hace 5 h", dur: "0:22", likes: 2, text: "¿Hasta qué hora dura esto?" },
-];
+/** Comentarios de voz de ejemplo de un Spot (ids propias de ese Spot para que los me gusta no se mezclen). */
+export const spotCommentSeed = (spotKey: string) => sampleThread(`spot:${spotKey}`, SAMPLE_COMMENTS);
+/** Clave estable de un Spot para su conversación de voz. */
+export const spotKeyOf = (s: { id?: string | undefined; text: string }) => s.id ?? s.text.toLowerCase().replace(/[^a-z0-9áéíóúñü]+/gi, "-").slice(0, 40);
 const EXTRA_TAGS = [["🌙", "Noche"], ["🎶", "Música en vivo"], ["📍", "Plan cerca"]];
 const copyLink = async (path: string) => {
   const url = `https://spotly.app/${path}`;
@@ -74,39 +78,6 @@ const ALSO_LISTENED = [
   { name: "Javi",   img: festival },
   { name: "Lucía",  img: lauraPhoto },
 ];
-
-/* ── Fila comentario de audio: siempre con el nombre de quien habla (o «Anónimo» con Incógnito de pago) ── */
-type AudioComment = { id: string; name: string; img?: string; ago: string; dur: string; likes: number; text: string; anon?: boolean; mine?: boolean };
-function AudioCommentRow({ c, playing, onPlay, onMore }: { c: AudioComment; playing: boolean; onPlay: () => void; onMore: () => void }) {
-  const me = useMe();
-  const [liked, setLiked] = useState(false);
-  const who = c.anon ? "Anónimo" : c.mine ? me.name : c.name;
-  return (
-    <div className="flex items-start gap-3 py-3 border-b border-border/40 last:border-0">
-      {c.anon ? <AnonAvatar className="h-10 w-10" /> : c.mine ? <MeAvatar className="h-10 w-10 text-sm" /> : <img src={c.img} alt={c.name} className="h-10 w-10 shrink-0 rounded-full object-cover" />}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1">
-          <span className="min-w-0 truncate text-sm font-semibold">{who}</span>{c.mine && <span className="shrink-0 rounded-full bg-primary/15 px-1.5 text-4xs font-bold text-primary">TÚ</span>}
-          <span className="text-xs text-muted-foreground">· {c.ago}</span>
-          <button onClick={onMore} aria-label={`Opciones del comentario de ${c.name}`} className="ml-auto grid h-8 w-8 place-items-center rounded-full text-muted-foreground"><MoreHorizontal size={15} /></button>
-        </div>
-        {/* player pill */}
-        <div className="mt-1.5 flex items-center gap-2 rounded-full bg-[#1a1a2e] px-2 py-1.5">
-          <button onClick={onPlay} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary" aria-label="Reproducir">
-            {playing ? <Pause size={13} fill="white" className="text-white" /> : <Play size={13} fill="white" className="text-white" />}
-          </button>
-          <ColorWave active={playing} />
-          <span className="pr-1 text-xs text-muted-foreground">{c.dur}</span>
-        </div>
-        <p className="mt-1.5 text-xs text-muted-foreground leading-snug">{c.text}</p>
-      </div>
-      <button onClick={() => setLiked(l => !l)} className={`flex shrink-0 flex-col items-center gap-0.5 pt-7 ${liked ? "text-red-400" : "text-muted-foreground"}`}>
-        <Heart size={14} fill={liked ? "currentColor" : "none"} />
-        <span className="text-3xs">{c.likes + (liked ? 1 : 0)}</span>
-      </button>
-    </div>
-  );
-}
 
 /* ── Sheet de opciones (columna central del mockup) ── */
 function OptionsSheet({ onClose, city, name }: { onClose: () => void; city: string; name: string }) {
@@ -135,66 +106,30 @@ function OptionsSheet({ onClose, city, name }: { onClose: () => void; city: stri
   );
 }
 
-/* ── Panel comentarios (columna derecha del mockup) ── */
-function CommentsPanel({ onClose }: { onClose: () => void }) {
-  const [playing, setPlaying] = useState<string | null>(null);
-  const [replying, setReplying] = useState(false);
-  const [more, setMore] = useState(false);
-  const [menuFor, setMenuFor] = useState<string | null>(null);
-  const [mine, setMine] = useState<AudioComment[]>([]);
-  const me = useMe();
-  const list: AudioComment[] = [...mine, ...(more ? [...AUDIO_COMMENTS, ...MORE_COMMENTS] : AUDIO_COMMENTS)];
+/* ── Panel de comentarios de voz: el hilo del Spot con respuestas encadenadas, solo voz ── */
+function CommentsPanel({ spotKey, root, onClose }: { spotKey: string; root: ReplyTarget; onClose: () => void }) {
+  const threadId = `spot:${spotKey}`;
+  const seed = useMemo(() => spotCommentSeed(spotKey), [spotKey]);
+  const notes = useThread(threadId, seed);
+  const [talk, setTalk] = useState(false);
+  const [fresh, setFresh] = useState<string | null>(null);
   return (
     <div className="fixed inset-0 z-[70]" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
-      <div className="absolute inset-x-0 bottom-0 h-[90vh] rounded-t-3xl bg-card flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-        {/* handle */}
-        <div className="flex justify-center pt-2.5 shrink-0"><div className="h-1 w-10 rounded-full bg-border" /></div>
-        {/* header */}
-        <div className="flex items-center justify-between px-4 py-3 shrink-0">
-          <span className="text-base font-bold">Comentarios de audio <span className="ml-1 font-normal text-muted-foreground">{24 + mine.length}</span></span>
+      <div className="absolute inset-x-0 bottom-0 mx-auto flex h-[90vh] max-w-[520px] flex-col overflow-hidden rounded-t-3xl bg-background" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Comentarios de voz">
+        <div className="flex shrink-0 justify-center pt-2.5"><div className="h-1 w-10 rounded-full bg-border" /></div>
+        <div className="flex shrink-0 items-center justify-between px-4 py-3">
+          <span className="text-base font-bold">Comentarios de voz <span className="ml-1 font-normal text-muted-foreground">{notes.length}</span></span>
           <button onClick={onClose} aria-label="Cerrar comentarios" className="grid h-9 w-9 place-items-center rounded-full"><X size={20} /></button>
         </div>
-        {/* lista */}
-        <div className="flex-1 overflow-y-auto px-4 min-h-0">
-          {list.map(c => (
-            <AudioCommentRow key={c.id} c={c} playing={playing === c.id} onPlay={() => setPlaying(playing === c.id ? null : c.id)} onMore={() => setMenuFor(c.anon ? "Anónimo" : c.mine ? me.name : c.name)} />
-          ))}
-          {/* escuchar más */}
-          {!more && <button onClick={() => setMore(true)} className="flex w-full items-center justify-center gap-2 rounded-full border border-border py-3 my-3 text-sm text-muted-foreground">
-            <AlignJustify size={16} className="text-primary" /> Escuchar más comentarios
-          </button>}
-          {/* mini-playlist */}
-          <div className="rounded-2xl bg-secondary/50 p-3 mb-4">
-            <p className="text-xs font-semibold mb-2.5 text-muted-foreground">Reproduciendo todos los audios (12)</p>
-            {MORE_SPOTS.map((sp, i) => (
-              <div key={sp.title} className="flex items-center gap-3 py-1.5">
-                <img src={sp.img} alt="" className="h-10 w-10 rounded-lg object-cover shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">{sp.title}</p>
-                  <p className="text-3xs text-muted-foreground">{sp.author} · {sp.dur}</p>
-                </div>
-                {i === 0
-                  ? <ColorWave active={true} />
-                  : <AlignJustify size={14} className="text-muted-foreground" />}
-              </div>
-            ))}
-          </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+          <VoiceThread threadId={threadId} seed={seed} root={root} freshId={fresh} emptyText="Aún no hay voces. Sé la primera en comentar este Spot." />
         </div>
-        {/* reply bar */}
-        <div className="shrink-0 border-t border-border flex items-center gap-3 px-4 py-3">
-          <MeAvatar className="h-9 w-9 text-xs" />
-          <button onClick={() => setReplying(true)} className="flex-1 flex items-center gap-2 rounded-full bg-secondary px-4 py-2.5 text-sm text-muted-foreground text-left">
-            <Mic size={15} className="text-primary shrink-0" />Añade un comentario de voz…
-          </button>
+        <div className="shrink-0 border-t border-border bg-card/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+          {talk
+            ? <VoiceComposer autoFocus target={root} onClose={() => setTalk(false)} onSend={(clip, anon) => { const n = addVoiceNote({ threadId, parentId: null, replyAtMs: root.atMs, clip, anon }); setFresh(n.id); setTalk(false); toast.success(anon ? "Voz enviada como «Anónimo»" : "Voz enviada"); }} />
+            : <TalkBar onTalk={() => setTalk(true)} label="Añade un comentario de voz…" />}
         </div>
-        <div className="h-[env(safe-area-inset-bottom,0px)] shrink-0" />
-        {replying && <VoiceReply name="este Spot" onClose={() => setReplying(false)} onSent={({ anon, dur }) => setMine((l) => [{ id: `m${Date.now()}`, name: me.name, ago: "Ahora", dur, likes: 0, text: "Tu comentario de voz (ejemplo, no se guarda)", anon, mine: true }, ...l])} />}
-        {menuFor && <BottomSheet title={`Comentario de ${menuFor}`} onClose={() => setMenuFor(null)} z={80}>
-          <button onClick={() => { setMenuFor(null); setReplying(true); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm hover:bg-secondary"><Mic size={18} className="text-primary" />Responder con tu voz</button>
-          <button onClick={() => { void copyLink(`comentario/${menuFor.toLowerCase()}`); setMenuFor(null); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm hover:bg-secondary"><Share2 size={18} className="text-primary" />Copiar enlace</button>
-          <button onClick={() => { addReport(`Comentario de voz de ${menuFor}`, "Denunciado desde los comentarios"); toast("Gracias. Revisaremos este comentario."); setMenuFor(null); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-live hover:bg-secondary"><Flag size={18} />Denunciar comentario</button>
-        </BottomSheet>}
       </div>
     </div>
   );
@@ -225,7 +160,9 @@ function ListenersSheet({ onClose, onPerson }: { onClose: () => void; onPerson: 
 
 /* ── SpotDetail principal ── */
 /** Datos que necesita el detalle. `incognito`: autor con Incógnito de pago (sale «Anónimo»); `own`: es tu Spot. */
-export type SpotInfo = { name: string; city: string; ago: string; text: string; img: string; dur: string; dist: string; incognito?: boolean | undefined; own?: boolean | undefined };
+export type SpotInfo = { id?: string | undefined; name: string; city: string; ago: string; text: string; img: string; dur: string; dist: string; incognito?: boolean | undefined; own?: boolean | undefined;
+  /** Audio real del Spot (tus Spots grabados con el micrófono); los de ejemplo no tienen. */
+  audio?: { src: string; durationMs: number; peaks: number[] } | undefined };
 
 export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onClose: () => void; onAuthor: () => void }) {
   const app = useApp();
@@ -237,28 +174,33 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
   const [listeners,   setListeners]   = useState(false);
   const [allTags,     setAllTags]     = useState(false);
   const scroller = useRef<HTMLDivElement | null>(null);
-  const openSpot = (next: SpotInfo) => { setSpot(next); setPlaying(false); setProgress(0); scroller.current?.scrollTo({ top: 0 }); };
+  const openSpot = (next: SpotInfo) => { setSpot(next); scroller.current?.scrollTo({ top: 0 }); };
   const toCity = () => { onClose(); app.openPhotoWall(s.city); };
-  const [playing,     setPlaying]     = useState(false);
-  const [progress,    setProgress]    = useState(0);
   const [liked,       setLiked]       = useState(false);
   const [saved,       setSaved]       = useState(false);
   const [replying,    setReplying]    = useState(false);
   const [options,     setOptions]     = useState(false);
   const [comments,    setComments]    = useState(false);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const TOTAL = 58;
-
-  useEffect(() => {
-    if (playing) {
-      timer.current = setInterval(() => setProgress(p => { if (p >= TOTAL) { setPlaying(false); return 0; } return p + 1; }), 1000);
-    } else {
-      if (timer.current) clearInterval(timer.current);
-    }
-    return () => { if (timer.current) clearInterval(timer.current); };
-  }, [playing]);
-
-  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  /* Audio del Spot en el reproductor único: progreso, tiempos y saltos reales. Los Spots de ejemplo no tienen audio. */
+  const spotKey = spotKeyOf(s);
+  const audioId = `spot-audio:${spotKey}`;
+  const pb = useVoicePlayback(audioId);
+  const totalMs = s.audio?.durationMs ?? clockToMs(s.dur);
+  const posMs = pb.active ? pb.positionMs : 0;
+  const ratio = totalMs ? Math.min(1, posMs / totalMs) : 0;
+  const threadId = `spot:${spotKey}`;
+  const seed = useMemo(() => spotCommentSeed(spotKey), [spotKey]);
+  const thread = useThread(threadId, seed);
+  const noAudio = () => toast("Spot de ejemplo: no tiene audio. Los Spots grabados con tu voz se escuchan aquí.");
+  const togglePlay = () => { if (!s.audio) { noAudio(); return; } toggleVoice(audioId, s.audio.src, s.audio.durationMs); };
+  const seekTo = (ms: number) => { if (!s.audio) { noAudio(); return; } if (pb.active) seekVoice(audioId, ms); else toggleVoice(audioId, s.audio.src, s.audio.durationMs); };
+  const playAll = () => {
+    const n = playVoiceQueue([...(s.audio ? [{ id: audioId, src: s.audio.src, durationMs: s.audio.durationMs }] : []), ...thread.map((x) => ({ id: x.id, src: x.src, durationMs: x.durationMs }))]);
+    if (!n) toast("Aquí aún no hay voces con audio. Responde con la tuya y se escuchará en este hilo.");
+    else toast(`Reproduciendo ${n} ${n === 1 ? "audio" : "audios"} seguidos`);
+  };
+  const playing = pb.playing;
+  const root: ReplyTarget = { name: shownName, author: { name: s.name, avatar: s.img, anon, mine: s.own }, atMs: posMs, durationMs: totalMs };
 
   return (
     <div ref={scroller} className="fixed inset-0 z-50 overflow-y-auto bg-background">
@@ -333,7 +275,7 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
           <div className="flex items-center gap-3">
             <ColorWave active={playing} big />
             <button
-              onClick={() => setPlaying(p => !p)}
+              onClick={togglePlay}
               aria-label={playing ? "Pausar" : "Reproducir"}
               className="shrink-0 grid h-[3.75rem] w-[3.75rem] place-items-center rounded-full"
               style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}
@@ -349,37 +291,37 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
           <div className="relative h-1 rounded-full cursor-pointer" style={{ background: "rgba(255,255,255,0.15)" }}
             onClick={e => {
               const rect = e.currentTarget.getBoundingClientRect();
-              setProgress(Math.round(((e.clientX - rect.left) / rect.width) * TOTAL));
+              seekTo(((e.clientX - rect.left) / rect.width) * totalMs);
             }}>
-            <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(progress / TOTAL) * 100}%`, background: "linear-gradient(90deg,#7c3aed,#3b82f6)" }} />
+            <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${ratio * 100}%`, background: "linear-gradient(90deg,#7c3aed,#3b82f6)" }} />
             <div className="absolute top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-white shadow-md"
-              style={{ left: `calc(${(progress / TOTAL) * 100}% - 7px)` }} />
+              style={{ left: `calc(${ratio * 100}% - 7px)` }} />
           </div>
 
           {/* tiempos DEBAJO de la barra */}
           <div className="flex justify-between text-xs px-0.5" style={{ color: "rgba(255,255,255,0.5)" }}>
-            <span>{fmt(progress)}</span>
-            <span>{fmt(TOTAL)}</span>
+            <span>{formatClock(posMs)}</span>
+            <span>{formatClock(totalMs)}</span>
           </div>
 
           {/* ↺15  15↻ */}
           <div className="flex items-center justify-between px-4">
-            <button onClick={() => setProgress(p => Math.max(0, p - 15))} className="flex flex-col items-center" style={{ color: "rgba(255,255,255,0.6)" }} aria-label="Retroceder 15s">
+            <button onClick={() => seekTo(Math.max(0, posMs - 15000))} className="flex flex-col items-center" style={{ color: "rgba(255,255,255,0.6)" }} aria-label="Retroceder 15s">
               <RotateCcw size={22} /><span className="text-4xs -mt-0.5">15</span>
             </button>
-            <button onClick={() => setProgress(p => Math.min(TOTAL, p + 15))} className="flex flex-col items-center" style={{ color: "rgba(255,255,255,0.6)" }} aria-label="Avanzar 15s">
+            <button onClick={() => seekTo(Math.min(totalMs, posMs + 15000))} className="flex flex-col items-center" style={{ color: "rgba(255,255,255,0.6)" }} aria-label="Avanzar 15s">
               <RotateCw size={22} /><span className="text-4xs -mt-0.5">15</span>
             </button>
           </div>
 
           {/* Reproducir todos los audios */}
           <button
-            onClick={() => setPlaying(p => !p)}
+            onClick={playAll}
             className="w-full flex items-center justify-center gap-2.5 rounded-full py-3.5 text-sm font-bold text-white"
             style={{ background: "linear-gradient(90deg,#7c3aed,#3b82f6)" }}
           >
-            {playing ? <Pause size={17} fill="white" /> : <Play size={17} fill="white" />}
-            {playing ? "Pausar todos los audios" : "Reproducir todos los audios"}
+            <Play size={17} fill="white" />
+            Reproducir todos los audios
             <AlignJustify size={17} />
           </button>
         </div>
@@ -474,16 +416,16 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
             className="flex flex-1 items-center gap-2 rounded-full bg-secondary px-4 py-2.5 text-sm text-muted-foreground text-left">
             <Mic size={15} className="text-primary shrink-0" />Responde con tu voz…
           </button>
-          <button onClick={() => setComments(true)} aria-label="Ver comentarios de audio (24)" className="flex min-h-10 items-center gap-1.5 px-1 text-muted-foreground">
+          <button onClick={() => setComments(true)} aria-label={`Ver comentarios de voz (${thread.length})`} className="flex min-h-10 items-center gap-1.5 px-1 text-muted-foreground">
             <Mic size={19} className="text-primary" />
-            <span className="text-sm font-semibold text-foreground">24</span>
+            <span className="text-sm font-semibold text-foreground">{thread.length}</span>
           </button>
         </div>
       </div>
 
-      {replying && <VoiceReply name={shownName} onClose={() => setReplying(false)} />}
+      {replying && <VoiceReply name={shownName} threadId={threadId} target={root} onClose={() => setReplying(false)} />}
       {options  && <OptionsSheet name={shownName} city={s.city} onClose={() => setOptions(false)} />}
-      {comments && <CommentsPanel onClose={() => setComments(false)} />}
+      {comments && <CommentsPanel spotKey={spotKey} root={root} onClose={() => setComments(false)} />}
       {listeners && <ListenersSheet onClose={() => setListeners(false)} onPerson={(n) => { setListeners(false); setPerson(n); }} />}
       {person && <AuthorProfile name={person} onClose={() => setPerson(null)} />}
     </div>
@@ -496,8 +438,9 @@ const AUTHOR_SPOTS = [festival, stage, beach, stage, beach, festival];
 export function AuthorProfile({ name, onClose }: { name: string; onClose: () => void }) {
   const [viewer, setViewer] = useState<number | null>(null);
   const [follow, setFollow] = useState(false);
-  const [play,   setPlay]   = useState(false);
+  const [voice,  setVoice]  = useState(false);
   const [list,   setList]   = useState(false);
+  const presentation = useMemo(() => sampleThread(`presentacion:${name}`, [{ key: "p", name, img: beach, minsAgo: 60 * 24 * 3, dur: "0:15", likes: 42, verified: true }])[0]!, [name]);
   if (list) return <NewFollowers onClose={() => setList(false)} />;
   return (
     <div className="fixed inset-0 z-[60] overflow-y-auto bg-background pb-[max(2.5rem,calc(env(safe-area-inset-bottom)+1rem))]">
@@ -517,18 +460,12 @@ export function AuthorProfile({ name, onClose }: { name: string; onClose: () => 
             </div>
           ))}
         </div>
-        <div className="mt-4 flex items-center gap-2 rounded-full border border-border bg-secondary p-1 text-left">
-          <button onClick={() => setPlay(!play)} className="grid h-9 w-9 place-items-center rounded-full bg-primary text-white">
-            {play ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
-          </button>
-          <ColorWave active={play} />
-          <span className="pr-3 text-xs">0:15</span>
-        </div>
+        <div className="mt-4 text-left"><VoiceItem compact note={{ ...presentation, liked: false, replies: 0 }} onReply={() => setVoice(true)} right={<span className="text-2xs text-muted-foreground">Presentación</span>} /></div>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Button onClick={() => { setFollow(!follow); toast(follow ? "Has dejado de seguir a " + name : "Ahora sigues a " + name); }} variant={follow ? "secondary" : "default"}>
             {follow ? <><Check size={16} />Siguiendo</> : <><UserPlus size={16} />Seguir</>}
           </Button>
-          <Button variant="secondary" onClick={() => toast("Nota de voz enviada a " + name)}><Mic size={16} />Mensaje de voz</Button>
+          <Button variant="secondary" className="whitespace-nowrap px-3" onClick={() => setVoice(true)}><Mic size={16} />Mensaje de voz</Button>
         </div>
         <h3 className="mt-6 text-left text-sm font-bold">Sus Spots</h3>
         <div className="mt-2 grid grid-cols-3 gap-1">
@@ -537,6 +474,7 @@ export function AuthorProfile({ name, onClose }: { name: string; onClose: () => 
           ))}
         </div>
       </div>
+      {voice && <VoiceReply name={name} mode="message" onClose={() => setVoice(false)} />}
       {viewer !== null && <MediaViewer start={viewer} onClose={() => setViewer(null)} items={AUTHOR_SPOTS.map((img, k) => {
         const m = sampleMedia.find((x) => x.img === img);
         return { kind: "foto" as const, src: img, caption: m?.caption ?? `Spot de ${name}`, place: m?.place ?? "Sevilla", likes: (m?.likes ?? 120) + k * 7 };

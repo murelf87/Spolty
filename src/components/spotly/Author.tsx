@@ -59,6 +59,30 @@ export function SignAs({ anon, onChange, label = "Se publicará como" }: { anon:
   );
 }
 
+/**
+ * Versión compacta de «Se publicará como…» para el panel de grabación: chip con tu foto y nombre, o fantasma y
+ * «Anónimo» con Incógnito de pago activo. Sin Incógnito, tocarlo abre la compra y al terminar queda en anónimo.
+ */
+export function SignAsChip({ anon, onChange }: { anon: boolean; onChange: (v: boolean) => void }) {
+  const me = useMe();
+  const { incognito } = useStore();
+  const [buy, setBuy] = useState(false);
+  useEffect(() => { if (buy && incognito.active) { onChange(true); setBuy(false); } }, [buy, incognito.active, onChange]);
+  useEffect(() => { if (!incognito.active && anon) onChange(false); }, [incognito.active, anon, onChange]);
+  return (
+    <>
+      <button type="button" aria-pressed={anon} onClick={() => (incognito.active ? onChange(!anon) : setBuy(true))}
+        aria-label={anon ? "Se enviará como Anónimo. Tocar para usar tu nombre" : `Se enviará como ${me.name}. Tocar para ir anónimo`}
+        className={"flex min-h-8 min-w-0 max-w-[60%] items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2.5 text-2xs font-semibold " + (anon ? "border-accent/70 bg-accent/15 text-foreground" : "border-border bg-secondary/60 text-foreground/85")}>
+        {anon ? <AnonAvatar className="h-6 w-6" size={12} /> : <MeAvatar className="h-6 w-6 text-3xs" />}
+        <span className="truncate">{anon ? "Anónimo" : `Como ${me.name}`}</span>
+        <Ghost size={12} className="shrink-0 opacity-70" />
+      </button>
+      {buy && <IncognitoSheet onClose={() => setBuy(false)} z={95} />}
+    </>
+  );
+}
+
 function SheetRow({ icon: I, label, onClick, danger = false }: { icon: LucideIcon; label: string; onClick: () => void; danger?: boolean }) {
   return <button type="button" onClick={onClick} className={"flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left text-sm font-semibold hover:bg-secondary " + (danger ? "text-live" : "text-foreground")}><I size={20} className={danger ? "text-live" : "text-primary"} />{label}</button>;
 }
