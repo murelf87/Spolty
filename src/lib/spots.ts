@@ -233,6 +233,13 @@ export async function searchCloudSpots(text: string): Promise<MySpot[]> {
   emit();
   return ids.map((id) => byId.get(id)).filter((x): x is MySpot => !!x);
 }
+/** Spots de la nube de un tema (los de una comunidad), los más nuevos primero. */
+export async function fetchTopicSpots(topic: string, city?: string): Promise<MySpot[]> {
+  const rows = await api.fetchFeed(db(), { topic, city: city || undefined, limit: 30 });
+  const ids = keep(rows);
+  emit();
+  return ids.map((id) => byId.get(id)).filter((x): x is MySpot => !!x);
+}
 /** Trae un Spot concreto de la nube (enlaces compartidos). */
 export async function loadCloudSpot(id: string): Promise<MySpot | null> {
   const row = await api.fetchSpot(db(), id);

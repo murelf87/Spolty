@@ -24,10 +24,15 @@ export function OfflineBanner() {
 }
 
 const isLight = () => typeof document !== "undefined" && document.documentElement.classList.contains("light");
+const THEME_KEY = "spotly-tema";
+/** Vuelve a poner el tema que elegiste (se guarda en este dispositivo). */
+export function restoreTheme() {
+  try { const v = localStorage.getItem(THEME_KEY); if (v) document.documentElement.classList.toggle("light", v === "claro"); } catch { /* sin almacenamiento */ }
+}
 export function useTheme() {
   const [light, setLight] = useState(false);
   useEffect(() => setLight(isLight()), []);
-  const set = (l: boolean) => { document.documentElement.classList.toggle("light", l); setLight(l); };
+  const set = (l: boolean) => { document.documentElement.classList.toggle("light", l); setLight(l); try { localStorage.setItem(THEME_KEY, l ? "claro" : "oscuro"); } catch { /* sin almacenamiento */ } };
   return { light, set };
 }
 export function ThemeSwitch() {

@@ -206,6 +206,47 @@ update public.stories set expires_at = now() - interval '1 minute' where id = '3
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
 select pg_temp.ok((select count(*) from public.stories_public where id = '30000000-0000-0000-0000-000000000001') = 0, 'a las 24 h desaparece');
 
+-- ───── Comunidades de voz
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+insert into public.communities (id, owner_id, name, topic, city) values ('40000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a', '  Runners   de Triana ', 'Deporte', 'Sevilla');
+select pg_temp.ok((select name = 'Runners de Triana' and members = 1 and joined and mine from public.communities_public where id = '40000000-0000-0000-0000-000000000001'), 'crear comunidad: nombre limpio y su creadora dentro');
+select pg_temp.err($$insert into public.communities (owner_id, name) values ('00000000-0000-0000-0000-00000000000a', 'RUNNERS DE TRIANA')$$, '23505', 'no hay dos comunidades con el mismo nombre');
+select pg_temp.err($$insert into public.communities (owner_id, name) values ('00000000-0000-0000-0000-00000000000b', 'Suplantada')$$, '42501', 'no crear comunidades en nombre de otro');
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+insert into public.community_members (community_id, user_id) values ('40000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000b');
+select pg_temp.ok((select members = 2 and joined and not mine from public.communities_public where id = '40000000-0000-0000-0000-000000000001'), 'unirse a una comunidad');
+select pg_temp.err($$insert into public.community_members (community_id, user_id) values ('40000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000c')$$, 'row-level security', 'no apuntar a otra persona a una comunidad');
+delete from public.community_members where community_id = '40000000-0000-0000-0000-000000000001' and user_id = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.ok((select members = 1 and not joined from public.communities_public where id = '40000000-0000-0000-0000-000000000001'), 'salir de una comunidad');
+delete from public.communities where id = '40000000-0000-0000-0000-000000000001';
+select pg_temp.as_admin();
+select pg_temp.ok((select count(*) from public.communities where id = '40000000-0000-0000-0000-000000000001') = 1, 'no se borra la comunidad de otra persona');
+-- (Ana bloqueó a Carla más arriba)
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000c');
+select pg_temp.ok((select count(*) from public.communities_public where id = '40000000-0000-0000-0000-000000000001') = 0, 'quien está bloqueado no ve la comunidad');
+select pg_temp.err($$insert into public.community_members (community_id, user_id) values ('40000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000c')$$, 'row-level security', 'ni puede unirse');
+
+-- ───── Eventos con audio-flyer
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+insert into public.events (id, author_id, title, place, city, starts_at, audio_path, duration_ms) values ('50000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000b', ' Quedada de guitarras ', 'Alameda de Hércules', 'Sevilla', now() + interval '2 days', 'voces/00000000-0000-0000-0000-00000000000b/flyer.webm', 9000);
+select pg_temp.ok((select title = 'Quedada de guitarras' and going = 0 and mine from public.events_public where id = '50000000-0000-0000-0000-000000000001'), 'publicar un evento con su audio-flyer');
+select pg_temp.err($$insert into public.events (author_id, title, place, starts_at, audio_path, duration_ms) values ('00000000-0000-0000-0000-00000000000b', 'Robado', 'Aquí', now() + interval '1 day', 'voces/00000000-0000-0000-0000-00000000000a/x.webm', 5000)$$, 'invalid_path', 'evento con el audio de otra persona');
+select pg_temp.err($$insert into public.events (author_id, title, place, starts_at, audio_path, duration_ms) values ('00000000-0000-0000-0000-00000000000b', 'Ayer', 'Aquí', now() - interval '3 days', 'voces/00000000-0000-0000-0000-00000000000b/x.webm', 5000)$$, 'invalid_date', 'evento en el pasado');
+select pg_temp.err($$insert into public.events (author_id, title, place, starts_at, audio_path, duration_ms) values ('00000000-0000-0000-0000-00000000000b', 'Lejos', 'Aquí', now() + interval '2 years', 'voces/00000000-0000-0000-0000-00000000000b/x.webm', 5000)$$, 'invalid_date', 'evento a más de un año');
+select pg_temp.err($$insert into public.events (author_id, title, place, starts_at, audio_path, duration_ms) values ('00000000-0000-0000-0000-00000000000a', 'Suplantado', 'Aquí', now() + interval '1 day', 'voces/00000000-0000-0000-0000-00000000000a/x.webm', 5000)$$, '42501', 'no publicar eventos en nombre de otro');
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+insert into public.event_attendees (event_id, user_id) values ('50000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a');
+select pg_temp.ok((select going = 1 and attending and not mine from public.events_public where id = '50000000-0000-0000-0000-000000000001'), 'apuntarse a un evento');
+select pg_temp.err($$insert into public.event_attendees (event_id, user_id) values ('50000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000c')$$, 'row-level security', 'no apuntar a otra persona a un evento');
+insert into public.reports (reporter_id, target_type, target_id, reason) values ('00000000-0000-0000-0000-00000000000a', 'event', '50000000-0000-0000-0000-000000000001', 'Spam o engaño');
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+select pg_temp.ok((select count(*) from public.event_attendees where event_id = '50000000-0000-0000-0000-000000000001') = 0, 'quién va a un evento no se lista uno a uno (solo el total)');
+select pg_temp.as_admin();
+update public.events set starts_at = now() - interval '13 hours' where id = '50000000-0000-0000-0000-000000000001';
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.ok((select count(*) from public.events_public where id = '50000000-0000-0000-0000-000000000001') = 0, 'los eventos pasados dejan de salir');
+select pg_temp.as_admin();
+
 -- ───── Denuncias
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
 insert into public.reports (reporter_id, target_type, target_id, reason) values ('00000000-0000-0000-0000-00000000000b', 'spot', '10000000-0000-0000-0000-000000000002', 'Acoso o insultos');

@@ -52,3 +52,19 @@ export const projectLonLat = (lon: number, lat: number, canarias = false): [numb
   if (canarias) { lon += 8.4; lat += 5.6; }
   return [(lon - LON0) * COSL * K, (LAT0 - lat) * K];
 };
+
+/**
+ * Provincia en la que estás a partir de tu posición (GPS del móvil): se proyecta igual que el mapa y se busca el
+ * trazado que la contiene; si no cae dentro de ninguno (costa, frontera), la provincia más cercana.
+ */
+export function provinceAt(lat: number, lon: number): Province | undefined {
+  const canarias = lat < 30.5 && lon < -12;
+  const [x, y] = projectLonLat(lon, lat, canarias);
+  try {
+    const ctx = typeof document !== "undefined" && typeof Path2D !== "undefined" ? document.createElement("canvas").getContext("2d") : null;
+    if (ctx) for (const p of provinces) if (ctx.isPointInPath(new Path2D(p.d), x, y)) return p;
+  } catch { /* sin canvas: se usa la más cercana */ }
+  let best: Province | undefined, bestD = Infinity;
+  for (const p of provinces) { const d = (p.x - x) ** 2 + (p.y - y) ** 2; if (d < bestD) { bestD = d; best = p; } }
+  return best;
+}

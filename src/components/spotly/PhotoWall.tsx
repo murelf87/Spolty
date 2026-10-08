@@ -9,7 +9,7 @@ import { VoiceItem, VoiceThread } from "./VoiceThread";
 import { useThread } from "@/lib/voice/notes";
 import { sampleThread } from "@/lib/voice/samples";
 import { clockToMs } from "@/lib/voice/notes";
-import { seededPeaks } from "@/lib/voice/recorder";
+import { seededPeaks, detachClip } from "@/lib/voice/recorder";
 import { LocationOff } from "./Status";
 import { SpainMap, spainCities } from "./SpainMap";
 import { PlaceBrowser } from "./Places";
@@ -476,7 +476,7 @@ function PhotoUpload({ onClose, onPublished, onCamera, defaultPlace }: { onClose
     if (title.trim().length < 3) { toast.error("Ponle un título de al menos 3 letras."); return; }
     setBusy(true);
     try {
-      const spot = await publishSpot({ title: title.trim().slice(0, 80), city: place, zone: place, topic: "¿Qué está pasando?", visibility: vis === "Solo seguidores" ? "Solo seguidores" : "Todos (público)", precision: "Aproximada", anon: false, boosted: false, happeningNow: true, repliesAllowed: true, clip, mediaFile: main.blob, mediaKind: "photo" });
+      const spot = await publishSpot({ title: title.trim().slice(0, 80), city: place, zone: place, topic: "¿Qué está pasando?", visibility: vis === "Solo seguidores" ? "Solo seguidores" : "Todos (público)", precision: "Aproximada", anon: false, boosted: false, happeningNow: true, repliesAllowed: true, clip: detachClip(clip), mediaFile: main.blob, mediaKind: "photo" });
       setRound((n) => n + 1);
       onPublished(cloud.on ? null : { id: Date.now(), img: spot.media?.src ?? main.url, town: place, dist: 0, author: "Tú", verified: false, likes: 0, dur: `0:${String(Math.round(clip.durationMs / 1000)).padStart(2, "0")}`, mins: 0, caption: spot.title, cat: "Ciudades", type: "Fotos", mine: true });
     } catch (e) { toast.error(cloudErrorText(e)); setBusy(false); }

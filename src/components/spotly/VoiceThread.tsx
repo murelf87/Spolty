@@ -140,8 +140,10 @@ function VoiceAction({ label, onClick, count, pressed, narrow = false, className
  * (actual y total), me gusta, respuestas, compartir y opciones. Encima de la onda, su autor; si responde a otra voz,
  * debajo «En respuesta a este audio».
  */
-export function VoiceItem({ note, onReply, onMore, parentName, highlight = false, compact = false, right }: {
+export function VoiceItem({ note, onReply, onMore, parentName, highlight = false, compact = false, right, social = true }: {
   note: ThreadNote; onReply?: ((atMs: number) => void) | undefined; onMore?: (() => void) | undefined; parentName?: string | undefined; highlight?: boolean; compact?: boolean; right?: ReactNode;
+  /** false: un audio suelto (audio-flyer, oferta…) sin me gusta ni compartir; solo play, onda y tiempos. */
+  social?: boolean;
 }) {
   const name = useVoiceName()(note.author);
   const { demo } = useStore();
@@ -176,12 +178,12 @@ export function VoiceItem({ note, onReply, onMore, parentName, highlight = false
           <VoiceWave peaks={note.peaks} progress={progress} playhead={pb.active} className="h-8" label={`Posición en la voz de ${name}`} onSeek={note.src ? (r) => (pb.active ? seekVoice(note.id, r * total) : playNote(note, r)) : undefined} />
           <p className="flex h-3.5 items-center justify-between text-3xs tabular-nums text-muted-foreground"><span>{formatClock(pb.active ? pb.positionMs : 0)}</span><span>{formatClock(total)}</span></p>
         </div>
-        <div className="flex shrink-0 self-start">
+        {social && <div className="flex shrink-0 self-start">
           <VoiceAction label={`Me gusta (${likes})`} pressed={note.liked} onClick={() => toggleVoiceLike(note.id)} count={likes} className={note.liked ? "text-live" : ""}><Heart size={20} fill={note.liked ? "currentColor" : "none"} /></VoiceAction>
           {onReply && <VoiceAction label={`Responder con tu voz (${note.replies} respuestas)`} onClick={reply} count={note.replies}><MessageCircle size={20} /></VoiceAction>}
           {!privateThread && <VoiceAction label="Compartir" onClick={() => void share()}><Forward size={21} /></VoiceAction>}
           {onMore && <VoiceAction label={`Opciones de la voz de ${name}`} onClick={onMore} narrow><MoreVertical size={19} /></VoiceAction>}
-        </div>
+        </div>}
       </div>
       {note.parentId && <p className="mt-1 flex min-w-0 items-center gap-1.5 pl-1.5 text-2xs text-muted-foreground"><CornerDownRight size={15} className="shrink-0" />{parentName ? <span className="min-w-0 truncate">En respuesta a <strong className="font-semibold text-foreground/80">{parentName}</strong>{note.replyAtMs ? ` · ${formatClock(note.replyAtMs)}` : ""}</span> : "En respuesta a este audio"}</p>}
       {note.failed && <FailedNote id={note.id} />}

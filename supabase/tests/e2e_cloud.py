@@ -5,6 +5,7 @@ Dos personas en dos navegadores con micrófono simulado de Chromium, contra un S
   2. Beto lo ve en Inicio, lo escucha (cuenta una vista), le da me gusta y responde con su voz.
   3. Beto abre el perfil de Ana, la sigue y le manda un mensaje de voz privado.
   4. Ana ve la respuesta en los comentarios, su seguidor nuevo y el chat con la nota de Beto, y la escucha.
+  5. Ana crea una comunidad y un evento con su voz; Beto se une, escucha la presentación, se apunta y oye el flyer.
 Uso: python3 -I e2e_cloud.py <url_app> <url_supabase> <keys.json> <carpeta_capturas>
 """
 import json, sys, urllib.request
@@ -229,6 +230,93 @@ with sync_playwright() as p:
         pa.wait_for_timeout(700)
         shot(pa, "14-ana-chat-con-beto")
     attempt("Ana recibe el mensaje privado de Beto y lo escucha", ana_chat)
+
+    # ── 4. Comunidades y eventos compartidos ──
+    def open_profile_item(page, label):
+        page.goto(APP, wait_until="load")
+        page.locator('nav[aria-label="Navegación principal"]').wait_for(timeout=30000)
+        page.wait_for_timeout(1200)
+        page.locator('nav[aria-label="Navegación principal"] button:has-text("Perfil")').click()
+        page.wait_for_timeout(1500)
+        item = page.get_by_role("button", name=label, exact=True).first
+        item.scroll_into_view_if_needed()
+        item.click()
+        page.wait_for_timeout(1200)
+
+    def record_tile(page, label):
+        page.locator(f'button[aria-label="{label}"]').click()
+        page.wait_for_timeout(2300)
+        page.locator('button[aria-label="Parar la grabación"]').click(force=True)  # late (animación): sin esperar a que esté quieto
+        page.locator('button[aria-label="Escuchar tu mensaje"]').wait_for(timeout=8000)
+
+    def ana_creates_community():
+        open_profile_item(pa, "Comunidades")
+        pa.get_by_role("button", name="Crear comunidad con tu voz").click()
+        pa.fill("#comunidad-nombre", "Runners de Triana")
+        pa.get_by_role("button", name="Planes").click()
+        record_tile(pa, "Grabar presentación")
+        pa.get_by_role("button", name="Crear comunidad").last.click()
+        pa.get_by_text("Conversación del grupo").wait_for(timeout=20000)
+        pa.wait_for_timeout(1500)
+        shot(pa, "15-ana-comunidad")
+    attempt("Ana crea una comunidad con su voz", ana_creates_community)
+    attempt("la comunidad y su presentación están en la nube", lambda: (lambda rows: (len(rows) == 1 and rows[0]["members"] == 1 and len(http("GET", f"/rest/v1/voice_notes_public?select=id&thread_id=eq.group:{rows[0]['id']}", token=people["Beto"]["token"])) == 1) or rows)(http("GET", "/rest/v1/communities_public?select=id,name,members&name=eq.Runners%20de%20Triana", token=people["Beto"]["token"])))
+
+    def beto_joins_and_listens():
+        open_profile_item(pb, "Comunidades")
+        pb.get_by_role("button", name="Runners de Triana").first.click()
+        pb.get_by_role("button", name="Unirme").click()
+        pb.get_by_role("button", name="Miembro ✓ · Salir").wait_for(timeout=15000)
+        pb.locator('article[aria-label^="Voz de Ana"] button[aria-label="Escuchar la voz de Ana"]').first.click()
+        pb.locator('button[aria-label="Pausar la voz de Ana"]').first.wait_for(timeout=6000)  # suena de verdad
+        pb.get_by_role("button", name="Miembros").click()
+        pb.get_by_text("@ana_s").first.wait_for(timeout=10000)
+        shot(pb, "16-beto-en-la-comunidad")
+        return pb.get_by_text("@beto").count() >= 1 or "sin Beto en miembros"
+    attempt("Beto se une, escucha la presentación y ve a los miembros", beto_joins_and_listens)
+
+    def ana_creates_event():
+        open_profile_item(pa, "Eventos")
+        pa.get_by_role("button", name="Crear evento con tu voz").click()
+        record_tile(pa, "Grabar audio-flyer")
+        pa.fill("#evento-titulo", "Quedada de guitarras")
+        pa.fill("#evento-donde", "Alameda de Hércules")
+        pa.get_by_role("button", name="Publicar evento").click()
+        pa.get_by_text("Preguntas y voces de quien va").wait_for(timeout=20000)
+        shot(pa, "17-ana-evento")
+    attempt("Ana publica un evento con su audio-flyer", ana_creates_event)
+
+    def beto_attends():
+        open_profile_item(pb, "Eventos")
+        for tab in ["Hoy", "Fin de semana", "Próximos"]:
+            pb.get_by_role("button", name=tab, exact=True).click()
+            pb.wait_for_timeout(500)
+            if pb.locator("article:has-text('Quedada de guitarras')").count():
+                break
+        card = pb.locator("article:has-text('Quedada de guitarras')").first
+        card.get_by_role("button", name="Asistiré").click()
+        card.get_by_role("button", name="Ya asistes").wait_for(timeout=15000)
+        card.locator("button:has-text('Quedada de guitarras')").click()
+        pb.locator('button[aria-label="Escuchar la voz de Ana"]').first.click()
+        pb.locator('button[aria-label="Pausar la voz de Ana"]').first.wait_for(timeout=6000)  # el audio-flyer suena
+        shot(pb, "18-beto-va-al-evento")
+        rows = http("GET", "/rest/v1/events_public?select=going&title=eq.Quedada%20de%20guitarras", token=people["Ana"]["token"])
+        return (len(rows) == 1 and rows[0]["going"] == 1) or rows
+    attempt("Beto se apunta al evento y escucha el audio-flyer", beto_attends)
+
+    def ana_notifications():
+        pa.goto(APP, wait_until="load")
+        pa.locator('nav[aria-label="Navegación principal"]').wait_for(timeout=30000)
+        bell = pa.locator('button[aria-label="Notificaciones (hay nuevas)"]').first
+        bell.wait_for(timeout=20000)  # el punto rojo solo sale si hay avisos nuevos de verdad
+        bell.click()
+        pa.get_by_text("ha empezado a seguirte").first.wait_for(timeout=20000)
+        pa.wait_for_timeout(800)
+        shot(pa, "19-ana-notificaciones")
+        text = pa.locator("main").last.inner_text()
+        ok = "ha respondido con su voz a «Concierto sorpresa en la Alameda»" in text and "te ha enviado una nota de voz" in text
+        return ok or text[:300]
+    attempt("Ana ve sus avisos reales: seguidor, respuesta y mensaje", ana_notifications)
 
     browser.close()
 

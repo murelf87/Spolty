@@ -21,6 +21,7 @@ import { useMySpots, useSavedSpots, type MySpot } from "@/lib/spots";
 import { api, cloudErrorText, cloudUid, db, fileUrl, refreshProfile, useCloud } from "@/lib/cloud";
 import { CloudPeopleSheet } from "./CloudPeople";
 import { spotData } from "./spotData";
+import { ThemeSwitch } from "./Status";
 
 /* Contenido del perfil (demo): cada miniatura abre su Spot, su foto o su vídeo. */
 type GridTab = "Spots" | "Fotos" | "Vídeos" | "Guardados";
@@ -418,29 +419,16 @@ function DeleteAccount({ onClose }: { onClose: () => void }) {
 function SettingsScreen({ onBack, onOpen, accountEmail }: { onBack: () => void; onOpen: (s: Sheet) => void; accountEmail: string | null }) {
   const queryClient = useQueryClient();
   const cloud = useCloud();
-  const [t, setT] = useState(() => ({ notif: true, auto: true, dark: typeof document === "undefined" || !document.documentElement.classList.contains("light") }));
   const [help, setHelp] = useState(false); const [out, setOut] = useState(false); const [del, setDel] = useState(false);
-  const [n, setN] = useState(["Me gusta", "Respuestas de voz", "Seguidores"]); const [r, setR] = useState("5 km"); const [l, setL] = useState("Español");
-  const toggle = (k: keyof typeof t) => {
-    const v = !t[k]; setT({ ...t, [k]: v });
-    if (k === "dark") { document.documentElement.classList.toggle("light", !v); toast(v ? "Tema oscuro activado" : "Tema claro activado"); }
-  };
-  const Row = ({ k, l }: { k: keyof typeof t; l: string }) => (
-    <button onClick={() => toggle(k)} role="switch" aria-checked={t[k]} className="flex w-full items-center justify-between gap-3 py-3 text-left text-sm"><span className="min-w-0">{l}</span><span className={`h-6 w-11 shrink-0 rounded-full p-0.5 transition ${t[k] ? "bg-spot-gradient" : "bg-muted"}`}><span className={`block h-5 w-5 rounded-full bg-foreground transition ${t[k] ? "translate-x-5" : ""}`} /></span></button>
-  );
+  /* Solo ajustes que hacen algo de verdad: el tema se guarda en este dispositivo; los avisos en el móvil llegarán con
+     las apps de App Store y Google Play (mientras, tus avisos están en Notificaciones). */
   return (
     <Shell title="Ajustes" onBack={onBack}>
-      <div className="divide-y divide-border rounded-xl border border-border bg-card px-4">
-        <Row k="notif" l="Notificaciones" /><Row k="auto" l="Reproducir audio automáticamente" /><Row k="dark" l="Tema oscuro" />
-      </div>
-      {t.notif && <><p className="mb-1 mt-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Avisarme de</p>
-      <div className="flex flex-wrap gap-2">{["Me gusta", "Respuestas de voz", "Seguidores", "Eventos cerca", "Ofertas locales"].map((x) => <button key={x} onClick={() => setN(n.includes(x) ? n.filter((y) => y !== x) : [...n, x])} className={n.includes(x) ? "spot-active-pill rounded-full px-3 py-1.5 text-xs font-semibold" : "rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground"}>{x}</button>)}</div></>}
-      <p className="mb-1 mt-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Distancia para descubrir</p>
-      <div className="grid grid-cols-4 gap-2">{["1 km", "5 km", "10 km", "Ciudad"].map((x) => <button key={x} onClick={() => { setR(x); toast(`Descubrirás Spots a ${x}`); }} className={r === x ? "rounded-lg bg-primary py-2 text-xs font-semibold text-primary-foreground" : "rounded-lg bg-secondary py-2 text-xs"}>{x}</button>)}</div>
-      <p className="mb-1 mt-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Idioma</p>
-      <div className="grid grid-cols-3 gap-2">{["Español", "Català", "English"].map((x) => <button key={x} onClick={() => setL(x)} className={l === x ? "rounded-lg bg-primary py-2 text-xs font-semibold text-primary-foreground" : "rounded-lg bg-secondary py-2 text-xs"}>{x}</button>)}</div>
+      <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Tema</p>
+      <ThemeSwitch />
+      <p className="mt-2 text-2xs text-muted-foreground">Los avisos en el móvil llegarán con la app de App Store y Google Play. Mientras, los tienes en Notificaciones.</p>
       <div className="mt-4 divide-y divide-border rounded-xl border border-border bg-card px-4">
-        {([["privacidad", "Privacidad e incógnito"], ["verificacion", "Verificación"], ["wallet", "Wallet y Premium"]] as [Sheet, string][]).map(([k, l]) => <button key={l} onClick={() => onOpen(k)} className="flex w-full justify-between py-3 text-sm">{l}<span className="text-muted-foreground">›</span></button>)}
+        {([["privacidad", "Privacidad"], ["permisos", "Permisos del móvil"], ["verificacion", "Verificación"], ["wallet", "Wallet y Premium"]] as [Sheet, string][]).map(([k, l]) => <button key={l} onClick={() => onOpen(k)} className="flex w-full justify-between py-3 text-sm">{l}<span className="text-muted-foreground">›</span></button>)}
         <button onClick={() => setHelp(true)} className="flex w-full justify-between py-3 text-sm">Ayuda y soporte<span className="text-muted-foreground">›</span></button>
       </div>
       <p className="mb-1 mt-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Cuenta y datos</p>
@@ -461,9 +449,10 @@ function SettingsScreen({ onBack, onOpen, accountEmail }: { onBack: () => void; 
 const faqs = [
   ["¿Qué es un Spot?", "Un audio corto, con foto o sin ella, ligado al lugar donde estás. Lo escuchan las personas cercanas."],
   ["¿Por qué no puedo escribir?", "Spotly es voz: publicas, respondes y buscas hablando. Así todo suena real y cercano."],
-  ["¿Quién ve mi ubicación?", "Solo la zona aproximada. Con el modo incógnito dejas de aparecer en el mapa durante 1, 4 o 24 horas."],
-  ["¿Qué significa verificado?", "Que confirmaste tu identidad con teléfono, documento y selfie. No es lo mismo que Premium."],
-  ["¿Cómo funciona impulsar?", "Usas créditos de tu Wallet para que tu Spot llegue a más gente cerca durante un tiempo."],
+  ["¿Quién ve mi ubicación?", "Solo la zona aproximada que eliges al publicar, y puedes ocultarla. Nadie ve tu dirección exacta."],
+  ["¿Puedo publicar sin que se sepa que soy yo?", "Sí, con Incógnito de pago: tus voces salen como «Anónimo». Spotly sí sabe qué cuenta las publica y aplica las mismas normas."],
+  ["¿Qué significa verificado?", "Tu cuenta se confirma al entrar con Apple, Google o tu correo. La verificación de identidad con documento llegará cuando elijamos proveedor."],
+  ["¿Cómo funciona impulsar?", "Impulsar hará que tu Spot llegue a más gente cerca durante un tiempo. Los pagos se activarán con App Store y Google Play."],
 ];
 
 function Help({ onBack }: { onBack: () => void }) {

@@ -24,7 +24,7 @@ import { IncognitoBanner, IncognitoPublicProfile, IncognitoSheet } from "@/compo
 import { HotSpotView } from "@/components/spotly/HotSpots";
 import { BusinessProfile, LocalDashboard } from "@/components/spotly/Local";
 import { VoiceSearch } from "@/components/spotly/VoiceSearch";
-import { OfflineBanner, PermissionsScreen } from "@/components/spotly/Status";
+import { OfflineBanner, PermissionsScreen, restoreTheme } from "@/components/spotly/Status";
 import { ProfilePromo, SuggestedPeople } from "@/components/spotly/PromoProfile";
 import { SpainScreen } from "@/components/spotly/SpainMap";
 import { PhotoWall } from "@/components/spotly/PhotoWall";
@@ -77,6 +77,7 @@ export function Index() {
   const goTo = (t: Tab | null, sh: Sheet = null) => { setSheet(sh); setHotId(null); setBizId(null); setIncogPublic(false); setCreating(false); if (t) setTab(t); };
 
   useEffect(() => {
+    restoreTheme(); // oscuro o perla claro, como lo dejaste
     loadMe(); // tu nombre y tu foto guardados en este dispositivo
     void loadVoiceNotes(); // tus voces guardadas en este dispositivo
     const offCloud = startCloud(); // con sesión y la migración aplicada: Spots, voces, seguidores y chats en la nube

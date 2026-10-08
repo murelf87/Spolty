@@ -102,6 +102,42 @@ await check("soporte: solo lo oye quien lo envía", async () => { await api.post
 await check("publicar una historia con foto y verla", async () => { const r = await api.publishStory(beto.c, beto.id, { city: "Sevilla", audio: audio(), audioMime: "audio/webm", durationMs: 3200, peaks: [0.4], photo: jpeg() }); const l = await api.fetchStories(ana.c); const st = l.find((x) => x.id === r.id); return !!st && st.author_username === "beto" && !!st.media_path && !st.mine && (await api.fetchStories(beto.c)).some((x) => x.id === r.id && x.mine); });
 await check("historia sobre un fondo de Spotly y borrarla", async () => { const r = await api.publishStory(beto.c, beto.id, { city: "Sevilla", audio: audio(), audioMime: "audio/webm", durationMs: 2000, peaks: [], background: "preset:aurora" }); const st = (await api.fetchStories(ana.c)).find((x) => x.id === r.id); await api.deleteStory(beto.c, r.id, [r.audioPath]); return st?.background === "preset:aurora" && !(await api.fetchStories(ana.c)).some((x) => x.id === r.id); });
 
+// Comunidades de voz y eventos
+let community = "";
+await check("crear una comunidad y quedar dentro", async () => { community = await api.createCommunity(ana.c, ana.id, { name: "Runners de Triana", topic: "Deporte", city: "Sevilla" }); return (await api.fetchCommunities(ana.c, { joined: true })).some((c) => c.id === community && c.mine && c.members === 1 && c.joined); });
+await rejects("no repetir el nombre de una comunidad", "name_taken", () => api.createCommunity(beto.c, beto.id, { name: "runners de triana", topic: "", city: "" }));
+await check("unirse, ver quién está y salir", async () => {
+  await api.setCommunityMember(beto.c, beto.id, community, true);
+  await api.setCommunityMember(beto.c, beto.id, community, true);
+  const members = await api.fetchCommunityMembers(carla.c, community);
+  const inside = (await api.fetchCommunities(beto.c, { joined: true })).some((c) => c.id === community && c.joined && c.members === 2);
+  await api.setCommunityMember(beto.c, beto.id, community, false);
+  return inside && members.length === 2 && members.some((m) => m.id === beto.id) && !(await api.fetchCommunities(beto.c, { joined: true })).some((c) => c.id === community);
+});
+await check("hablar en la comunidad con la voz", async () => { await api.postNote(beto.c, beto.id, { threadId: `group:${community}`, blob: audio(), mime: "audio/webm", durationMs: 1300, peaks: [] }); return (await api.fetchThread(carla.c, `group:${community}`)).length === 1; });
+let eventId = "";
+await check("publicar un evento con audio-flyer y foto", async () => {
+  const r = await api.publishEvent(beto.c, beto.id, { title: "Quedada de guitarras", place: "Alameda de Hércules", city: "Sevilla", startsAt: new Date(Date.now() + 2 * 86400000).toISOString(), audio: audio(), audioMime: "audio/webm", durationMs: 8000, peaks: [0.3], photo: jpeg() });
+  eventId = r.id;
+  const e = (await api.fetchEvents(ana.c, { city: "Sevilla" })).find((x) => x.id === r.id);
+  return !!e && e.author_username === "beto" && !e.mine && !!e.media_path && r.audioPath.startsWith(`voces/${beto.id}/`);
+});
+await rejects("no se publican eventos en el pasado", "invalid_date", () => api.publishEvent(beto.c, beto.id, { title: "Ayer", place: "Aquí", city: "Sevilla", startsAt: new Date(Date.now() - 3 * 86400000).toISOString(), audio: audio(), audioMime: "audio/webm", durationMs: 2000, peaks: [] }));
+await check("apuntarse a un evento y desapuntarse", async () => {
+  await api.setAttending(ana.c, ana.id, eventId, true);
+  await api.setAttending(ana.c, ana.id, eventId, true);
+  const e = (await api.fetchEvents(ana.c)).find((x) => x.id === eventId);
+  await api.setAttending(ana.c, ana.id, eventId, false);
+  return e?.going === 1 && e.attending && (await api.fetchEvents(carla.c)).find((x) => x.id === eventId)?.going === 0;
+});
+await check("preguntar con la voz en el evento", async () => { await api.postNote(carla.c, carla.id, { threadId: `event:${eventId}`, blob: audio(), mime: "audio/webm", durationMs: 1500, peaks: [] }); return (await api.fetchThread(beto.c, `event:${eventId}`)).length === 1; });
+await check("borrar tu evento y su audio", async () => {
+  const e = (await api.fetchEvents(beto.c)).find((x) => x.id === eventId)!;
+  await api.deleteEvent(beto.c, eventId, [e.audio_path, e.media_path]);
+  const r = await fetch(api.publicUrl(beto.c, e.audio_path)!);
+  return !(await api.fetchEvents(ana.c)).some((x) => x.id === eventId) && !r.ok;
+});
+
 // Seguidores
 await check("seguir y ver seguidores / seguidos", async () => { await api.setFollow(beto.c, beto.id, ana.id, true); const followers = await api.fetchPeople(ana.c, ana.id, "followers"); const following = await api.fetchPeople(beto.c, beto.id, "following"); return followers[0]?.id === beto.id && following[0]?.id === ana.id && (await api.isFollowing(beto.c, beto.id, ana.id)) && (await api.fetchFollowingIds(beto.c, beto.id)).includes(ana.id); });
 await check("contadores del perfil", async () => { const p = await api.fetchProfile(carla.c, ana.id); return p?.followers === 1 && p.spots === 1; });
@@ -123,6 +159,16 @@ await check("mis chats con su miembro", async () => { const list = await api.fet
 let group = "";
 await check("grupo de voz donde habla todo el mundo", async () => { group = await api.createGroupChat(ana.c, "Comunidad Triana", [beto.id, carla.id]); await api.postNote(carla.c, carla.id, { threadId: `chat:${group}`, blob: audio(), mime: "audio/webm", durationMs: 1500, peaks: [] }); return (await api.fetchThread(beto.c, `chat:${group}`)).length === 1 && (await api.fetchChats(carla.c)).some((c) => c.id === group && c.is_group); });
 await check("salir del grupo", async () => { await api.leaveChat(carla.c, carla.id, group); return !(await api.fetchChats(carla.c)).some((c) => c.id === group); });
+await check("avisos: quién te sigue, quién responde a tus Spots y quién te escribe", async () => {
+  await api.postNote(carla.c, carla.id, { threadId: `spot:${spotId}`, blob: audio(), mime: "audio/webm", durationMs: 1400, peaks: [] });
+  const items = await api.fetchActivity(ana.c, ana.id);
+  const follow = items.find((i) => i.kind === "follow" && i.who.id === beto.id);
+  const reply = items.find((i) => i.kind === "reply" && i.who.id === carla.id);
+  const dm = items.find((i) => i.kind === "chat" && i.who.id === beto.id && i.chatId === chat);
+  const own = items.some((i) => i.who.id === ana.id);
+  const sorted = items.every((i, k) => k === 0 || Date.parse(items[k - 1]!.at) >= Date.parse(i.at));
+  return !!follow && reply?.spotTitle === "Concierto en la Alameda" && !!dm && !own && sorted && !(await api.fetchActivity(carla.c, carla.id)).some((i) => i.chatId === chat);
+});
 
 // Incógnito (de pago: lo concede el servidor)
 await check("sin Incógnito activo", async () => !(await api.hasIncognito(ana.c)));

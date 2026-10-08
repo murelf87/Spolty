@@ -10,6 +10,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export type VoiceClip = { blob: Blob; url: string; durationMs: number; peaks: number[]; mimeType: string };
+/**
+ * Copia de una grabación con su propia URL, para guardarla (voces, Spots) cuando la grabadora sigue siendo de la
+ * pantalla: al cerrarse la pantalla, la grabadora libera su URL y la copia sigue sonando.
+ */
+export const detachClip = (c: VoiceClip): VoiceClip => ({ ...c, url: URL.createObjectURL(c.blob) });
 export type RecorderState = "idle" | "requesting" | "recording" | "recorded";
 export type RecorderError = "denied" | "unsupported" | "short" | "too-long" | "invalid-file" | "failed";
 

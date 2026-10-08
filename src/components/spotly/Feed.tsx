@@ -15,6 +15,7 @@ import { playVoice, seekVoice, toggleVoice, useVoicePlayback } from "@/lib/voice
 import { deleteSpot, recordSpotView, setSpotReplies, toggleSpotLike, toggleSpotSaved, useCloudFeed, useMySpots, type MySpot } from "@/lib/spots";
 import { api, cloudErrorText, cloudUid, db, followId, isFollowingId, useCloud } from "@/lib/cloud";
 import { NowStrip } from "./NowStrip";
+import { useActivityDot } from "./Activity";
 import { StoriesStrip } from "./Stories";
 import { HotSpotCard } from "./HotSpots";
 import { FlashOfferCard, SponsoredSpot, getBiz } from "./Local";
@@ -327,6 +328,7 @@ const TAB_ICONS: Record<string, ReactNode> = {
 };
 
 export function HomeView({ onBell }: { mine: MineSpot; onBell: () => void }) {
+  const bellDot = useActivityDot();
   const me = useMe();
   const app = useApp();
   const { bizCampaign, offline, following } = useStore();
@@ -398,7 +400,7 @@ export function HomeView({ onBell }: { mine: MineSpot; onBell: () => void }) {
         <Logo className="justify-self-center" />
         <div className="flex justify-end">
           <Button variant="ghost" size="icon" aria-label="Buscar" onClick={() => app.open("buscar")}><Search size={19} /></Button>
-          <Button variant="ghost" size="icon" aria-label="Notificaciones" onClick={onBell} className="relative"><Bell size={19} /><span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-live" /></Button>
+          <Button variant="ghost" size="icon" aria-label={bellDot ? "Notificaciones (hay nuevas)" : "Notificaciones"} onClick={onBell} className="relative"><Bell size={19} />{bellDot && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-live" />}</Button>
         </div>
       </div>
       {/* Chips filtro */}

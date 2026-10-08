@@ -452,11 +452,100 @@ begin
   raise exception 'not_allowed' using errcode = '42501';
 end $$;
 
+-- ─────────────────────────────── Comunidades de voz ───────────────────────────────
+-- Un nombre (título), un tema y una ciudad; se habla en el hilo group:<id> (voice_notes). Quien la crea entra como
+-- miembro. Ser miembro es público, como seguir a alguien.
+create table public.communities (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references public.profiles (id) on delete cascade,
+  name text not null check (char_length(btrim(name)) between 3 and 40),
+  topic text not null default '' check (char_length(topic) <= 40),
+  city text not null default '' check (char_length(city) <= 80),
+  created_at timestamptz not null default now()
+);
+create unique index communities_name_unique on public.communities (lower(name));
+create index communities_owner on public.communities (owner_id, created_at desc);
+create table public.community_members (
+  community_id uuid not null references public.communities (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (community_id, user_id)
+);
+create index community_members_user on public.community_members (user_id);
+create or replace function public.communities_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.owner_id is distinct from auth.uid() then raise exception 'author_mismatch' using errcode = '42501'; end if;
+  if (select count(*) from public.communities c where c.owner_id = new.owner_id and c.created_at > now() - interval '1 day') >= 5 then
+    raise exception 'rate_limited' using errcode = '54000';
+  end if;
+  new.name := btrim(regexp_replace(new.name, '\s+', ' ', 'g'));
+  if char_length(new.name) < 3 then raise exception 'invalid_title' using errcode = '22023'; end if;
+  new.created_at := now();
+  return new;
+end $$;
+create trigger communities_guard before insert on public.communities for each row execute function public.communities_guard();
+create or replace function public.communities_owner_joins()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.community_members (community_id, user_id) values (new.id, new.owner_id) on conflict do nothing;
+  return new;
+end $$;
+create trigger communities_owner_joins after insert on public.communities for each row execute function public.communities_owner_joins();
+-- ¿Hay un bloqueo entre tú y quien creó la comunidad? (solo responde sí o no: no delata quién la creó)
+create or replace function public.blocked_from_community(p_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce((select public.has_block_with(c.owner_id) from public.communities c where c.id = p_id), false)
+$$;
+
+-- ─────────────────────────────── Eventos ───────────────────────────────
+-- Título, cuándo y dónde (lo único escrito) y un audio-flyer con tu voz; las preguntas van en el hilo event:<id>.
+create table public.events (
+  id uuid primary key default gen_random_uuid(),
+  author_id uuid not null references public.profiles (id) on delete cascade,
+  title text not null check (char_length(btrim(title)) between 3 and 80),
+  place text not null check (char_length(btrim(place)) between 2 and 80),
+  city text not null default '' check (char_length(city) <= 80),
+  starts_at timestamptz not null,
+  audio_path text not null check (char_length(audio_path) <= 300),
+  duration_ms integer not null check (duration_ms between 800 and 120000),
+  peaks real[] not null default '{}' check (coalesce(array_length(peaks, 1), 0) <= 128),
+  media_path text check (media_path is null or char_length(media_path) <= 300),
+  created_at timestamptz not null default now()
+);
+create index events_upcoming on public.events (starts_at);
+create index events_author on public.events (author_id, created_at desc);
+create table public.event_attendees (
+  event_id uuid not null references public.events (id) on delete cascade,
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (event_id, user_id)
+);
+create index event_attendees_user on public.event_attendees (user_id);
+create or replace function public.events_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.author_id is distinct from auth.uid() then raise exception 'author_mismatch' using errcode = '42501'; end if;
+  if (select count(*) from public.events e where e.author_id = new.author_id and e.created_at > now() - interval '1 day') >= 10 then
+    raise exception 'rate_limited' using errcode = '54000';
+  end if;
+  if new.starts_at < now() - interval '1 hour' or new.starts_at > now() + interval '1 year' then raise exception 'invalid_date' using errcode = '22023'; end if;
+  if new.audio_path !~ ('^voces/' || new.author_id::text || '/[A-Za-z0-9._-]{1,100}$') then raise exception 'invalid_path' using errcode = '22023'; end if;
+  if new.media_path is not null and new.media_path !~ ('^media/' || new.author_id::text || '/[A-Za-z0-9._-]{1,100}$') then raise exception 'invalid_path' using errcode = '22023'; end if;
+  new.title := btrim(new.title); new.place := btrim(new.place); new.created_at := now();
+  return new;
+end $$;
+create trigger events_guard before insert on public.events for each row execute function public.events_guard();
+create or replace function public.blocked_from_event(p_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce((select public.has_block_with(e.author_id) from public.events e where e.id = p_id), false)
+$$;
+
 -- ─────────────────────────────── Denuncias ───────────────────────────────
 create table public.reports (
   id uuid primary key default gen_random_uuid(),
   reporter_id uuid not null references public.profiles (id) on delete cascade,
-  target_type text not null check (target_type in ('spot', 'voice', 'profile', 'chat', 'story')),
+  target_type text not null check (target_type in ('spot', 'voice', 'profile', 'chat', 'story', 'event', 'community')),
   target_id text not null check (char_length(target_id) <= 120),
   reason text not null check (char_length(reason) between 3 and 60),
   status text not null default 'review' check (status in ('review', 'resolved', 'removed')),
@@ -534,6 +623,23 @@ select st.id, st.author_id, p.display_name as author_name, p.username as author_
 from public.stories st join public.profiles p on p.id = st.author_id
 where st.expires_at > now() and not public.has_block_with(st.author_id);
 
+-- Comunidades con sus miembros y si estás dentro; eventos que aún no han pasado, con quién va.
+create view public.communities_public with (security_barrier = true) as
+select c.id, c.name, c.topic, c.city, c.created_at, c.owner_id = auth.uid() as mine,
+  (select count(*) from public.community_members m where m.community_id = c.id)::int as members,
+  exists (select 1 from public.community_members m where m.community_id = c.id and m.user_id = auth.uid()) as joined
+from public.communities c
+where not public.has_block_with(c.owner_id);
+
+create view public.events_public with (security_barrier = true) as
+select e.id, e.author_id, p.display_name as author_name, p.username as author_username, p.avatar_path as author_avatar,
+  e.title, e.place, e.city, e.starts_at, e.audio_path, e.duration_ms, e.peaks, e.media_path, e.created_at,
+  e.author_id = auth.uid() as mine,
+  (select count(*) from public.event_attendees a where a.event_id = e.id)::int as going,
+  exists (select 1 from public.event_attendees a where a.event_id = e.id and a.user_id = auth.uid()) as attending
+from public.events e join public.profiles p on p.id = e.author_id
+where e.starts_at > now() - interval '12 hours' and not public.has_block_with(e.author_id);
+
 -- Mis chats con el último movimiento.
 create view public.my_chats with (security_barrier = true) as
 select c.id, c.is_group, c.title, c.created_at,
@@ -554,6 +660,10 @@ alter table public.spot_likes enable row level security;
 alter table public.spot_views enable row level security;
 alter table public.saved_spots enable row level security;
 alter table public.stories enable row level security;
+alter table public.communities enable row level security;
+alter table public.community_members enable row level security;
+alter table public.events enable row level security;
+alter table public.event_attendees enable row level security;
 alter table public.chats enable row level security;
 alter table public.chat_members enable row level security;
 alter table public.voice_notes enable row level security;
@@ -598,6 +708,22 @@ create policy "mis guardados" on public.saved_spots for select to authenticated 
 create policy "guardar un spot" on public.saved_spots for insert to authenticated with check (user_id = auth.uid());
 create policy "quitar de guardados" on public.saved_spots for delete to authenticated using (user_id = auth.uid());
 
+create policy "mis comunidades" on public.communities for select to authenticated using (owner_id = auth.uid() or public.is_moderator());
+create policy "crear comunidad" on public.communities for insert to authenticated with check (owner_id = auth.uid());
+create policy "borrar mi comunidad" on public.communities for delete to authenticated using (owner_id = auth.uid() or public.is_moderator());
+create policy "miembros visibles" on public.community_members for select using (true);
+create policy "unirme a una comunidad" on public.community_members for insert to authenticated
+  with check (user_id = auth.uid() and not public.blocked_from_community(community_id));
+create policy "salir de una comunidad" on public.community_members for delete to authenticated using (user_id = auth.uid());
+
+create policy "mis eventos" on public.events for select to authenticated using (author_id = auth.uid() or public.is_moderator());
+create policy "publicar evento" on public.events for insert to authenticated with check (author_id = auth.uid());
+create policy "borrar mi evento" on public.events for delete to authenticated using (author_id = auth.uid() or public.is_moderator());
+create policy "mis asistencias" on public.event_attendees for select to authenticated using (user_id = auth.uid());
+create policy "asistir a un evento" on public.event_attendees for insert to authenticated
+  with check (user_id = auth.uid() and not public.blocked_from_event(event_id));
+create policy "no asistir" on public.event_attendees for delete to authenticated using (user_id = auth.uid());
+
 create policy "mis chats" on public.chats for select to authenticated using (public.am_chat_member(id));
 create policy "miembros de mis chats" on public.chat_members for select to authenticated using (public.am_chat_member(chat_id));
 create policy "salir de un chat" on public.chat_members for delete to authenticated using (user_id = auth.uid());
@@ -621,6 +747,7 @@ create policy "mi solicitud de borrado" on public.account_deletions for select t
 
 grant select on public.profiles_public, public.spots_public, public.voice_notes_public to anon, authenticated;
 grant select on public.my_chats, public.stories_public to authenticated;
+grant select on public.communities_public, public.events_public to anon, authenticated;
 revoke all on function public.delete_voice_note(uuid) from public;
 grant execute on function public.delete_voice_note(uuid) to authenticated;
 revoke all on function public.record_spot_view(uuid) from public;

@@ -25,7 +25,7 @@ export type ChatMember = { id: string; name: string; username: string; avatar: s
 export type ChatRow = { id: string; is_group: boolean; title: string; created_at: string; members: ChatMember[]; last_at: string | null };
 
 /** Códigos de error de las reglas del servidor, para dar un aviso claro en la app. */
-export const SERVER_RULES = ["incognito_required", "replies_closed", "not_a_member", "blocked", "username_taken", "username_unavailable", "author_mismatch", "parent_not_in_thread", "not_allowed", "readonly_fields", "not_your_thread", "rate_limited", "invalid_path", "anon_followers", "invalid_title", "user_not_found", "invalid_chat"] as const;
+export const SERVER_RULES = ["incognito_required", "replies_closed", "not_a_member", "blocked", "username_taken", "username_unavailable", "author_mismatch", "parent_not_in_thread", "not_allowed", "readonly_fields", "not_your_thread", "rate_limited", "invalid_path", "anon_followers", "invalid_title", "user_not_found", "invalid_chat", "invalid_date", "name_taken"] as const;
 export type ServerRule = (typeof SERVER_RULES)[number];
 
 export class CloudError extends Error {
@@ -134,7 +134,7 @@ export async function setNoteLike(client: Client, uid: string, noteId: string, o
 
 /* ───────────── Spots ───────────── */
 const SPOT_COLS = "id, author_id, author_name, author_username, author_avatar, anon, mine, title, city, zone, topic, visibility, location_hidden, happening_now, replies_allowed, audio_path, duration_ms, peaks, media_path, media_kind, views, created_at, likes, liked, replies, saved";
-export type FeedQuery = { city?: string | undefined; before?: string | undefined; authorId?: string | undefined; authorIds?: string[] | undefined; trending?: boolean | undefined; withMedia?: boolean | undefined; offset?: number | undefined; limit?: number | undefined };
+export type FeedQuery = { city?: string | undefined; topic?: string | undefined; before?: string | undefined; authorId?: string | undefined; authorIds?: string[] | undefined; trending?: boolean | undefined; withMedia?: boolean | undefined; offset?: number | undefined; limit?: number | undefined };
 /**
  * Página del feed. Por defecto lo más reciente primero y `before` (fecha del último Spot cargado) para el scroll
  * infinito; `trending`: lo más escuchado de la última semana, paginado con `offset`.
@@ -144,6 +144,7 @@ export async function fetchFeed(client: Client, opts: FeedQuery = {}): Promise<S
   if (opts.authorIds && !opts.authorIds.length) return [];
   let q = client.from("spots_public").select(SPOT_COLS);
   if (opts.city) q = q.eq("city", opts.city);
+  if (opts.topic) q = q.eq("topic", opts.topic);
   if (opts.authorId) q = q.eq("author_id", opts.authorId);
   if (opts.authorIds) q = q.in("author_id", opts.authorIds.slice(0, 200));
   if (opts.withMedia) q = q.not("media_path", "is", null);
@@ -244,6 +245,81 @@ export async function publishStory(client: Client, uid: string, s: { city: strin
 }
 export async function deleteStory(client: Client, id: string, files: (string | null | undefined)[] = []) {
   const { error } = await client.from("stories").delete().eq("id", id);
+  if (error) fail(error, "delete_failed");
+  await removeFiles(client, files);
+}
+
+/* ───────────── Comunidades de voz ───────────── */
+export type CommunityRow = { id: string; name: string; topic: string; city: string; created_at: string; mine: boolean; members: number; joined: boolean };
+const COMMUNITY_COLS = "id, name, topic, city, created_at, mine, members, joined";
+/** Comunidades (las más grandes primero) o solo aquellas en las que estás. Se habla en el hilo group:<id>. */
+export async function fetchCommunities(client: Client, opts: { joined?: boolean | undefined; limit?: number | undefined } = {}): Promise<CommunityRow[]> {
+  let q = client.from("communities_public").select(COMMUNITY_COLS);
+  if (opts.joined) q = q.eq("joined", true);
+  const { data, error } = await q.order("members", { ascending: false }).order("created_at", { ascending: false }).limit(opts.limit ?? 100);
+  if (error) fail(error, "communities_failed");
+  return (data ?? []) as CommunityRow[];
+}
+/** Crear una comunidad (su nombre es un título: lo único escrito). Quien la crea entra como miembro. */
+export async function createCommunity(client: Client, uid: string, c: { name: string; topic: string; city: string }): Promise<string> {
+  const { data, error } = await client.from("communities").insert({ owner_id: uid, name: c.name.trim().slice(0, 40), topic: c.topic.slice(0, 40), city: c.city.slice(0, 80) }).select("id").single();
+  if (error?.code === "23505") throw new CloudError("name_taken", error.message);
+  if (error || !data) fail(error, "community_failed");
+  return (data as { id: string }).id;
+}
+export async function setCommunityMember(client: Client, uid: string, communityId: string, on: boolean) {
+  const { error } = on ? await client.from("community_members").insert({ community_id: communityId, user_id: uid }) : await client.from("community_members").delete().eq("community_id", communityId).eq("user_id", uid);
+  if (error && error.code !== "23505") fail(error, "join_failed");
+}
+export async function deleteCommunity(client: Client, id: string) {
+  const { error } = await client.from("communities").delete().eq("id", id);
+  if (error) fail(error, "delete_failed");
+}
+/** Quién está en una comunidad (lo más reciente primero). */
+export async function fetchCommunityMembers(client: Client, communityId: string, limit = 200): Promise<ProfileRow[]> {
+  const { data, error } = await client.from("community_members").select("user_id").eq("community_id", communityId).order("created_at", { ascending: false }).limit(limit);
+  if (error) fail(error, "members_failed");
+  const ids = ((data ?? []) as { user_id: string }[]).map((r) => r.user_id);
+  if (!ids.length) return [];
+  const { data: people, error: e2 } = await client.from("profiles_public").select(PROFILE_COLS).in("id", ids);
+  if (e2) fail(e2, "members_failed");
+  const order = new Map(ids.map((id, i) => [id, i]));
+  return ((people ?? []) as ProfileRow[]).sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+}
+
+/* ───────────── Eventos ───────────── */
+export type EventRow = {
+  id: string; author_id: string; author_name: string; author_username: string; author_avatar: string | null;
+  title: string; place: string; city: string; starts_at: string; audio_path: string; duration_ms: number; peaks: number[] | null; media_path: string | null; created_at: string;
+  mine: boolean; going: number; attending: boolean;
+};
+const EVENT_COLS = "id, author_id, author_name, author_username, author_avatar, title, place, city, starts_at, audio_path, duration_ms, peaks, media_path, created_at, mine, going, attending";
+/** Eventos que aún no han pasado (los más próximos primero), opcionalmente de una ciudad y hasta una fecha. */
+export async function fetchEvents(client: Client, opts: { city?: string | undefined; until?: string | undefined; limit?: number | undefined } = {}): Promise<EventRow[]> {
+  let q = client.from("events_public").select(EVENT_COLS);
+  if (opts.city) q = q.eq("city", opts.city);
+  if (opts.until) q = q.lte("starts_at", opts.until);
+  const { data, error } = await q.order("starts_at", { ascending: true }).limit(opts.limit ?? 100);
+  if (error) fail(error, "events_failed");
+  return (data ?? []) as EventRow[];
+}
+export type NewEvent = { title: string; place: string; city: string; startsAt: string; audio: Blob; audioMime: string; durationMs: number; peaks: number[]; photo?: Blob | undefined };
+/** Publicar un evento: sube el audio-flyer (y la foto si hay) a tu carpeta y crea el evento. */
+export async function publishEvent(client: Client, uid: string, e: NewEvent): Promise<{ id: string; audioPath: string; mediaPath: string | null }> {
+  const audio_path = await uploadVoice(client, uid, e.audio, e.audioMime);
+  let media_path: string | null = null;
+  try { media_path = e.photo ? await upload(client, "media", `${uid}/${rnd()}.${extOf(e.photo.type)}`, e.photo, e.photo.type) : null; }
+  catch (err) { await removeFiles(client, [audio_path]); throw err; }
+  const { data, error } = await client.from("events").insert({ author_id: uid, title: e.title.trim().slice(0, 80), place: e.place.trim().slice(0, 80), city: e.city.slice(0, 80), starts_at: e.startsAt, audio_path, duration_ms: Math.round(e.durationMs), peaks: packPeaks(e.peaks), media_path }).select("id").single();
+  if (error || !data) { await removeFiles(client, [audio_path, media_path]); fail(error, "event_failed"); }
+  return { id: (data as { id: string }).id, audioPath: audio_path, mediaPath: media_path };
+}
+export async function setAttending(client: Client, uid: string, eventId: string, on: boolean) {
+  const { error } = on ? await client.from("event_attendees").insert({ event_id: eventId, user_id: uid }) : await client.from("event_attendees").delete().eq("event_id", eventId).eq("user_id", uid);
+  if (error && error.code !== "23505") fail(error, "attend_failed");
+}
+export async function deleteEvent(client: Client, id: string, files: (string | null | undefined)[] = []) {
+  const { error } = await client.from("events").delete().eq("id", id);
   if (error) fail(error, "delete_failed");
   await removeFiles(client, files);
 }
@@ -356,6 +432,52 @@ export async function fetchBlocked(client: Client, uid: string): Promise<Profile
   const { data: profiles } = await client.from("profiles_public").select(PROFILE_COLS).in("id", ids);
   return (profiles ?? []) as ProfileRow[];
 }
+/* ───────────── Avisos (lo que te ha pasado) ───────────── */
+export type ActivityWho = { id: string | null; name: string; username: string | null; avatar: string | null; anon: boolean };
+export type ActivityItem = {
+  kind: "follow" | "reply" | "wall" | "chat"; id: string; at: string; who: ActivityWho;
+  threadId?: string | undefined; spotId?: string | undefined; spotTitle?: string | undefined; chatId?: string | undefined; chatTitle?: string | undefined; group?: boolean | undefined; durationMs?: number | undefined;
+};
+type ActivityNote = Pick<NoteRow, "id" | "thread_id" | "author_id" | "author_name" | "author_username" | "author_avatar" | "anon" | "duration_ms" | "created_at">;
+/**
+ * Avisos de verdad, sin tabla aparte: quién empezó a seguirte, las voces de otras personas en tus Spots y en tu muro,
+ * y las notas que te llegan a tus chats (lo más nuevo primero). Todo pasa por las mismas reglas: las voces anónimas
+ * llegan como «Anónimo» y no se ve nada de quien te ha bloqueado o has bloqueado.
+ */
+export async function fetchActivity(client: Client, uid: string, limit = 40): Promise<ActivityItem[]> {
+  const [fol, mine, chats] = await Promise.all([
+    client.from("follows").select("follower_id, created_at").eq("followee_id", uid).order("created_at", { ascending: false }).limit(limit),
+    fetchMySpots(client).catch((): SpotRow[] => []),
+    fetchChats(client).catch((): ChatRow[] => []),
+  ]);
+  if (fol.error) fail(fol.error, "activity_failed");
+  const follows = (fol.data ?? []) as { follower_id: string; created_at: string }[];
+  const spots = new Map(mine.map((sp) => [`spot:${sp.id}`, sp]));
+  const chatsById = new Map(chats.map((c) => [`chat:${c.id}`, c]));
+  const threads = [...spots.keys(), `muro:${uid}`, ...chatsById.keys()].slice(0, 150);
+  const [notes, people] = await Promise.all([
+    client.from("voice_notes_public").select("id, thread_id, author_id, author_name, author_username, author_avatar, anon, duration_ms, created_at").in("thread_id", threads).eq("mine", false).order("created_at", { ascending: false }).limit(limit),
+    follows.length ? client.from("profiles_public").select(PROFILE_COLS).in("id", follows.map((f) => f.follower_id)) : Promise.resolve({ data: [] as ProfileRow[], error: null }),
+  ]);
+  if (notes.error) fail(notes.error, "activity_failed");
+  if (people.error) fail(people.error, "activity_failed");
+  const byId = new Map(((people.data ?? []) as ProfileRow[]).map((pr) => [pr.id, pr]));
+  const items: ActivityItem[] = [];
+  for (const f of follows) {
+    const pr = byId.get(f.follower_id);
+    if (pr) items.push({ kind: "follow", id: `follow:${pr.id}:${f.created_at}`, at: f.created_at, who: { id: pr.id, name: pr.display_name || `@${pr.username}`, username: pr.username, avatar: pr.avatar_path, anon: false } });
+  }
+  for (const n of (notes.data ?? []) as ActivityNote[]) {
+    const spot = spots.get(n.thread_id), chat = chatsById.get(n.thread_id);
+    items.push({
+      kind: spot ? "reply" : chat ? "chat" : "wall", id: n.id, at: n.created_at,
+      who: { id: n.author_id, name: n.anon || !n.author_id ? "Anónimo" : n.author_name || `@${n.author_username}`, username: n.anon ? null : n.author_username, avatar: n.anon ? null : n.author_avatar, anon: n.anon },
+      threadId: n.thread_id, spotId: spot?.id, spotTitle: spot?.title, chatId: chat?.id, chatTitle: chat?.is_group ? chat.title : undefined, group: chat?.is_group, durationMs: n.duration_ms,
+    });
+  }
+  return items.sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, limit);
+}
+
 export type ReportRow = { id: string; target_type: string; target_id: string; reason: string; status: "review" | "resolved" | "removed"; created_at: string };
 export async function fetchMyReports(client: Client, uid: string): Promise<ReportRow[]> {
   const { data, error } = await client.from("reports").select("id, target_type, target_id, reason, status, created_at").eq("reporter_id", uid).order("created_at", { ascending: false }).limit(100);
@@ -373,7 +495,7 @@ export async function hasIncognito(client: Client): Promise<boolean> {
 /** Todos tus datos (derecho de acceso): perfil, Spots, voces, seguidores, guardados, chats, bloqueos y denuncias. */
 export async function exportMyData(client: Client, uid: string) {
   const q = async <T,>(p: PromiseLike<{ data: T | null; error: { message: string } | null }>) => { const { data, error } = await p; if (error) throw new CloudError("export_failed", error.message); return data; };
-  const [profile, spots, notes, following, followers, saved, chats, blocks, reports] = await Promise.all([
+  const [profile, spots, notes, following, followers, saved, chats, blocks, reports, communities, events] = await Promise.all([
     fetchProfile(client, uid),
     q(client.from("spots").select("*").eq("author_id", uid).order("created_at", { ascending: false })),
     q(client.from("voice_notes").select("id, thread_id, parent_id, reply_at_ms, anon, audio_path, duration_ms, created_at").eq("author_id", uid).order("created_at", { ascending: false })),
@@ -383,9 +505,11 @@ export async function exportMyData(client: Client, uid: string) {
     fetchChats(client),
     q(client.from("blocks").select("blocked_id, created_at").eq("blocker_id", uid)),
     q(client.from("reports").select("target_type, target_id, reason, status, created_at").eq("reporter_id", uid)),
+    q(client.from("communities").select("id, name, topic, city, created_at").eq("owner_id", uid)),
+    q(client.from("events").select("id, title, place, city, starts_at, audio_path, duration_ms, created_at").eq("author_id", uid)),
   ]);
   const people = (l: ProfileRow[]) => l.map((p) => ({ id: p.id, username: p.username, name: p.display_name }));
-  return { exported_at: new Date().toISOString(), profile, spots, voice_notes: notes, following: people(following), followers: people(followers), saved, chats: chats.map((c) => ({ id: c.id, group: c.is_group, title: c.title, members: c.members.map((m) => m.username) })), blocks, reports };
+  return { exported_at: new Date().toISOString(), profile, spots, voice_notes: notes, following: people(following), followers: people(followers), saved, chats: chats.map((c) => ({ id: c.id, group: c.is_group, title: c.title, members: c.members.map((m) => m.username) })), blocks, reports, communities, events };
 }
 /**
  * Borra tu cuenta: primero tus archivos (fotos, voces, vídeos) y después la cuenta, que arrastra todo lo demás.

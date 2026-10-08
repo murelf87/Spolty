@@ -3,8 +3,12 @@ import { Bell, Camera, Check, ChevronLeft, MapPin, Mic, Search, Music, Utensils,
 import { toast } from "sonner";
 import sevilleNight from "@/assets/seville-night.jpg";
 import valenciaSunset from "@/assets/valencia-sunset.jpg";
-import { searchPlaces, provinceOfPlace } from "@/lib/geo";
-import { getState, saveMyCity } from "@/lib/store";
+import { searchPlaces, provinceOfPlace, provinceAt } from "@/lib/geo";
+import { getState, saveMyCity, setPerm } from "@/lib/store";
+import { VoiceRecordTile } from "./VoiceRecord";
+import { addVoiceNote, myThreadId } from "@/lib/voice/notes";
+import type { VoiceClip } from "@/lib/voice/recorder";
+import { detachClip } from "@/lib/voice/recorder";
 import { Button } from "@/components/ui/button";
 import { Logo } from "./Logo";
 import { BottomSheet } from "./kit";
@@ -50,19 +54,45 @@ export function Onboarding({ onDone, onBack }: { onDone: () => void; onBack?: ((
   const [cityPick, setCityPick] = useState(false);
   const [q, setQ] = useState("");
   const [mode, setMode] = useState("Personal");
-  const [rec, setRec] = useState(false);
+  const [clip, setClip] = useState<VoiceClip | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
   const titles = ["Conecta de forma real", "Activa tu ubicación", "Elige tus intereses", "Tu ciudad", "Permisos", "¿Cómo usarás Spotly?", "Preséntate con tu voz"];
-  const can = [true, true, picked.length >= 3, true, ok.includes("Micrófono"), true, rec][s];
+  const can = [true, true, picked.length >= 3, true, true, true, true][s];
   const toggle = (arr: string[], set: (v: string[]) => void, v: string) => set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
-  const next = () => (s < TOTAL - 1 ? setS(s + 1) : onDone());
+  /* Al terminar, tu presentación de voz (si la grabaste) queda en tu perfil, en la nube si ya has entrado. */
+  const finish = () => { if (clip) addVoiceNote({ threadId: myThreadId("presentacion", "presentacion:yo"), clip: detachClip(clip) }); onDone(); };
+  const next = () => (s < TOTAL - 1 ? setS(s + 1) : finish());
+  /* Tu ciudad a partir del GPS: la provincia en la que estás (y su capital); si no es tu pueblo, lo eliges abajo. */
+  const fromCoords = (c: { lat: number; lon: number }) => {
+    const p = provinceAt(c.lat, c.lon);
+    if (!p) { toast("No hemos podido situarte. Elige tu ciudad en la lista."); return; }
+    setCity(p.k); toast.success(`Estás en la provincia de ${p.n}. Si no vives en ${p.k}, busca tu pueblo.`);
+  };
+  /* Permisos de verdad: el sistema pregunta y lo que contestes queda anotado (sin bloquear si dices que no). */
+  const askPerm = async (n: string) => {
+    try {
+      if (n === "Micrófono" || n === "Cámara") {
+        const stream = await navigator.mediaDevices.getUserMedia(n === "Micrófono" ? { audio: true } : { video: true });
+        stream.getTracks().forEach((t) => t.stop());
+        setPerm(n === "Micrófono" ? "mic" : "camera", true);
+      } else if (typeof Notification !== "undefined") {
+        const r = await Notification.requestPermission();
+        if (r !== "granted") throw new Error("denied");
+        setPerm("notifications", true);
+      } else throw new Error("unsupported");
+      setOk((l) => (l.includes(n) ? l : [...l, n]));
+    } catch {
+      toast(n === "Micrófono" ? "Sin micrófono no podrás grabar. Puedes permitirlo luego en los ajustes del móvil." : `Sin ${n.toLowerCase()} por ahora. Puedes activarlo luego en los ajustes del móvil.`);
+    }
+  };
 
   /* Ubicación real del navegador; si no hay permiso o API, se sigue sin ella (nunca bloquea). */
   const askLocation = () => {
     if (!("geolocation" in navigator)) { setLoc("denied"); toast("Tu dispositivo no ofrece ubicación. Puedes elegir tu ciudad a mano."); next(); return; }
     setLoc("asking");
     navigator.geolocation.getCurrentPosition(
-      () => { setLoc("granted"); toast.success("Ubicación activada"); setS(2); },
-      () => { setLoc("denied"); toast("Sin ubicación: elige tu ciudad a mano."); setS(2); },
+      (pos) => { setLoc("granted"); const c = { lat: pos.coords.latitude, lon: pos.coords.longitude }; setCoords(c); if (s === 3) fromCoords(c); else { toast.success("Ubicación activada"); setS(2); } },
+      () => { setLoc("denied"); toast("Sin ubicación: elige tu ciudad a mano."); if (s !== 3) setS(2); },
       { timeout: 8000, maximumAge: 600000 },
     );
   };
@@ -119,7 +149,7 @@ export function Onboarding({ onDone, onBack }: { onDone: () => void; onBack?: ((
 
             {s === 3 && <>
               <label className="flex h-12 items-center gap-2 rounded-full border border-border bg-card px-4"><Search size={18} className="text-muted-foreground" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar ciudad…" aria-label="Buscar ciudad o pueblo" className="min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground" />{q && <button aria-label="Borrar búsqueda" onClick={() => setQ("")}><X size={16} /></button>}</label>
-              <button onClick={() => { if (loc === "granted") { setCity("Sevilla"); toast.success("Ciudad detectada (DEMO): Sevilla"); } else { askLocation(); } }} className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-primary/50 bg-primary/5 p-3 text-left text-sm font-semibold text-primary"><Crosshair size={18} />Usar mi ubicación actual<span className="ml-auto text-3xs font-normal text-muted-foreground">{loc === "granted" ? "Activada" : "Permitir"}</span></button>
+              <button onClick={() => { if (coords) fromCoords(coords); else askLocation(); }} className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-primary/50 bg-primary/5 p-3 text-left text-sm font-semibold text-primary"><Crosshair size={18} />Usar mi ubicación actual<span className="ml-auto text-3xs font-normal text-muted-foreground">{loc === "granted" ? "Activada" : "Permitir"}</span></button>
               <div className="mt-3 space-y-2">
                 {(q.trim().length >= 2 ? hits.map((h) => h.name) : shown).map((c) => <button key={c} onClick={() => { setCity(c); setQ(""); }} className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left text-sm ${city === c ? "border-primary bg-primary/10 font-semibold" : "border-border bg-card"}`}><CityAvatar name={c} /><span className="min-w-0 flex-1"><span className="block truncate">{c}</span><span className="block truncate text-2xs font-normal text-muted-foreground">{provinceOfPlace(c)?.n ?? "España"}</span></span>{city === c && <Check size={16} className="text-primary" />}</button>)}
                 {q.trim().length >= 2 && hits.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">No encontramos «{q}». Prueba con otro nombre.</p>}
@@ -128,11 +158,11 @@ export function Onboarding({ onDone, onBack }: { onDone: () => void; onBack?: ((
               {cityPick && <BottomSheet title="Tu ciudad o pueblo" onClose={() => setCityPick(false)} z={80}><PlaceBrowser allowProvince={false} selected={city} onPick={(n) => { setCity(n); setCityPick(false); }} /></BottomSheet>}
             </>}
 
-            {s === 4 && <div className="space-y-3">{perms.map(([n, d, I]) => { const on = ok.includes(n); return <div key={n} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"><span className="grid h-11 w-11 place-items-center rounded-full bg-spot-gradient text-primary-foreground"><I size={20} /></span><span className="flex-1"><strong className="block text-sm">{n}{n === "Micrófono" && <span className="ml-1 text-3xs text-live">necesario</span>}</strong><span className="text-xs text-muted-foreground">{d}</span></span><Button size="sm" variant={on ? "secondary" : "default"} onClick={() => !on && setOk([...ok, n])}>{on ? <Check size={14} /> : "Permitir"}</Button></div>; })}</div>}
+            {s === 4 && <div className="space-y-3">{perms.map(([n, d, I]) => { const on = ok.includes(n); return <div key={n} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"><span className="grid h-11 w-11 place-items-center rounded-full bg-spot-gradient text-primary-foreground"><I size={20} /></span><span className="flex-1"><strong className="block text-sm">{n}{n === "Micrófono" && <span className="ml-1 text-3xs text-live">necesario</span>}</strong><span className="text-xs text-muted-foreground">{d}</span></span><Button size="sm" variant={on ? "secondary" : "default"} onClick={() => { if (!on) void askPerm(n); }}>{on ? <Check size={14} /> : "Permitir"}</Button></div>; })}</div>}
 
             {s === 5 && <div className="space-y-3">{modes.map(([n, d, I]) => <button key={n} onClick={() => setMode(n)} className={`flex w-full items-center gap-4 rounded-xl border p-5 text-left ${mode === n ? "border-primary bg-primary/10 shadow-glow" : "border-border bg-card"}`}><I size={24} className="text-primary" /><span><strong className="block">{n}</strong><span className="text-xs text-muted-foreground">{d}</span></span></button>)}</div>}
 
-            {s === 6 && <div className="grid place-items-center pt-6 text-center"><p className="mb-8 text-sm text-muted-foreground">Graba unos segundos: tu nombre y qué te gusta de {city}</p><button aria-label="Grabar presentación" onClick={() => setRec(true)} className={`grid h-28 w-28 place-items-center rounded-full bg-spot-gradient text-primary-foreground shadow-glow ${rec ? "" : "spot-pulse"}`}><Mic size={44} /></button><p className="mt-6 text-sm font-semibold">{rec ? "¡Presentación grabada! 0:08" : "Toca para grabar"}</p></div>}
+            {s === 6 && <div className="pt-2 text-center"><p className="text-sm text-muted-foreground">Graba unos segundos: tu nombre y qué te gusta de {city}. Saldrá en tu perfil.</p><VoiceRecordTile maxSeconds={30} onChange={setClip} idleText="Grabar mi presentación" /></div>}
           </div>
         </>
       )}
@@ -153,7 +183,7 @@ export function Onboarding({ onDone, onBack }: { onDone: () => void; onBack?: ((
           <button onClick={onDone} className="w-full py-2 text-[0.9375rem] font-medium text-foreground/80">Omitir</button>
         </div>
       ) : (
-        <Button size="lg" className="mt-4 w-full rounded-full bg-spot-gradient text-white" disabled={!can} onClick={next}>{s < TOTAL - 1 ? "Continuar" : "Entrar en Spotly"}</Button>
+        <Button size="lg" className="mt-4 w-full rounded-full bg-spot-gradient text-white" disabled={!can} onClick={next}>{s < TOTAL - 1 ? "Continuar" : clip ? "Guardar y entrar en Spotly" : "Entrar en Spotly"}</Button>
       )}
     </div>
   );

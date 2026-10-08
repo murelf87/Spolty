@@ -1,44 +1,60 @@
-import { useState } from "react";
-import { BadgeCheck, Bookmark, Calendar, CheckCircle2, ChevronDown, ChevronLeft, Eye, EyeOff, Flame, Heart, MapPin, Navigation, Pause, Play, Mic, Music, Radio, Share2, ShieldCheck, Sparkles, Trophy, Users, Utensils } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Calendar, Camera, CheckCircle2, ChevronLeft, Eye, EyeOff, Flame, Heart, Loader2, MapPin, MessageCircle, Mic, Music, Radio, Share2, ShieldCheck, Sparkles, Trash2, Trophy, Users, Utensils, WifiOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Shell } from "./Extras";
+import { useApp } from "./app-context";
 import sevilleNight from "@/assets/seville-night.jpg";
 import valenciaSunset from "@/assets/valencia-sunset.jpg";
 import festival from "@/assets/spotly-sevilla-festival.jpg";
 import stage from "@/assets/spotly-live-stage.jpg";
 import beach from "@/assets/spotly-beach-club.jpg";
 import lauraPhoto from "@/assets/spotly-laura.jpg";
-import { TopBar, BottomSheet } from "./kit";
+import { TopBar } from "./kit";
 import { TalkBar, VoiceComposer, VoiceItem, VoiceThread } from "./VoiceThread";
-import { addVoiceNote } from "@/lib/voice/notes";
+import { VoiceRecordTile } from "./VoiceRecord";
+import { FollowButton, PersonAvatar } from "./CloudPeople";
+import { AuthorProfile, SpotDetail } from "./SpotDetail";
+import { spotData, type SpotData } from "./spotData";
+import { MeAvatar } from "./Author";
+import { addVoiceNote, useThread, type ThreadNote } from "@/lib/voice/notes";
 import { sampleThread } from "@/lib/voice/samples";
-import { useStore } from "@/lib/store";
+import type { VoiceClip } from "@/lib/voice/recorder";
+import { detachClip } from "@/lib/voice/recorder";
+import { useMe, useStore } from "@/lib/store";
+import { api, cloudErrorText, cloudUid, db, fileUrl, useCloud } from "@/lib/cloud";
+import { fetchTopicSpots, type MySpot } from "@/lib/spots";
+import { addLocalCommunity, addLocalEvent, localNameTaken, removeLocalEvent, toggleLocalGoing, toggleLocalJoined, useLocalGatherings } from "@/lib/gatherings";
+import { appUrl, shareLink } from "@/lib/share";
+
+/**
+ * Comunidades y eventos. Con tu cuenta en la nube son de verdad y compartidos (crear, unirse, apuntarse, quién va,
+ * Spots del tema y conversaciones de voz). Sin nube se ven los de ejemplo (sus cifras solo en la demostración) y lo
+ * que creas se guarda en este dispositivo. Lo único escrito son los títulos: nombre, título del evento y lugar.
+ */
+
+/** Los mismos temas que al publicar un Spot, así la pestaña «Spots» de una comunidad enseña los de su tema. */
+const TOPICS = [["Música", Music], ["Comida", Utensils], ["Planes", Trophy], ["Opiniones", MessageCircle], ["¿Qué está pasando?", Flame], ["Algo que contar", Sparkles]] as const;
+const topicIcon = (t: string) => TOPICS.find(([n]) => n === t)?.[1] ?? Users;
+const topicImg = (t: string) => ({ "Música": stage, "Comida": festival, "Planes": beach, "Opiniones": sevilleNight, "¿Qué está pasando?": festival, "Algo que contar": valenciaSunset } as Record<string, string>)[t] ?? sevilleNight;
 
 /** Conversación de voz de un grupo (comunidad o evento): todos pueden hablar y responderse, solo con voz. */
-function GroupVoices({ threadId, title, root, seedNames }: { threadId: string; title: string; root: { name: string; durationMs: number }; seedNames: string[] }) {
-  const seed = sampleThread(threadId, seedNames.map((name, i) => ({ key: `g${i}`, name, img: [lauraPhoto, stage, beach, festival][i % 4], minsAgo: 6 + i * 11, dur: `0:${String(9 + ((i * 7) % 20)).padStart(2, "0")}`, likes: 3 + ((i * 5) % 17), ...(i === 2 ? { replyTo: "g0", replyAt: "0:06" } : {}) })));
+function GroupVoices({ threadId, title, root, seedNames = [] }: { threadId: string; title: string; root: { name: string; durationMs: number }; seedNames?: string[] }) {
+  const seed = useMemo(() => (seedNames.length ? sampleThread(threadId, seedNames.map((name, i) => ({ key: `g${i}`, name, img: [lauraPhoto, stage, beach, festival][i % 4], minsAgo: 6 + i * 11, dur: `0:${String(9 + ((i * 7) % 20)).padStart(2, "0")}`, likes: 3 + ((i * 5) % 17), ...(i === 2 ? { replyTo: "g0", replyAt: "0:06" } : {}) }))) : []), [threadId, seedNames]);
   const [talk, setTalk] = useState(false);
   const [fresh, setFresh] = useState<string | null>(null);
   return (
     <section className="mt-4">
       <h3 className="mb-2 text-sm font-bold">{title}</h3>
       <div className="mb-3">{talk
-        ? <VoiceComposer autoFocus target={{ name: root.name, atMs: 0, durationMs: root.durationMs }} onClose={() => setTalk(false)} onSend={(clip, anon) => { const n = addVoiceNote({ threadId, clip, anon }); setFresh(n.id); setTalk(false); toast.success(anon ? "Voz enviada como «Anónimo»" : "Voz enviada al grupo"); }} />
+        ? <div className="pt-2"><VoiceComposer autoFocus target={{ name: root.name, atMs: 0, durationMs: root.durationMs }} onClose={() => setTalk(false)} onSend={(clip, anon) => { const n = addVoiceNote({ threadId, clip, anon }); setFresh(n.id); setTalk(false); if (!n.pending) toast.success(anon ? "Voz enviada como «Anónimo»" : "Voz enviada al grupo"); }} /></div>
         : <TalkBar onTalk={() => setTalk(true)} label="Habla al grupo…" />}</div>
       <VoiceThread threadId={threadId} seed={seed} freshId={fresh} emptyText="Aún no ha hablado nadie. Rompe el hielo con tu voz." />
     </section>
   );
 }
 
-/* ---------- Comunidades de voz ---------- */
-const communities = [
-  { name: "Música en directo", icon: Music, members: "12,4K", live: 3 },
-  { name: "Gastronomía local", icon: Utensils, members: "8,1K", live: 1 },
-  { name: "Deporte y quedadas", icon: Trophy, members: "5,7K", live: 0 },
-  { name: "Cultura y barrio", icon: Sparkles, members: "3,9K", live: 2 },
-];
-
+/** Sala en directo: el audio en directo aún no existe, así que se ve y se rotula como demostración. */
 function LiveRoom({ room, onLeave }: { room: string; onLeave: () => void }) {
   const { demo } = useStore();
   const [hand, setHand] = useState(false);
@@ -48,6 +64,7 @@ function LiveRoom({ room, onLeave }: { room: string; onLeave: () => void }) {
     <div className="fixed inset-0 z-[60] flex flex-col bg-background">
       <TopBar title={room} sub={<><span className="mr-1.5 rounded bg-live px-1.5 py-px text-4xs font-bold text-foreground">● EN DIRECTO</span>{demo ? "24 escuchando" : "Sala de demostración"}</>} right={<Button variant="outline" size="sm" onClick={onLeave}>Salir</Button>} />
       <main className="flex-1 overflow-y-auto p-5">
+        <p className="mb-4 rounded-xl border border-border bg-card p-3 text-xs text-muted-foreground"><Radio size={13} className="mr-1 inline text-live" />Demostración: el audio en directo llegará pronto. Mientras, habla en la conversación de voz del grupo.</p>
         <p className="text-xs font-bold tracking-wider text-muted-foreground">HABLANDO</p>
         <div className="mt-3 grid grid-cols-3 gap-4">
           {["Laura", "Carlos", ...(speaking ? ["Tú"] : [])].map((n, i) => (
@@ -65,7 +82,7 @@ function LiveRoom({ room, onLeave }: { room: string; onLeave: () => void }) {
         {speaking ? (
           <button onClick={() => setMuted(!muted)} aria-label={muted ? "Activar micrófono" : "Silenciar micrófono"} className={muted ? "grid h-16 w-16 place-items-center rounded-full bg-secondary" : "spot-pulse grid h-16 w-16 place-items-center rounded-full bg-spot-gradient shadow-glow"}><Mic size={26} /></button>
         ) : (
-          <Button onClick={() => { setHand(!hand); toast.success(hand ? "Has bajado la mano" : "Has pedido la palabra"); if (!hand) setTimeout(() => { setSpeaking(true); toast.success("Te han dado la palabra"); }, 2000); }} variant={hand ? "secondary" : "primary"}><Mic size={18} />{hand ? "Esperando turno…" : "Pedir la palabra"}</Button>
+          <Button onClick={() => { setHand(!hand); toast.success(hand ? "Has bajado la mano" : "Has pedido la palabra (demostración)"); if (!hand) setTimeout(() => { setSpeaking(true); toast.success("Te han dado la palabra (demostración)"); }, 2000); }} variant={hand ? "secondary" : "primary"}><Mic size={18} />{hand ? "Esperando turno…" : "Pedir la palabra"}</Button>
         )}
         {speaking && <Button variant="outline" onClick={() => { setSpeaking(false); setHand(false); setMuted(true); }}>Volver a escuchar</Button>}
       </footer>
@@ -73,97 +90,196 @@ function LiveRoom({ room, onLeave }: { room: string; onLeave: () => void }) {
   );
 }
 
-function CreateCommunity({ onDone }: { onDone: (name: string) => void }) {
-  const [step, setStep] = useState<"rec" | "listening" | "review">("rec");
+/* ---------- Comunidades de voz ---------- */
+type CommunityView = { key: string; id: string | null; name: string; topic: string; city: string; members: number | null; live: number; joined: boolean; mine: boolean; sample: boolean; local: boolean; img: string };
+const SAMPLE_COMMUNITIES = [
+  { name: "Música en directo", topic: "Música", members: 12400, live: 3 },
+  { name: "Gastronomía local", topic: "Comida", members: 8100, live: 1 },
+  { name: "Deporte y quedadas", topic: "Planes", members: 5700, live: 0 },
+  { name: "Cultura y barrio", topic: "Algo que contar", members: 3900, live: 2 },
+];
+const fmtK = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace(".", ",").replace(",0", "")}K` : String(n));
+const threadOf = (c: CommunityView) => (c.id ? `group:${c.id}` : `group:${c.name}`);
+
+/** Crear una comunidad: nombre (un título), tema y su presentación con tu voz. */
+function CreateCommunity({ onCreated }: { onCreated: (c: CommunityView) => void }) {
+  const me = useMe();
+  const cloud = useCloud();
+  const [name, setName] = useState("");
+  const [topic, setTopic] = useState<string>(TOPICS[0][0]);
+  const [clip, setClip] = useState<VoiceClip | null>(null);
+  const [busy, setBusy] = useState(false);
+  const clean = name.trim().replace(/\s+/g, " ");
+  const ok = clean.length >= 3 && clean.length <= 40 && !!clip && !busy;
+  const create = async () => {
+    if (!ok || !clip) return;
+    const uid = cloudUid();
+    if (!uid) {
+      if (localNameTaken(clean)) { toast.error("Ya tienes una comunidad con ese nombre."); return; }
+      const c = addLocalCommunity({ name: clean, topic, city: me.city });
+      addVoiceNote({ threadId: `group:${c.id}`, clip: detachClip(clip) });
+      toast.success("¡Comunidad creada en este móvil!");
+      onCreated({ key: c.id, id: c.id, name: c.name, topic: c.topic, city: c.city, members: 1, live: 0, joined: true, mine: true, sample: false, local: true, img: topicImg(c.topic) });
+      return;
+    }
+    setBusy(true);
+    try {
+      const id = await api.createCommunity(db(), uid, { name: clean, topic, city: me.city });
+      addVoiceNote({ threadId: `group:${id}`, clip: detachClip(clip) });
+      toast.success("¡Comunidad creada!");
+      onCreated({ key: id, id, name: clean, topic, city: me.city, members: 1, live: 0, joined: true, mine: true, sample: false, local: false, img: topicImg(topic) });
+    } catch (e) {
+      toast.error(e instanceof api.CloudError && e.code === "name_taken" ? "Ya existe una comunidad con ese nombre. Prueba otro." : cloudErrorText(e));
+      setBusy(false);
+    }
+  };
   return (
-    <div className="text-center">
-      {step !== "review" ? (<>
-        <h3 className="mt-6 text-2xl font-bold">Crea tu comunidad con tu voz</h3>
-        <p className="mt-2 text-sm text-muted-foreground">Di el nombre y de qué va</p>
-        <button onClick={() => { if (step === "rec") setStep("listening"); else setStep("review"); }} aria-label={step === "rec" ? "Grabar" : "Detener"} className={step === "listening" ? "spot-pulse mx-auto mt-10 grid h-28 w-28 place-items-center rounded-full bg-spot-gradient shadow-glow" : "mx-auto mt-10 grid h-28 w-28 place-items-center rounded-full bg-spot-gradient shadow-glow"}><Mic size={44} /></button>
-        <p className="mt-5 text-sm text-muted-foreground">{step === "listening" ? "Escuchando… toca para terminar" : "Toca para empezar"}</p>
-      </>) : (<>
-        <h3 className="mt-4 text-xl font-bold">Esto es lo que he entendido</h3>
-        <div className="mt-5 space-y-2 text-left">
-          {[["Nombre", "Runners de Triana"], ["Tema", "Deporte y quedadas"], ["Zona", "Sevilla · 5 km"], ["Acceso", "Pública"]].map(([a, b]) => <div key={a} className="rounded-xl border border-border bg-card p-3"><small className="text-muted-foreground">{a}</small><strong className="block text-sm">{b}</strong></div>)}
-        </div>
-        <Button className="mt-5 w-full" onClick={() => onDone("Runners de Triana")}>Crear comunidad</Button>
-        <Button variant="ghost" className="mt-2 w-full" onClick={() => setStep("rec")}><Mic size={16} />Volver a grabar</Button>
-      </>)}
+    <div>
+      <label className="block text-sm font-semibold" htmlFor="comunidad-nombre">Nombre de la comunidad</label>
+      <input id="comunidad-nombre" value={name} maxLength={40} onChange={(e) => setName(e.target.value)} placeholder="Ej.: Runners de Triana" className="mt-2 h-12 w-full rounded-xl border border-border bg-card px-4 text-base outline-none focus:border-primary" />
+      <p className="mb-2 mt-4 text-sm font-semibold">Tema</p>
+      <div className="flex flex-wrap gap-2">{TOPICS.map(([t, I]) => <button key={t} type="button" onClick={() => setTopic(t)} aria-pressed={topic === t} className={"flex min-h-10 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold " + (topic === t ? "spot-active-pill border-transparent" : "border-border bg-card text-muted-foreground")}><I size={14} />{t}</button>)}</div>
+      <p className="mt-5 text-sm font-semibold">Preséntala con tu voz</p>
+      <p className="text-xs text-muted-foreground">Cuenta de qué va y a quién buscas. Será la primera voz de la comunidad.</p>
+      <VoiceRecordTile maxSeconds={60} onChange={setClip} idleText="Grabar presentación" />
+      <Button className="mt-4 w-full" disabled={!ok} onClick={() => void create()}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Users size={16} />}Crear comunidad</Button>
+      {!cloud.on && <p className="mt-2 text-center text-2xs text-muted-foreground">Sin cuenta, la comunidad se guarda en este móvil.</p>}
     </div>
   );
 }
 
+function CommunityMembers({ c }: { c: CommunityView }) {
+  const { demo } = useStore();
+  const me = useMe();
+  const [list, setList] = useState<api.ProfileRow[] | null>(null);
+  const [person, setPerson] = useState<api.ProfileRow | null>(null);
+  useEffect(() => { if (!c.id || c.local) return; let alive = true; api.fetchCommunityMembers(db(), c.id).then((l) => { if (alive) setList(l); }).catch(() => { if (alive) setList([]); }); return () => { alive = false; }; }, [c.id, c.local]);
+  if (c.sample || c.local) {
+    const names = c.sample && demo ? ["Laura · Admin", "Carlos", "Marta", "Sergio"] : [];
+    return <div className="mt-4 space-y-2">
+      {c.joined && <div className="flex items-center gap-3 rounded-xl bg-card p-3"><MeAvatar className="h-10 w-10 text-sm" /><span className="flex-1 text-sm">{me.name} · tú</span></div>}
+      {names.map((m) => <div key={m} className="flex items-center gap-3 rounded-xl bg-card p-3"><span className="grid h-10 w-10 place-items-center rounded-full bg-spot-gradient font-bold">{m[0]}</span><span className="flex-1 text-sm">{m} <ShieldCheck size={13} className="inline text-primary" /></span></div>)}
+      {!c.joined && !names.length && <p className="py-8 text-center text-sm text-muted-foreground">Únete para aparecer aquí.</p>}
+    </div>;
+  }
+  return <div className="mt-4 space-y-2">
+    {list === null && <div className="grid place-items-center py-8"><Loader2 className="animate-spin text-primary" size={22} /></div>}
+    {list?.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">Aún no hay nadie.</p>}
+    {list?.map((p) => <div key={p.id} className="flex items-center gap-3 rounded-xl bg-card p-3"><button type="button" onClick={() => setPerson(p)} className="flex min-w-0 flex-1 items-center gap-3 text-left"><PersonAvatar p={p} className="h-10 w-10 text-sm" /><span className="min-w-0"><strong className="block truncate text-sm">{p.display_name || `@${p.username}`}</strong><small className="text-muted-foreground">@{p.username}</small></span></button><FollowButton id={p.id} /></div>)}
+    {person && <AuthorProfile name={person.display_name || person.username} id={person.id} avatar={fileUrl(person.avatar_path)} onClose={() => setPerson(null)} />}
+  </div>;
+}
+
+function CommunitySpots({ c }: { c: CommunityView }) {
+  const { demo } = useStore();
+  const me = useMe();
+  const cloud = useCloud();
+  const [spots, setSpots] = useState<MySpot[] | null>(null);
+  const [open, setOpen] = useState<SpotData | null>(null);
+  useEffect(() => { if (!cloud.on) return; let alive = true; setSpots(null); fetchTopicSpots(c.topic, c.sample ? undefined : c.city).then((l) => { if (alive) setSpots(l); }).catch(() => { if (alive) setSpots([]); }); return () => { alive = false; }; }, [cloud.on, c.topic, c.city, c.sample]);
+  if (!cloud.on) return demo && c.sample
+    ? <div className="mt-4"><div className="grid grid-cols-3 gap-1">{[festival, stage, beach, sevilleNight, valenciaSunset, festival].map((img, i) => <span key={i} className="relative"><img src={img} alt="Spot de ejemplo" loading="lazy" className="aspect-square w-full rounded-lg object-cover" /></span>)}</div><p className="mt-2 text-2xs text-muted-foreground">Spots de ejemplo</p></div>
+    : <p className="py-8 text-center text-sm text-muted-foreground">Aquí saldrán los Spots de «{c.topic}» cuando entres con tu cuenta.</p>;
+  return <div className="mt-4">
+    {spots === null && <div className="grid place-items-center py-8"><Loader2 className="animate-spin text-primary" size={22} /></div>}
+    {spots?.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">Aún no hay Spots de «{c.topic}»{c.city && !c.sample ? ` en ${c.city}` : ""}. Publica el primero con ese tema.</p>}
+    <div className="grid grid-cols-3 gap-1">{spots?.map((m) => { const d = spotData(m, me.name); return <button key={m.id} onClick={() => setOpen(d)} aria-label={`Escuchar ${m.title}`} className="relative overflow-hidden rounded-lg">{d.img ? <img src={d.img} alt="" loading="lazy" className="aspect-square w-full object-cover" /> : <span className="grid aspect-square w-full place-items-center bg-spot-surface text-primary"><Music size={20} /></span>}<span className="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-background/90 to-transparent px-1.5 pb-1 pt-4 text-left text-3xs">{m.title}</span></button>; })}</div>
+    {open && <SpotDetail s={open} onClose={() => setOpen(null)} onAuthor={() => setOpen(null)} />}
+  </div>;
+}
+
 export function Communities({ onBack }: { onBack: () => void }) {
   const { demo } = useStore();
-  const [open, setOpen] = useState<string | null>(null);
-  const [joined, setJoined] = useState<string[]>(["Música en directo"]);
+  const cloud = useCloud();
+  const local = useLocalGatherings();
+  const [rows, setRows] = useState<api.CommunityRow[] | null>(null);
+  const [error, setError] = useState(false);
+  const [open, setOpen] = useState<CommunityView | null>(null);
   const [room, setRoom] = useState<string | null>(null);
   const [tab, setTab] = useState<"Descubrir" | "Mis comunidades">("Descubrir");
   const [inner, setInner] = useState<"Voces" | "Salas" | "Spots" | "Miembros">("Voces");
   const [creating, setCreating] = useState(false);
-  const [created, setCreated] = useState<string[]>([]);
-  const all = [...communities, ...created.map((name) => ({ name, icon: Trophy, members: "1", live: 0 }))];
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => { if (!cloud.on) return; api.fetchCommunities(db()).then((l) => { setRows(l); setError(false); }).catch(() => setError(true)); }, [cloud.on]);
+  useEffect(() => { load(); }, [load]);
 
-  if (creating) return <Shell title="Nueva comunidad" onBack={() => setCreating(false)}><CreateCommunity onDone={(n) => { setCreated((c) => [...c, n]); setJoined((j) => [...j, n]); setCreating(false); setTab("Mis comunidades"); toast.success("¡Comunidad creada!"); }} /></Shell>;
+  const all: CommunityView[] = useMemo(() => {
+    if (cloud.on) return (rows ?? []).map((r) => ({ key: r.id, id: r.id, name: r.name, topic: r.topic, city: r.city, members: r.members, live: 0, joined: r.joined, mine: r.mine, sample: false, local: false, img: topicImg(r.topic) }));
+    const mine = local.communities.map((c): CommunityView => ({ key: c.id, id: c.id, name: c.name, topic: c.topic, city: c.city, members: 1, live: 0, joined: local.joined.includes(c.id), mine: true, sample: false, local: true, img: topicImg(c.topic) }));
+    const samples = SAMPLE_COMMUNITIES.map((c, i): CommunityView => ({ key: `ejemplo:${c.name}`, id: null, name: c.name, topic: c.topic, city: "", members: c.members, live: c.live, joined: local.joined.includes(`ejemplo:${c.name}`), mine: false, sample: true, local: false, img: [stage, festival, beach, sevilleNight][i % 4]! }));
+    return [...mine, ...samples];
+  }, [cloud.on, rows, local]);
+  const current = open ? all.find((c) => c.key === open.key) ?? open : null;
+  const toggleJoin = async (c: CommunityView) => {
+    const uid = cloudUid();
+    if (c.local || c.sample || !uid || !c.id) { toggleLocalJoined(c.key); toast.success(c.joined ? "Has salido de la comunidad" : "Te has unido a la comunidad"); return; }
+    setBusy(true);
+    try { await api.setCommunityMember(db(), uid, c.id, !c.joined); toast.success(c.joined ? "Has salido de la comunidad" : "Te has unido a la comunidad"); load(); }
+    catch (e) { toast.error(cloudErrorText(e)); }
+    finally { setBusy(false); }
+  };
+  const membersText = (c: CommunityView) => c.sample ? (demo ? `${fmtK(c.members ?? 0)} miembros${c.live > 0 ? ` · ${c.live} en directo` : ""}` : "Comunidad de ejemplo") : `${c.members ?? 1} ${c.members === 1 ? "miembro" : "miembros"}${c.city ? ` · ${c.city}` : ""}${c.local ? " · en este móvil" : ""}`;
 
-  if (open) {
-    const c = all.find((x) => x.name === open)!;
-    const isJoined = joined.includes(c.name);
+  if (creating) return <Shell title="Nueva comunidad" onBack={() => setCreating(false)}><CreateCommunity onCreated={(c) => { setCreating(false); setTab("Mis comunidades"); load(); setInner("Voces"); setOpen(c); }} /></Shell>;
+
+  if (current) {
+    const c = current;
+    const Icon = topicIcon(c.topic);
     return (
       <Shell title={c.name} onBack={() => setOpen(null)}>
         <div className="relative overflow-hidden rounded-2xl">
-          <img src={festival} alt="" width={1024} height={1280} className="h-28 w-full object-cover" />
+          <img src={c.img} alt="" className="h-28 w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
         </div>
-        <div className="-mt-8 relative flex items-end gap-3 px-2">
-          <span className="grid h-16 w-16 place-items-center rounded-2xl border-4 border-background bg-spot-gradient"><c.icon size={26} /></span>
-          <div className="flex-1 pb-1"><strong className="block">{c.name}</strong><small className="text-muted-foreground">{demo ? `${c.members} miembros · ${c.live} en directo` : "Conversación de voz abierta a todos"}</small></div>
+        <div className="relative -mt-8 flex items-end gap-3 px-2">
+          <span className="grid h-16 w-16 place-items-center rounded-2xl border-4 border-background bg-spot-gradient"><Icon size={26} /></span>
+          <div className="min-w-0 flex-1 pb-1"><strong className="block truncate">{c.name}</strong><small className="text-muted-foreground">{c.topic} · {membersText(c)}</small></div>
         </div>
-        <Button className="mt-4 w-full" variant={isJoined ? "secondary" : "primary"} onClick={() => { setJoined((j) => isJoined ? j.filter((n) => n !== c.name) : [...j, c.name]); toast.success(isJoined ? "Has salido de la comunidad" : "Te has unido a la comunidad"); }}>
-          {isJoined ? "Miembro ✓ · Salir" : "Unirme"}
+        <Button className="mt-4 w-full" variant={c.joined ? "secondary" : "primary"} disabled={busy} onClick={() => void toggleJoin(c)}>
+          {busy ? <Loader2 size={16} className="animate-spin" /> : null}{c.joined ? "Miembro ✓ · Salir" : "Unirme"}
         </Button>
         <div className="mt-5 grid grid-cols-4 gap-1 rounded-full bg-secondary p-1">
           {(["Voces", "Salas", "Spots", "Miembros"] as const).map((t) => <button key={t} onClick={() => setInner(t)} className={inner === t ? "rounded-full bg-primary py-1.5 text-xs font-semibold text-primary-foreground" : "py-1.5 text-xs text-muted-foreground"}>{t}</button>)}
         </div>
-        {inner === "Voces" && <GroupVoices threadId={`group:${c.name}`} title="Conversación del grupo" root={{ name: c.name, durationMs: 0 }} seedNames={["Laura", "Carlos", "Marta", "Sergio"]} />}
+        {inner === "Voces" && <GroupVoices threadId={threadOf(c)} title="Conversación del grupo" root={{ name: c.name, durationMs: 0 }} seedNames={c.sample && demo ? ["Laura", "Carlos", "Marta", "Sergio"] : []} />}
         {inner === "Salas" && <div className="mt-4 space-y-2">
+          <p className="text-2xs text-muted-foreground">Salas en directo: demostración, el audio en directo llegará pronto.</p>
           {["Quedada de esta noche", "Recomendaciones del barrio"].map((r, i) => (
-            <button key={r} onClick={() => i === 0 ? setRoom(r) : toast.success("Te avisaremos a las 20:00")} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left hover:border-primary">
-              <span className={i === 0 ? "spot-pulse grid h-10 w-10 place-items-center rounded-full bg-live/20 text-live" : "grid h-10 w-10 place-items-center rounded-full bg-secondary text-primary"}><Mic size={18} /></span>
-              <span className="flex-1"><strong className="block text-sm">{r}</strong><small className="text-muted-foreground">{i === 0 ? (demo ? "En directo · 24 escuchando" : "Sala de demostración") : "Programada · 20:00"}</small></span>
-              <span className="text-xs text-primary">{i === 0 ? "Entrar" : "Avisarme"}</span>
+            <button key={r} onClick={() => i === 0 ? setRoom(r) : toast("Sala de demostración: los avisos de salas llegarán con el audio en directo.")} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left hover:border-primary">
+              <span className={i === 0 ? "spot-pulse grid h-10 w-10 place-items-center rounded-full bg-live/20 text-live" : "grid h-10 w-10 place-items-center rounded-full bg-secondary text-primary"}><Radio size={18} /></span>
+              <span className="flex-1"><strong className="block text-sm">{r}</strong><small className="text-muted-foreground">{i === 0 ? (demo ? "En directo · 24 escuchando" : "Sala de demostración") : "Programada · 20:00 · demostración"}</small></span>
+              <span className="text-xs text-primary">{i === 0 ? "Entrar" : "Ver"}</span>
             </button>
           ))}
-          <Button variant="outline" className="w-full" onClick={() => setRoom("Mi sala")}><Radio size={16} />Abrir una sala de voz</Button>
         </div>}
-        {inner === "Spots" && <div className="mt-4 grid grid-cols-3 gap-1">
-          {[festival, stage, beach, sevilleNight, valenciaSunset, festival].map((img, i) => <button key={i} onClick={() => toast("Reproduciendo Spot")} className="relative"><img src={img} alt="Spot de la comunidad" width={1024} height={1280} loading="lazy" className="aspect-square w-full rounded-lg object-cover" /><Mic size={12} className="absolute bottom-1 right-1" /></button>)}
-        </div>}
-        {inner === "Miembros" && <div className="mt-4 space-y-2">
-          {["Laura · Admin", "Carlos", "Marta", "Sergio"].map((m) => <div key={m} className="flex items-center gap-3 rounded-xl bg-card p-3"><span className="grid h-10 w-10 place-items-center rounded-full bg-spot-gradient font-bold">{m[0]}</span><span className="flex-1 text-sm">{m} <ShieldCheck size={13} className="inline text-primary" /></span></div>)}
-        </div>}
+        {inner === "Spots" && <CommunitySpots c={c} />}
+        {inner === "Miembros" && <CommunityMembers c={c} />}
         {room && <LiveRoom room={room} onLeave={() => setRoom(null)} />}
       </Shell>
     );
   }
 
-  const list = tab === "Descubrir" ? all : all.filter((c) => joined.includes(c.name));
+  const list = tab === "Descubrir" ? all : all.filter((c) => c.joined || c.mine);
   return (
     <Shell title="Comunidades" onBack={onBack}>
       <div className="grid grid-cols-2 gap-1 rounded-full bg-secondary p-1">
         {(["Descubrir", "Mis comunidades"] as const).map((t) => <button key={t} onClick={() => setTab(t)} className={tab === t ? "rounded-full bg-primary py-1.5 text-xs font-semibold text-primary-foreground" : "py-1.5 text-xs text-muted-foreground"}>{t}</button>)}
       </div>
       <div className="mt-4 space-y-2">
-        {list.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">Aún no te has unido a ninguna comunidad.</p>}
-        {list.map((c) => (
-          <button key={c.name} onClick={() => { setOpen(c.name); setInner("Voces"); }} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left hover:border-primary">
-            <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl"><img src={[stage, festival, beach, sevilleNight][all.indexOf(c) % 4]} alt="" className="h-full w-full object-cover" /><span className="absolute bottom-0.5 right-0.5 grid h-5 w-5 place-items-center rounded-full bg-background/80 text-primary"><c.icon size={11} /></span></span>
-            <span className="flex-1"><strong className="block text-sm">{c.name}</strong><small className="text-muted-foreground">{demo ? `${c.members} miembros${c.live > 0 ? ` · ${c.live} en directo` : ""}` : "Conversación de voz"}</small></span>
-            {demo && c.live > 0 && <span className="rounded-md bg-live px-2 py-1 text-3xs font-bold">EN DIRECTO</span>}
-            {joined.includes(c.name) && <CheckCircle2 size={18} className="text-primary" />}
-          </button>
-        ))}
+        {cloud.on && rows === null && !error && <div className="grid place-items-center py-10"><Loader2 className="animate-spin text-primary" size={24} /></div>}
+        {cloud.on && error && rows === null && <div className="py-8 text-center"><WifiOff className="mx-auto text-muted-foreground" size={24} /><p className="mt-2 text-sm text-muted-foreground">No se pudieron cargar las comunidades.</p><Button variant="secondary" size="sm" className="mt-3" onClick={load}>Reintentar</Button></div>}
+        {(!cloud.on || rows !== null) && list.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">{tab === "Descubrir" ? "Aún no hay comunidades. Crea la primera con tu voz." : "Aún no te has unido a ninguna comunidad."}</p>}
+        {list.map((c) => {
+          const Icon = topicIcon(c.topic);
+          return (
+            <button key={c.key} onClick={() => { setOpen(c); setInner("Voces"); }} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left hover:border-primary">
+              <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl"><img src={c.img} alt="" className="h-full w-full object-cover" /><span className="absolute bottom-0.5 right-0.5 grid h-5 w-5 place-items-center rounded-full bg-background/80 text-primary"><Icon size={11} /></span></span>
+              <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{c.name}</strong><small className="text-muted-foreground">{membersText(c)}</small></span>
+              {demo && c.sample && c.live > 0 && <span className="rounded-md bg-live px-2 py-1 text-3xs font-bold">EN DIRECTO</span>}
+              {(c.joined || c.mine) && <CheckCircle2 size={18} className="shrink-0 text-primary" />}
+            </button>
+          );
+        })}
       </div>
       <Button className="mt-5 w-full" onClick={() => setCreating(true)}><Mic size={18} />Crear comunidad con tu voz</Button>
     </Shell>
@@ -171,261 +287,231 @@ export function Communities({ onBack }: { onBack: () => void }) {
 }
 
 /* ---------- Eventos locales ---------- */
-const events = [
+type EventView = { key: string; id: string | null; title: string; place: string; city: string; startsAt: string | null; when: string; filter: "Hoy" | "Fin de semana" | "Próximos"; img: string; by: string; byAvatar: string | null; byId: string | null; going: number; attending: boolean; mine: boolean; sample: boolean; local: boolean; flyer: ThreadNote | null; files: (string | null)[] };
+const SAMPLE_EVENTS = [
   { title: "Concierto flamenco en Triana", when: "Hoy · 21:00", place: "Sevilla · Triana", filter: "Hoy", img: stage, by: "Peña Flamenca Triana" },
   { title: "Mercado de productores", when: "Sábado · 10:00", place: "Sevilla · Alameda", filter: "Fin de semana", img: valenciaSunset, by: "Asociación Alameda Viva" },
   { title: "Ruta al atardecer", when: "Domingo · 19:30", place: "Valencia · Malvarrosa", filter: "Fin de semana", img: beach, by: "Marta · Runners Valencia" },
   { title: "Feria de barrio", when: "12 de octubre", place: "Sevilla · Macarena", filter: "Próximos", img: festival, by: "Vecinos de la Macarena" },
-];
+] as const;
+const DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+/** «Hoy · 21:00», «Mañana · 19:30», «Sábado · 10:00» o «12 de octubre · 20:00», y en qué pestaña cae. */
+function whenOf(iso: string): { when: string; filter: EventView["filter"] } {
+  const d = new Date(iso), now = new Date();
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(d) - day(now)) / 86400000);
+  const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const label = diff <= 0 ? "Hoy" : diff === 1 ? "Mañana" : diff < 7 ? DAYS[d.getDay()]! : `${d.getDate()} de ${MONTHS[d.getMonth()]}`;
+  const weekend = diff < 7 && (d.getDay() === 6 || d.getDay() === 0 || (d.getDay() === 5 && d.getHours() >= 18));
+  return { when: `${label} · ${hm}`, filter: diff <= 0 ? "Hoy" : weekend ? "Fin de semana" : "Próximos" };
+}
+const flyerNote = (id: string, author: { name: string; avatar?: string | null | undefined; id?: string | null | undefined; mine?: boolean }, a: { src?: string | null | undefined; durationMs: number; peaks: number[]; createdAt: number; sample?: boolean }): ThreadNote => ({
+  id: `flyer:${id}`, threadId: `event:${id}`, parentId: null, author: { name: author.name, avatar: author.avatar ?? undefined, id: author.id ?? undefined, mine: author.mine }, createdAt: a.createdAt,
+  durationMs: a.durationMs, peaks: a.peaks.length ? a.peaks : sampleThread(`event-pres:${id}`, [{ key: "p", name: author.name, minsAgo: 180, dur: "0:22", likes: 0 }])[0]!.peaks, likes: 0, liked: false, replies: 0,
+  ...(a.src ? { src: a.src } : {}), ...(a.sample ? { sample: true } : {}),
+});
 
-export function Events({ onBack, create = false }: { onBack: () => void; create?: boolean }) {
-  const [filter, setFilter] = useState("Hoy");
-  const [going, setGoing] = useState<string[]>([]);
-  const [detail, setDetail] = useState<(typeof events)[number] | null>(null);
-  const [creating, setCreating] = useState(create ? 1 : 0);
-  const list = events.filter((e) => e.filter === filter);
-  if (detail) {
-    const isGoing = going.includes(detail.title);
-    return (
-      <div className="fixed inset-0 z-[60] mx-auto flex max-w-[520px] flex-col overflow-hidden bg-black">
-        {/* Foto fullscreen */}
-        <div className="relative w-full bg-black" style={{ aspectRatio: "9/14", maxHeight: "68vh" }}>
-          <img src={detail.img} alt={detail.title} className="h-full w-full object-cover" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
-          {/* Botón atrás */}
-          <button onClick={() => setDetail(null)} aria-label="Volver" className="absolute left-3 grid h-10 w-10 place-items-center rounded-full bg-black/50 text-white backdrop-blur-sm" style={{ top: "var(--safe-header)" }}><ChevronLeft size={24} /></button>
-          {/* Acciones laterales derecha */}
-          <div className="absolute bottom-24 right-3 flex flex-col items-center gap-5">
-            <button onClick={() => { setGoing((g) => isGoing ? g.filter((t) => t !== detail.title) : [...g, detail.title]); toast.success(isGoing ? "Has cancelado tu asistencia" : "¡Asistencia confirmada!"); }} aria-label="Asistiré" className="flex flex-col items-center gap-1">
-              <Heart size={28} className={isGoing ? "text-accent" : "text-white"} fill={isGoing ? "currentColor" : "none"} />
-              <span className="text-xs font-bold text-white">{48 + (isGoing ? 1 : 0)}</span>
-            </button>
-            <button onClick={() => toast.success("Enlace del evento copiado")} aria-label="Compartir" className="flex flex-col items-center gap-1">
-              <Share2 size={26} className="text-white" />
-              <span className="text-xs font-bold text-white">Enviar</span>
-            </button>
-            <button onClick={() => toast("Evento guardado")} aria-label="Guardar" className="flex flex-col items-center gap-1">
-              <Bookmark size={26} className="text-white" />
-              <span className="text-xs font-bold text-white">Guardar</span>
-            </button>
-          </div>
-          {/* Chip lugar */}
-          <div className="absolute bottom-5 left-3">
-            <div className="mb-1 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm" style={{ width: "fit-content" }}>
-              <MapPin size={12} />{detail.place}
-            </div>
-          </div>
-        </div>
-
-        {/* Info scrollable */}
-        <div className="flex-1 overflow-y-auto bg-background px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-4">
-          <p className="flex items-center gap-2 text-xs text-primary"><Calendar size={13} />{detail.when}</p>
-          <h2 className="mt-1 text-2xl font-bold">{detail.title}</h2>
-          <p className="text-sm text-muted-foreground">{detail.place}</p>
-          <div className="mt-4 flex items-center gap-2"><div className="flex -space-x-2">{[lauraPhoto, beach, festival, stage].map((image,i) => <span key={image} className="relative h-8 w-8 rounded-full border-2 border-background"><img src={image} alt="" className="h-full w-full rounded-full object-cover"/>{i < 2 && <BadgeCheck size={11} aria-label="Asistente verificado de ejemplo" className="absolute -right-1 -top-1 rounded-full bg-background text-primary"/>}</span>)}</div><span className="text-xs text-muted-foreground">{48 + (isGoing ? 1 : 0)} asistirán · 2 distintivos de ejemplo</span></div>
-          <div className="mt-4"><VoiceItem note={{ id: `event:${detail.title}:presentacion`, threadId: `event:${detail.title}`, parentId: null, author: { name: detail.by, avatar: detail.img, verified: true }, createdAt: Date.now() - 3 * 3600000, durationMs: 22000, peaks: sampleThread(`event-pres:${detail.title}`, [{ key: "p", name: detail.by, minsAgo: 180, dur: "0:22", likes: 0 }])[0]!.peaks, likes: 31, sample: true, liked: false, replies: 0 }} /></div>
-          <GroupVoices threadId={`event:${detail.title}`} title="Preguntas y voces de quien va" root={{ name: detail.by, durationMs: 22000 }} seedNames={["Rocío", "Manu", "Lucía"]} />
-        </div>
-
-        {/* Footer */}
-        <div className="absolute inset-x-0 bottom-0 border-t border-border bg-background/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant={isGoing ? "secondary" : "default"} onClick={() => { setGoing((g) => isGoing ? g.filter((t) => t !== detail.title) : [...g, detail.title]); toast.success(isGoing ? "Has cancelado tu asistencia" : "¡Asistencia confirmada!"); }}>{isGoing ? "Ya asistes" : "Asistiré"}</Button>
-            <Button variant="secondary" onClick={() => toast.success("Enlace del evento copiado")}>Compartir</Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  if (creating) {
-    return (
-      <Shell title="Crear evento" onBack={() => setCreating(0)}>
-        {creating === 1 && <div className="pt-8 text-center"><p className="text-sm text-muted-foreground">Cuenta qué es, dónde y cuándo</p><button aria-label="Grabar evento" onClick={() => setCreating(2)} className="spot-pulse mx-auto mt-6 grid h-24 w-24 place-items-center rounded-full bg-spot-gradient shadow-glow"><Mic size={40} /></button><p className="mt-4 text-xs text-muted-foreground">Pulsa para grabar tu audio-flyer</p></div>}
-        {creating === 2 && <div className="space-y-3"><div className="rounded-2xl border border-border bg-card p-4 text-sm"><p className="text-xs text-muted-foreground">Detectado en tu audio</p><p className="mt-2"><strong>Qué:</strong> Quedada de guitarras</p><p><strong>Dónde:</strong> Alameda de Hércules</p><p><strong>Cuándo:</strong> Sábado · 19:00</p></div><Button className="w-full" onClick={() => setCreating(3)}>Publicar evento</Button><Button variant="ghost" className="w-full" onClick={() => setCreating(1)}>Volver a grabar</Button></div>}
-        {creating === 3 && <div className="pt-10 text-center"><CheckCircle2 size={56} className="mx-auto text-primary" /><h3 className="mt-3 text-xl font-bold">¡Evento publicado!</h3><p className="text-sm text-muted-foreground">Aparece en Eventos, en el mapa y en el muro de Sevilla.</p><Button className="mt-6 w-full" onClick={() => setCreating(0)}>Listo</Button></div>}
-      </Shell>
-    );
-  }
-  return (
-    <Shell title="Eventos cerca" onBack={onBack}>
-      <Button className="mb-3 w-full" onClick={() => setCreating(1)}><Mic size={16} />Crear evento con tu voz</Button>
-      <div className="grid grid-cols-3 gap-1 rounded-xl bg-secondary p-1">
-        {["Hoy", "Fin de semana", "Próximos"].map((f) => (
-          <button key={f} onClick={() => setFilter(f)} className={filter === f ? "rounded-lg bg-primary px-1 py-2 text-xs font-semibold text-primary-foreground" : "px-1 py-2 text-xs text-muted-foreground"}>{f}</button>
-        ))}
-      </div>
-      <div className="mt-4 space-y-3">
-        {list.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">No hay eventos en este periodo.</p>}
-        {list.map((e) => {
-          const isGoing = going.includes(e.title);
-          return (
-            <article key={e.title} className="overflow-hidden rounded-2xl border border-border bg-card">
-              <button className="block w-full text-left" onClick={() => setDetail(e)}><img src={e.img} alt={e.title} width={1024} height={1280} loading="lazy" className="aspect-[16/9] w-full object-cover" /></button>
-              <div className="p-4">
-                <p className="flex items-center gap-2 text-xs text-primary"><Calendar size={13} />{e.when}</p>
-                <button onClick={() => setDetail(e)} className="mt-1 text-left font-semibold">{e.title} ›</button>
-                <p className="text-xs text-muted-foreground">{e.place}</p>
-                <button onClick={() => toast("Reproduciendo la presentación de voz")} className="mt-3 flex w-full items-center gap-2 rounded-xl border border-border bg-secondary p-2 text-left text-xs text-muted-foreground">
-                  <span className="grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground"><Mic size={15} /></span>
-                  <span className="min-w-0"><strong className="block truncate text-foreground">{e.by}</strong>Organizador · nota de voz 0:22</span>
-                </button>
-                <Button className="mt-3 w-full" variant={isGoing ? "secondary" : "primary"} onClick={() => { setGoing((g) => isGoing ? g.filter((t) => t !== e.title) : [...g, e.title]); toast.success(isGoing ? "Has cancelado tu asistencia" : "¡Asistencia confirmada!"); }}>
-                  {isGoing ? "Ya asistes" : "Asistiré"}
-                </Button>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-    </Shell>
-  );
+/** Audio-flyer de un evento creado en este móvil (la primera voz de su hilo de flyer). */
+function useLocalFlyer(eventId: string | null) {
+  const notes = useThread(eventId ? `evento-flyer:${eventId}` : "");
+  return notes[0] ?? null;
 }
 
-/* ---------- Muro de ciudad / pueblo ---------- */
-const places = [
-  { name: "Sevilla", people: "246", live: "8", img: sevilleNight },
-  { name: "Valencia", people: "188", live: "5", img: valenciaSunset },
-  { name: "Carmona", people: "34", live: "1", img: festival },
-  { name: "Cullera", people: "21", live: "0", img: beach },
-];
-
-export function CityWall({ onBack, mine = false }: { onBack: () => void; mine?: boolean }) {
-  const [place, setPlace] = useState(places[0]!);
-  const [tab, setTab] = useState("Todos");
-  const [selectingCity, setSelectingCity] = useState(false);
-  const [selectedSpot, setSelectedSpot] = useState<number | null>(null);
-  const cityPhotos = [festival, valenciaSunset, sevilleNight, stage, beach, festival, valenciaSunset, sevilleNight, stage, beach, festival, valenciaSunset];
-  const photoCounts = ["1,2K", "842", "1,1K", "654", "854", "376", "924", "563", "717", "623", "448", "302"];
+/** Crear un evento: audio-flyer con tu voz, título, cuándo y dónde (y una foto si quieres, con tu cuenta). */
+function CreateEvent({ onCreated }: { onCreated: (key: string) => void }) {
+  const me = useMe();
+  const cloud = useCloud();
+  const [clip, setClip] = useState<VoiceClip | null>(null);
+  const [title, setTitle] = useState("");
+  const [place, setPlace] = useState("");
+  const [at, setAt] = useState(() => { const d = new Date(Date.now() + 3 * 3600000); d.setMinutes(0, 0, 0); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); });
+  const [photo, setPhoto] = useState<{ blob: Blob; url: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const file = useRef<HTMLInputElement | null>(null);
+  useEffect(() => () => { if (photo) URL.revokeObjectURL(photo.url); }, [photo]);
+  const startsAt = at ? new Date(at) : null;
+  const dateOk = !!startsAt && !Number.isNaN(startsAt.getTime()) && startsAt.getTime() > Date.now() - 3600000 && startsAt.getTime() < Date.now() + 365 * 86400000;
+  const ok = !!clip && title.trim().length >= 3 && place.trim().length >= 2 && dateOk && !busy;
+  const publish = async () => {
+    if (!ok || !clip || !startsAt) return;
+    const uid = cloudUid();
+    if (!uid) {
+      const e = addLocalEvent({ title: title.trim(), place: place.trim(), city: me.city, startsAt: startsAt.toISOString() });
+      addVoiceNote({ threadId: `evento-flyer:${e.id}`, clip: detachClip(clip) });
+      toast.success("¡Evento creado en este móvil!");
+      onCreated(e.id); return;
+    }
+    setBusy(true);
+    try {
+      const r = await api.publishEvent(db(), uid, { title, place, city: me.city, startsAt: startsAt.toISOString(), audio: clip.blob, audioMime: clip.mimeType, durationMs: clip.durationMs, peaks: clip.peaks, photo: photo?.blob });
+      toast.success("¡Evento publicado!");
+      onCreated(r.id);
+    } catch (e) { toast.error(cloudErrorText(e)); setBusy(false); }
+  };
   return (
-    <div className="fixed inset-0 z-40 mx-auto max-w-[520px] overflow-y-auto bg-background pb-[calc(5rem+env(safe-area-inset-bottom))]">
-      <TopBar title={place.name} sub={place.name === "Sevilla" ? "124K Spots · 83K personas" : `${place.people} Spots · ${place.people} personas`} onBack={onBack} sticky right={<Button variant="ghost" size="icon" className="text-foreground" onClick={() => setSelectingCity(true)} aria-label="Elegir ciudad"><ChevronDown size={20} /></Button>} />
-      <div className="mt-5 flex gap-1.5 overflow-x-auto px-4 pb-2">
-        {["Todos", "Fotos", "Vídeos", "Voz", "En directo"].map((t) => <Button key={t} size="sm" variant={tab === t ? "default" : "secondary"} onClick={() => setTab(t)} className={`shrink-0 rounded-full text-xs ${tab === t ? "spot-active-pill" : ""}`}>{t}</Button>)}
-      </div>
-      <div className="mt-1 grid grid-cols-3 gap-1.5 px-3">
-        {mine && place.name === "Sevilla" && <Button variant="ghost" onClick={() => setSelectedSpot(-1)} className="relative h-auto overflow-hidden rounded-lg p-0"><img src={valenciaSunset} alt="Tu Spot" className="aspect-[3/4] w-full object-cover" /><span className="absolute left-1 top-1 rounded bg-live px-1 text-4xs font-bold text-primary-foreground">TÚ · NUEVO</span></Button>}
-        {cityPhotos.filter((_, i) => tab !== "En directo" || i % 3 === 0).filter((_, i) => tab !== "Voz" || i % 2 === 0).map((img, i) => <Button key={`${tab}-${i}`} variant="ghost" onClick={() => setSelectedSpot(i)} className="relative h-auto overflow-hidden rounded-lg border border-border p-0"><img src={place.name === "Sevilla" ? img : i % 3 === 0 ? place.img : img} alt={`Spot ${i + 1} en ${place.name}`} loading="lazy" className="aspect-[3/4] w-full object-cover" /><span className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-gradient-to-t from-background/90 to-transparent px-1.5 pb-1 pt-6 text-3xs"><Heart size={11} fill="currentColor" className="text-live" />{photoCounts[i]} <Mic size={10} className="ml-auto" /></span></Button>)}
-      </div>
-      {selectingCity && <div className="fixed inset-0 z-50 flex items-end bg-background/80" onClick={() => setSelectingCity(false)}><div className="w-full rounded-t-xl bg-card p-4 pb-10" onClick={(e) => e.stopPropagation()}><p className="mb-3 text-sm font-bold">Ciudades y pueblos</p>{places.map((p) => <Button key={p.name} variant={p.name === place.name ? "default" : "ghost"} onClick={() => { setPlace(p); setTab("Todos"); setSelectingCity(false); }} className="mb-1 w-full justify-start">{p.name}</Button>)}</div></div>}
-      {selectedSpot !== null && <div className="fixed inset-0 z-50 flex items-end bg-background/80" onClick={() => setSelectedSpot(null)}><div className="mx-auto w-full max-w-[520px] rounded-t-2xl border-t border-primary bg-card p-4 pb-8" onClick={(e) => e.stopPropagation()}><img src={selectedSpot === -1 ? valenciaSunset : cityPhotos[selectedSpot % cityPhotos.length]} alt="Spot seleccionado" className="aspect-video w-full rounded-lg object-cover" /><p className="mt-3 font-semibold">{selectedSpot === -1 ? "Tu Spot" : `Spot en ${place.name}`}</p><p className="text-xs text-muted-foreground">{place.name} · Hace 5 min</p><div className="mt-3 flex gap-2"><Button onClick={() => toast("Reproduciendo Spot de voz")}><Mic size={16} />Escuchar Spot</Button><Button variant="secondary" onClick={() => setSelectedSpot(null)}>Cerrar</Button></div></div></div>}
+    <div>
+      <p className="text-sm font-semibold">Tu audio-flyer</p>
+      <p className="text-xs text-muted-foreground">Cuenta qué es, dónde y cuándo, con tu voz (hasta 1 minuto).</p>
+      <VoiceRecordTile maxSeconds={60} onChange={setClip} idleText="Grabar audio-flyer" />
+      <label className="mt-2 block text-sm font-semibold" htmlFor="evento-titulo">Título</label>
+      <input id="evento-titulo" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder="Ej.: Quedada de guitarras" className="mt-2 h-12 w-full rounded-xl border border-border bg-card px-4 text-base outline-none focus:border-primary" />
+      <label className="mt-3 block text-sm font-semibold" htmlFor="evento-cuando">Cuándo<input id="evento-cuando" type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} className="mt-2 h-12 w-full rounded-xl border border-border bg-card px-3 text-base font-normal outline-none focus:border-primary" /></label>
+      <label className="mt-3 block text-sm font-semibold" htmlFor="evento-donde">Dónde<input id="evento-donde" value={place} maxLength={80} onChange={(e) => setPlace(e.target.value)} placeholder="Ej.: Alameda de Hércules" className="mt-2 h-12 w-full rounded-xl border border-border bg-card px-4 text-base font-normal outline-none focus:border-primary" /></label>
+      {!dateOk && at && <p className="mt-1 text-xs text-live">Elige una fecha a partir de ahora y en menos de un año.</p>}
+      {cloud.on && <>
+        <input ref={file} type="file" accept="image/*" className="hidden" aria-label="Elegir una foto del evento" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; if (!f.type.startsWith("image/") || f.size > 15 * 1024 * 1024) { toast.error("Elige una foto de hasta 15 MB."); return; } setPhoto({ blob: f, url: URL.createObjectURL(f) }); }} />
+        <button type="button" onClick={() => file.current?.click()} className="mt-3 flex w-full items-center gap-3 rounded-xl border border-dashed border-border p-3 text-left text-sm text-muted-foreground">{photo ? <img src={photo.url} alt="" className="h-12 w-12 rounded-lg object-cover" /> : <span className="grid h-12 w-12 place-items-center rounded-lg bg-secondary text-primary"><Camera size={18} /></span>}{photo ? "Cambiar la foto" : "Añadir una foto (opcional)"}</button>
+      </>}
+      <Button className="mt-4 w-full" disabled={!ok} onClick={() => void publish()}>{busy ? <Loader2 size={16} className="animate-spin" /> : <Calendar size={16} />}Publicar evento</Button>
+      <p className="mt-2 text-center text-2xs text-muted-foreground">{cloud.on ? `Aparecerá en Eventos para todo el mundo · ${me.city || "tu ciudad"}` : "Sin cuenta, el evento se guarda en este móvil."}</p>
     </div>
   );
 }
 
-/* ---------- Búsqueda por voz ---------- */
-const suggestions = ["Dónde hay música en directo esta noche", "Sitios tranquilos cerca del río", "Qué está pasando ahora en Triana"];
-
-export function VoiceSearch({ onBack }: { onBack: () => void }) {
-  const [openR, setOpenR] = useState<{ t: string; d: string } | null>(null); const [playR, setPlayR] = useState(false);
-  const [kind, setKind] = useState<"Lugares" | "Creadores">("Lugares");
-  const [onlyVerified, setOnlyVerified] = useState(false);
-  const [listening, setListening] = useState(false);
-  const [query, setQuery] = useState("");
-  const [distance, setDistance] = useState(5);
-  const [when, setWhen] = useState("Ahora");
-  const results = query ? [
-    { t: "Sala Malandar · música en directo", d: "1,2 km · empieza a las 21:30" },
-    { t: "Terraza Alameda · ambiente tranquilo", d: "800 m · 14 personas ahora" },
-    { t: "Quedada abierta en Triana", d: "2,1 km · 6 en directo" },
-  ] : [];
+function EventDetail({ e, onBack, onToggle, onDelete, busy }: { e: EventView; onBack: () => void; onToggle: () => void; onDelete?: (() => void) | undefined; busy: boolean }) {
+  const localFlyer = useLocalFlyer(e.local ? e.id : null);
+  const flyer = e.local ? localFlyer : e.flyer;
+  const share = () => void shareLink({ title: e.title, text: `${e.title} · ${e.when} · ${e.place}`, url: e.sample || e.local ? null : appUrl() });
   return (
-    <Shell title="Buscar con la voz" onBack={onBack}>
-      <div className="rounded-2xl bg-spot-surface p-6 text-center">
-        <button onClick={() => { if (listening) { setListening(false); setQuery(suggestions[0]!); toast.success("Búsqueda entendida"); } else { setListening(true); setQuery(""); } }} className={listening ? "spot-pulse mx-auto grid h-28 w-28 place-items-center rounded-full bg-spot-gradient shadow-glow" : "mx-auto grid h-28 w-28 place-items-center rounded-full bg-spot-gradient"} aria-label={listening ? "Detener búsqueda por voz" : "Buscar con la voz"}>
-          <Mic size={46} />
-        </button>
-        <p className="mt-4 text-sm text-muted-foreground">{listening ? "Escuchando… pulsa otra vez al terminar" : query ? `«${query}»` : "Pulsa y di lo que buscas"}</p>
+    <div className="fixed inset-0 z-[60] mx-auto flex max-w-[520px] flex-col overflow-hidden bg-black">
+      <div className="relative w-full bg-black" style={{ aspectRatio: "9/14", maxHeight: "60vh" }}>
+        <img src={e.img} alt={e.title} className="h-full w-full object-cover" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
+        <button onClick={onBack} aria-label="Volver" className="absolute left-3 grid h-10 w-10 place-items-center rounded-full bg-black/50 text-white backdrop-blur-sm" style={{ top: "var(--safe-header)" }}><ChevronLeft size={24} /></button>
+        <div className="absolute bottom-24 right-3 flex flex-col items-center gap-5">
+          <button onClick={onToggle} disabled={busy} aria-pressed={e.attending} aria-label={e.attending ? "Ya no asistiré" : "Asistiré"} className="flex flex-col items-center gap-1">
+            <Heart size={28} className={e.attending ? "text-accent" : "text-white"} fill={e.attending ? "currentColor" : "none"} />
+            <span className="text-xs font-bold text-white">{e.going}</span>
+          </button>
+          <button onClick={share} aria-label="Compartir" className="flex flex-col items-center gap-1"><Share2 size={26} className="text-white" /><span className="text-xs font-bold text-white">Enviar</span></button>
+          {onDelete && <button onClick={onDelete} aria-label="Borrar mi evento" className="flex flex-col items-center gap-1"><Trash2 size={24} className="text-white" /><span className="text-xs font-bold text-white">Borrar</span></button>}
+        </div>
+        <div className="absolute bottom-5 left-3"><div className="mb-1 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm" style={{ width: "fit-content" }}><MapPin size={12} />{e.place}</div></div>
       </div>
-
-      <div className="mt-5 grid grid-cols-2 gap-1 rounded-lg bg-secondary p-1">{(["Lugares", "Creadores"] as const).map(x => <Button key={x} size="sm" variant={kind===x?"default":"ghost"} onClick={()=>{setKind(x);setOpenR(null)}} className="rounded-md">{x}</Button>)}</div>
-      {kind === "Creadores" && <div className="mt-4"><Button size="sm" variant={onlyVerified?"default":"secondary"} onClick={()=>setOnlyVerified(v=>!v)} className="rounded-full"><BadgeCheck size={15}/>Solo verificados</Button><p className="mt-2 text-2xs text-muted-foreground">Perfiles y sellos de ejemplo</p></div>}
-      <h3 className="mt-6 text-sm font-bold">Filtros</h3>
-      <label className="mt-2 block text-xs text-muted-foreground">Distancia: {distance} km
-        <input type="range" min={1} max={30} value={distance} onChange={(e) => setDistance(Number(e.target.value))} className="mt-2 w-full accent-[var(--primary)]" />
-      </label>
-      <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-secondary p-1">
-        {["Ahora", "Hoy", "Esta semana"].map((w) => <button key={w} onClick={() => setWhen(w)} className={when === w ? "rounded-lg bg-primary py-2 text-xs font-semibold text-primary-foreground" : "py-2 text-xs text-muted-foreground"}>{w}</button>)}
+      <div className="flex-1 overflow-y-auto bg-background px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-4">
+        <p className="flex items-center gap-2 text-xs text-primary"><Calendar size={13} />{e.when}</p>
+        <h2 className="mt-1 text-2xl font-bold">{e.title}</h2>
+        <p className="text-sm text-muted-foreground">{e.place}{e.sample ? " · evento de ejemplo" : e.local ? " · en este móvil" : ""}</p>
+        <p className="mt-3 text-xs text-muted-foreground">{e.going} {e.going === 1 ? "persona va" : "personas van"}{e.attending ? " · tú también" : ""}</p>
+        <div className="mt-4">{flyer ? <VoiceItem note={{ ...flyer, liked: false, replies: 0, author: { ...flyer.author, name: flyer.author.mine ? flyer.author.name : e.by } }} social={false} right={<span className="text-2xs text-muted-foreground">Audio-flyer</span>} /> : <p className="text-xs text-muted-foreground">Sin audio-flyer.</p>}</div>
+        <GroupVoices threadId={e.id ? `event:${e.id}` : `event:${e.title}`} title="Preguntas y voces de quien va" root={{ name: e.by, durationMs: flyer?.durationMs ?? 0 }} seedNames={e.sample ? ["Rocío", "Manu", "Lucía"] : []} />
       </div>
+      <div className="absolute inset-x-0 bottom-0 border-t border-border bg-background/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant={e.attending ? "secondary" : "default"} disabled={busy} onClick={onToggle}>{busy ? <Loader2 size={16} className="animate-spin" /> : null}{e.attending ? "Ya asistes" : "Asistiré"}</Button>
+          <Button variant="secondary" onClick={share}>Compartir</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-      {kind === "Creadores" && <div className="mt-5 space-y-2">{[{name:"Laura",image:lauraPhoto,verified:true,topic:"Música · Sevilla",distance:"300 m"},{name:"Carlos",image:beach,verified:true,topic:"Deporte · Sevilla",distance:"450 m"},{name:"Marta",image:festival,verified:false,topic:"Gastronomía · Sevilla",distance:"1,2 km"}].filter(x=>!onlyVerified||x.verified).map(x=><Button key={x.name} variant="secondary" onClick={()=>setOpenR({t:x.name,d:`${x.topic} · ${x.distance}${x.verified?' · Verificado de ejemplo':''}`})} className="flex h-auto min-h-16 w-full justify-start gap-3 rounded-lg border border-border p-2 text-left"><img src={x.image} alt="" className="h-11 w-11 rounded-full object-cover"/><span className="min-w-0 flex-1"><strong className="flex items-center gap-1 text-sm">{x.name}{x.verified&&<BadgeCheck size={14} className="text-primary"/>}</strong><small className="block text-xs text-muted-foreground">{x.topic} · {x.distance}</small></span></Button>)}</div>}
-      {kind === "Lugares" && !query && (
-        <>
-          <h3 className="mt-6 text-sm font-bold">Prueba a decir</h3>
-          <div className="mt-2 space-y-2">
-            {suggestions.map((s) => <button key={s} onClick={() => setQuery(s)} className="w-full rounded-xl border border-border bg-card p-3 text-left text-sm hover:border-primary">«{s}»</button>)}
-          </div>
-        </>
-      )}
+export function Events({ onBack, create = false }: { onBack: () => void; create?: boolean }) {
+  const { demo } = useStore();
+  const me = useMe();
+  const cloud = useCloud();
+  const local = useLocalGatherings();
+  const [filter, setFilter] = useState<EventView["filter"]>("Hoy");
+  const [rows, setRows] = useState<api.EventRow[] | null>(null);
+  const [error, setError] = useState(false);
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [creating, setCreating] = useState(create);
+  const [busy, setBusy] = useState(false);
+  const [sampleGoing, setSampleGoing] = useState<string[]>([]);
+  const load = useCallback(() => { if (!cloud.on) return; api.fetchEvents(db()).then((l) => { setRows(l); setError(false); }).catch(() => setError(true)); }, [cloud.on]);
+  useEffect(() => { load(); }, [load]);
 
-      {kind === "Lugares" && query && (
-        <>
-          <h3 className="mt-6 text-sm font-bold">Resultados · {when} · {distance} km</h3>
-          <div className="mt-2 space-y-2">
-            {results.map((r) => (
-              <button key={r.t} onClick={() => setOpenR(r)} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-3 text-left">
-                <span className="grid h-10 w-10 place-items-center rounded-full bg-secondary text-primary"><Flame size={18} /></span>
-                <span className="flex-1"><strong className="block text-sm">{r.t}</strong><small className="text-muted-foreground">{r.d}</small></span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-      {openR && <BottomSheet onClose={() => { setOpenR(null); setPlayR(false); }} z={50}>
-        <h3 className="text-lg font-bold">{openR.t}</h3><p className="text-sm text-muted-foreground">{openR.d}</p>
-        {kind === "Creadores" ? <><p className="mt-3 text-xs text-muted-foreground">Presentación de voz · ejemplo</p><Button variant="secondary" onClick={() => setPlayR(!playR)} className="mt-2 w-full justify-start"><span className="text-primary">{playR ? <Pause size={16}/> : <Play size={16}/>}</span>{playR ? "Pausar presentación" : "Escuchar presentación"}</Button><div className="mt-4 grid grid-cols-2 gap-2"><Button variant="secondary" onClick={() => toast("Seguimiento de ejemplo")}>Seguir</Button><Button onClick={() => toast("Mensaje de voz de ejemplo")}><Mic size={16}/>Mensaje de voz</Button></div></> : <><Button variant="secondary" onClick={() => setPlayR(!playR)} className="mt-4 w-full justify-start"><span className="text-primary">{playR ? <Pause size={16}/> : <Play size={16}/>}</span>{playR ? "Pausar ejemplo" : "Escuchar lo que se dice ahí"}</Button><div className="mt-4 grid grid-cols-2 gap-2"><Button variant="outline" onClick={() => toast("Ruta de ejemplo en el mapa")}><MapPin size={16} />Cómo llegar</Button><Button onClick={() => toast("Respuesta de voz de ejemplo")}><Mic size={16} />Responder</Button></div></>}
-      </BottomSheet>}
+  const all: EventView[] = useMemo(() => {
+    if (cloud.on) return (rows ?? []).map((r): EventView => ({ key: r.id, id: r.id, title: r.title, place: r.place, city: r.city, startsAt: r.starts_at, ...whenOf(r.starts_at), img: fileUrl(r.media_path) ?? stage, by: r.author_name || `@${r.author_username}`, byAvatar: fileUrl(r.author_avatar), byId: r.author_id, going: r.going, attending: r.attending, mine: r.mine, sample: false, local: false, files: [r.audio_path, r.media_path],
+      flyer: flyerNote(r.id, { name: r.author_name || `@${r.author_username}`, avatar: fileUrl(r.author_avatar), id: r.author_id, mine: r.mine }, { src: fileUrl(r.audio_path), durationMs: r.duration_ms, peaks: r.peaks ?? [], createdAt: Date.parse(r.created_at) }) }));
+    const mine = local.events.filter((e) => Date.parse(e.startsAt) > Date.now() - 12 * 3600000).map((e): EventView => ({ key: e.id, id: e.id, title: e.title, place: e.place, city: e.city, startsAt: e.startsAt, ...whenOf(e.startsAt), img: stage, by: me.name, byAvatar: me.avatar, byId: null, going: local.going.includes(e.id) ? 1 : 0, attending: local.going.includes(e.id), mine: true, sample: false, local: true, files: [], flyer: null }));
+    const samples = SAMPLE_EVENTS.map((e): EventView => {
+      const going = sampleGoing.includes(e.title);
+      return { key: `ejemplo:${e.title}`, id: null, title: e.title, place: e.place, city: "", startsAt: null, when: e.when, filter: e.filter, img: e.img, by: e.by, byAvatar: e.img, byId: null, going: (demo ? 48 : 0) + (going ? 1 : 0), attending: going, mine: false, sample: true, local: false, files: [],
+        flyer: flyerNote(`ejemplo-${e.title}`, { name: e.by, avatar: e.img }, { durationMs: 22000, peaks: [], createdAt: Date.now() - 3 * 3600000, sample: true }) };
+    });
+    return [...mine, ...samples];
+  }, [cloud.on, rows, local, demo, me.name, me.avatar, sampleGoing]);
+  const current = openKey ? all.find((e) => e.key === openKey) ?? null : null;
+  const list = all.filter((e) => e.filter === filter);
+  const toggle = async (e: EventView) => {
+    if (e.sample) { setSampleGoing((g) => (g.includes(e.title) ? g.filter((t) => t !== e.title) : [...g, e.title])); toast.success(e.attending ? "Has cancelado tu asistencia" : "¡Asistencia confirmada!"); return; }
+    if (e.local || !e.id) { toggleLocalGoing(e.key); toast.success(e.attending ? "Has cancelado tu asistencia" : "¡Asistencia confirmada!"); return; }
+    const uid = cloudUid();
+    if (!uid) return;
+    setBusy(true);
+    try { await api.setAttending(db(), uid, e.id, !e.attending); toast.success(e.attending ? "Has cancelado tu asistencia" : "¡Asistencia confirmada!"); load(); }
+    catch (err) { toast.error(cloudErrorText(err)); }
+    finally { setBusy(false); }
+  };
+  const remove = async (e: EventView) => {
+    if (e.local && e.id) { removeLocalEvent(e.id); setOpenKey(null); toast("Evento borrado"); return; }
+    if (!e.id) return;
+    setBusy(true);
+    try { await api.deleteEvent(db(), e.id, e.files); setOpenKey(null); toast("Evento borrado"); load(); }
+    catch (err) { toast.error(cloudErrorText(err)); }
+    finally { setBusy(false); }
+  };
+
+  if (current) return <EventDetail e={current} busy={busy} onBack={() => setOpenKey(null)} onToggle={() => void toggle(current)} onDelete={current.mine ? () => void remove(current) : undefined} />;
+  if (creating) return <Shell title="Crear evento" onBack={() => setCreating(false)}><CreateEvent onCreated={(key) => { setCreating(false); load(); const e = all.find((x) => x.key === key); if (e) setFilter(e.filter); setOpenKey(key); }} /></Shell>;
+  return (
+    <Shell title="Eventos cerca" onBack={onBack}>
+      <Button className="mb-3 w-full" onClick={() => setCreating(true)}><Mic size={16} />Crear evento con tu voz</Button>
+      <div className="grid grid-cols-3 gap-1 rounded-xl bg-secondary p-1">
+        {(["Hoy", "Fin de semana", "Próximos"] as const).map((f) => (
+          <button key={f} onClick={() => setFilter(f)} className={filter === f ? "rounded-lg bg-primary px-1 py-2 text-xs font-semibold text-primary-foreground" : "px-1 py-2 text-xs text-muted-foreground"}>{f}</button>
+        ))}
+      </div>
+      <div className="mt-4 space-y-3">
+        {cloud.on && rows === null && !error && <div className="grid place-items-center py-10"><Loader2 className="animate-spin text-primary" size={24} /></div>}
+        {cloud.on && error && rows === null && <div className="py-8 text-center"><WifiOff className="mx-auto text-muted-foreground" size={24} /><p className="mt-2 text-sm text-muted-foreground">No se pudieron cargar los eventos.</p><Button variant="secondary" size="sm" className="mt-3" onClick={load}>Reintentar</Button></div>}
+        {(!cloud.on || rows !== null) && list.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">No hay eventos en este periodo. ¡Crea el primero con tu voz!</p>}
+        {list.map((e) => (
+          <article key={e.key} className="overflow-hidden rounded-2xl border border-border bg-card">
+            <button className="block w-full text-left" onClick={() => setOpenKey(e.key)}><img src={e.img} alt={e.title} loading="lazy" className="aspect-[16/9] w-full object-cover" /></button>
+            <div className="p-4">
+              <p className="flex items-center gap-2 text-xs text-primary"><Calendar size={13} />{e.when}</p>
+              <button onClick={() => setOpenKey(e.key)} className="mt-1 text-left font-semibold">{e.title} ›</button>
+              <p className="text-xs text-muted-foreground">{e.place}{e.sample && !demo ? " · ejemplo" : e.local ? " · en este móvil" : ""}</p>
+              <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">{e.byAvatar ? <img src={e.byAvatar} alt="" className="h-7 w-7 rounded-full object-cover" /> : <span className="grid h-7 w-7 place-items-center rounded-full bg-spot-gradient text-3xs font-bold text-foreground">{(e.by[0] ?? "?").toUpperCase()}</span>}<span className="min-w-0 truncate"><strong className="text-foreground">{e.by}</strong> · organiza{e.going ? ` · ${e.going} van` : ""}</span></div>
+              <Button className="mt-3 w-full" variant={e.attending ? "secondary" : "primary"} disabled={busy} onClick={() => void toggle(e)}>{e.attending ? "Ya asistes" : "Asistiré"}</Button>
+            </div>
+          </article>
+        ))}
+      </div>
     </Shell>
   );
 }
 
-/* ---------- Privacidad e incógnito ---------- */
+/* ---------- Privacidad ---------- */
+/**
+ * Privacidad sin interruptores de mentira: lo que Spotly hace siempre con tus datos y accesos directos a lo que sí
+ * puedes cambiar (bloqueos y denuncias, Incógnito, permisos del móvil, descargar o borrar tus datos en Ajustes).
+ */
 export function Privacy({ onBack }: { onBack: () => void }) {
-  const [incognito, setIncognito] = useState<number | null>(null);
-  const [blockedOpen, setBlockedOpen] = useState(false); const [blocked, setBlocked] = useState(["Usuario_spam23", "Pedro R.", "Fiesta Promo SL"]);
-  const [toggles, setToggles] = useState({ ubicacion: true, mensajes: true, escuchas: false });
-  const set = (k: keyof typeof toggles) => setToggles((t) => ({ ...t, [k]: !t[k] }));
-  const labels: [keyof typeof toggles, string, string][] = [
-    ["ubicacion", "Mostrar mi ubicación aproximada", "Nunca se muestra tu dirección exacta"],
-    ["mensajes", "Permitir notas de voz de cualquiera", "Si lo desactivas, solo te escriben quienes sigues"],
-    ["escuchas", "Mostrar quién escucha mis Spots", "Tu lista de oyentes será visible"],
+  const app = useApp();
+  const facts: [typeof MapPin, string, string][] = [
+    [MapPin, "Tu ubicación, siempre aproximada", "Nadie ve tu dirección exacta: cada Spot lleva la zona que eliges al publicarlo, y puedes ocultarla."],
+    [EyeOff, "Quién te escucha es privado", "Nadie ve la lista de quién escucha tus Spots; solo ves cuántas vistas tienen."],
+    [Mic, "Tus chats de voz son privados", "Las notas de voz de un chat solo las oyen quienes están en él."],
+    [ShieldCheck, "Bloquear es para los dos lados", "Si bloqueas a alguien, dejáis de veros y de oíros, y deja de seguirte."],
+  ];
+  const links: [typeof Users, string, string, () => void][] = [
+    [Users, "Bloqueos y denuncias", "Personas bloqueadas y el estado de tus denuncias", () => app.open("seguridad")],
+    [Eye, "Incógnito", "Publica como «Anónimo» con Incógnito de pago", () => app.open("incognito")],
+    [ShieldCheck, "Permisos del móvil", "Micrófono, cámara, ubicación y avisos", () => app.open("permisos")],
   ];
   return (
     <Shell title="Privacidad" onBack={onBack}>
-      <div className="rounded-2xl border border-border bg-card p-4">
-        <div className="flex items-center gap-3">
-          {incognito ? <EyeOff className="text-accent" /> : <Eye className="text-primary" />}
-          <div className="flex-1">
-            <strong className="block text-sm">Modo incógnito</strong>
-            <small className="text-muted-foreground">{incognito ? `Activo durante ${incognito} h` : "Navega sin aparecer en el mapa"}</small>
-          </div>
-        </div>
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          {[1, 4, 24].map((h) => <button key={h} onClick={() => { setIncognito(h); toast.success(`Modo incógnito activado ${h} h`); }} className={incognito === h ? "rounded-xl bg-primary py-2 text-sm font-semibold text-primary-foreground" : "rounded-xl border border-border py-2 text-sm text-muted-foreground"}>{h} h</button>)}
-        </div>
-        {incognito && <Button variant="outline" className="mt-3 w-full" onClick={() => { setIncognito(null); toast("Modo incógnito desactivado"); }}>Desactivar</Button>}
+      <div className="space-y-2">
+        {facts.map(([I, t, d]) => <div key={t} className="flex items-start gap-3 rounded-xl border border-border bg-card p-4"><I size={19} className="mt-0.5 shrink-0 text-primary" /><span><strong className="block text-sm">{t}</strong><small className="text-muted-foreground">{d}</small></span></div>)}
       </div>
-
-      <div className="mt-4 space-y-2">
-        {labels.map(([k, title, desc]) => (
-          <button key={k} onClick={() => set(k)} role="switch" aria-checked={toggles[k]} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left">
-            <span className="flex-1"><strong className="block text-sm">{title}</strong><small className="text-muted-foreground">{desc}</small></span>
-            <span className={"h-6 w-11 shrink-0 rounded-full p-0.5 transition " + (toggles[k] ? "bg-spot-gradient" : "bg-muted")}>
-              <span className={"block h-5 w-5 rounded-full bg-foreground transition " + (toggles[k] ? "translate-x-5" : "")} />
-            </span>
-          </button>
-        ))}
+      <div className="mt-4 divide-y divide-border rounded-xl border border-border bg-card px-4">
+        {links.map(([I, t, d, go]) => <button key={t} onClick={go} className="flex w-full items-center gap-3 py-3 text-left"><I size={18} className="shrink-0 text-primary" /><span className="min-w-0 flex-1"><strong className="block text-sm">{t}</strong><small className="text-muted-foreground">{d}</small></span><span className="text-muted-foreground">›</span></button>)}
       </div>
-
-      <div className="mt-5 flex items-start gap-3 rounded-xl border border-border bg-spot-surface p-4">
-        <ShieldCheck className="shrink-0 text-primary" />
-        <p className="text-xs text-muted-foreground">Spotly nunca comparte tu ubicación exacta. Puedes bloquear y denunciar a cualquier persona desde su perfil.</p>
-      </div>
-      <Button variant="outline" className="mt-4 w-full" onClick={() => setBlockedOpen(true)}><Users size={18} />Personas bloqueadas ({blocked.length})</Button>
-      {blockedOpen && <Shell title="Personas bloqueadas" onBack={() => setBlockedOpen(false)}>
-        {blocked.length ? <div className="divide-y divide-border rounded-xl border border-border bg-card px-4">{blocked.map((b) => <div key={b} className="flex items-center gap-3 py-3"><span className="grid h-10 w-10 place-items-center rounded-full bg-secondary font-bold">{b[0]}</span><span className="flex-1 text-sm">{b}</span><Button size="sm" variant="outline" onClick={() => { setBlocked(blocked.filter((x) => x !== b)); toast(`${b} desbloqueado`); }}>Desbloquear</Button></div>)}</div>
-          : <p className="py-16 text-center text-sm text-muted-foreground">No has bloqueado a nadie.</p>}
-        <p className="mt-4 text-xs text-muted-foreground">Las personas bloqueadas no pueden escucharte, enviarte notas de voz ni verte en el mapa.</p>
-      </Shell>}
+      <p className="mt-4 text-xs text-muted-foreground">Para descargar todos tus datos o borrar tu cuenta, ve a Perfil › Ajustes › Cuenta y datos.</p>
     </Shell>
   );
 }
