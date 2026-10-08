@@ -38,6 +38,7 @@ import { stopAllVoices } from "@/lib/voice/player";
 import { loadVoiceNotes } from "@/lib/voice/notes";
 import { startCloud } from "@/lib/cloud";
 import { SharedLink } from "@/components/spotly/SharedLink";
+import { MiniVoicePlayer } from "@/components/spotly/MiniVoicePlayer";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
@@ -134,6 +135,7 @@ export function Index() {
           {navItems.slice(2).map(([id, Icon, label], i) => <NavButton key={id} n={i + 3} on={tab === id && id !== "actividad"} Icon={id === "actividad" ? Mic : Icon} label={id === "actividad" ? "Chats" : label} onClick={() => id === "actividad" ? setSheet("chats") : setTab(id)} />)}
         </nav>
 
+        {!splash && !welcome && !creating && !sheet && <MiniVoicePlayer />}
         <IncognitoBanner onOpen={() => setSheet("incognito")} />
         {creating && <CreateSpot onClose={() => setCreating(false)} onPublished={(m) => { setMine(m); setTab("inicio"); window.scrollTo(0, 0); }} />}
 
