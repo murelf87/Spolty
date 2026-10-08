@@ -116,12 +116,31 @@
   --nav-4a: oklch(0.72 0.28 330); --nav-4b: oklch(0.82 0.15 205);
   /* Alto de la barra de navegación inferior (en escritorio no hay barra). */
   --nav-h: calc(4.25rem + env(safe-area-inset-bottom));
-  /* Voz: lo escuchado va de fucsia a violeta; lo que falta, en gris. */
-  --wave-from: oklch(0.7 0.27 345);
-  --wave-to: oklch(0.63 0.25 295);
-  --wave-rest: oklch(0.72 0.02 270 / 42%);
-  /* Borde del panel de respuesta: de azul violeta a fucsia, como en el diseño. */
-  --wave-edge: oklch(0.62 0.2 272);
+  /* Voz, medida sobre el diseño de las respuestas de voz: lo escuchado, fucsia arriba y violeta abajo; lo que falta,
+     gris; el punto de reproducción, rosa; mientras grabas, rosa intenso. */
+  --wave-from: oklch(0.645 0.262 339);
+  --wave-to: oklch(0.605 0.265 310);
+  --wave-rest: oklch(0.85 0.025 275 / 36%);
+  --wave-head: oklch(0.72 0.246 333);
+  --wave-live: oklch(0.63 0.257 344);
+  /* Borde del panel de respuesta y de su pico: de azul violeta a fucsia. */
+  --wave-edge: oklch(0.62 0.2 277);
+  --voice-pink: oklch(0.725 0.211 347);
+  --voice-magenta: oklch(0.72 0.268 332);
+  /* Tarjeta de voz: azul noche con el borde algo más claro abajo, botón de play y separador del panel. */
+  --voice-card-a: oklch(0.225 0.028 268);
+  --voice-card-b: oklch(0.2 0.03 269);
+  --voice-line-a: oklch(0.3 0.031 266);
+  --voice-line-b: oklch(0.37 0.03 277);
+  --voice-play-a: oklch(0.275 0.034 272);
+  --voice-play-b: oklch(0.255 0.03 262);
+  --voice-play-icon: oklch(0.9 0.025 276);
+  --voice-divider: oklch(0.38 0.029 277);
+  --voice-stop: oklch(0.606 0.207 353);
+  --voice-stop-rim: oklch(0.737 0.182 346);
+  --voice-send-a: oklch(0.655 0.238 355);
+  --voice-send-b: oklch(0.569 0.266 305);
+  --voice-shadow: oklch(0 0 0 / 22%);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -164,10 +183,27 @@
   --spot-blue: oklch(0.6 0.17 235);
   --spot-fuchsia: oklch(0.6 0.25 325);
   --online: oklch(0.56 0.16 152);
-  --wave-from: oklch(0.6 0.26 345);
-  --wave-to: oklch(0.52 0.24 295);
-  --wave-rest: oklch(0.55 0.03 270 / 38%);
-  --wave-edge: oklch(0.55 0.2 272);
+  --wave-from: oklch(0.6 0.26 343);
+  --wave-to: oklch(0.53 0.25 308);
+  --wave-rest: oklch(0.5 0.03 270 / 34%);
+  --wave-head: oklch(0.63 0.25 334);
+  --wave-live: oklch(0.58 0.25 346);
+  --wave-edge: oklch(0.55 0.2 277);
+  --voice-pink: oklch(0.66 0.22 350);
+  --voice-magenta: oklch(0.6 0.27 332);
+  --voice-card-a: oklch(0.997 0.003 262);
+  --voice-card-b: oklch(0.978 0.009 265);
+  --voice-line-a: oklch(0.9 0.025 268);
+  --voice-line-b: oklch(0.84 0.035 272);
+  --voice-play-a: oklch(0.95 0.018 268);
+  --voice-play-b: oklch(0.92 0.024 268);
+  --voice-play-icon: oklch(0.34 0.06 275);
+  --voice-divider: oklch(0.87 0.025 268);
+  --voice-stop: oklch(0.6 0.21 355);
+  --voice-stop-rim: oklch(0.73 0.17 348);
+  --voice-send-a: oklch(0.62 0.24 355);
+  --voice-send-b: oklch(0.53 0.26 305);
+  --voice-shadow: oklch(0.45 0.08 270 / 10%);
   --nav-1a: oklch(0.66 0.14 210); --nav-1b: oklch(0.56 0.19 240);
   --nav-2a: oklch(0.58 0.18 238); --nav-2b: oklch(0.54 0.24 290);
   --nav-3a: oklch(0.55 0.24 292); --nav-3b: oklch(0.58 0.26 330);
@@ -346,16 +382,27 @@ html.spot-feed-snap { scroll-snap-type: y mandatory; scroll-padding-top: var(--h
   scroll-snap-stop: always;
 }
 .spot-feed-snap-start { scroll-snap-align: start; }
-/* Voz (VoiceThread.tsx): tarjeta, aro del avatar, barras de la onda, punto de reproducción y panel de respuesta. */
-.spot-voice-card { background: color-mix(in oklab, var(--card) 88%, transparent); border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent); }
+/* Voz (VoiceThread.tsx), calcada del diseño de las respuestas de voz (medidas tomadas del diseño con la tarjeta a
+   70 px de alto): tarjeta, aro del avatar, botón de play, barras de 3 px con los silencios en puntos (lo escuchado,
+   fucsia arriba y violeta abajo según la altura de la onda), punto de reproducción, panel «Respondiendo a» con borde
+   degradado y pico, parar (rosa con su aro) y enviar (de rosa a violeta). */
+.spot-voice-card { background: linear-gradient(180deg, var(--voice-card-a), var(--voice-card-b)) padding-box, linear-gradient(180deg, var(--voice-line-a), var(--voice-line-b)) border-box; border: 1px solid transparent; box-shadow: 0 0.375rem 1rem var(--voice-shadow); }
 .spot-voice-highlight { box-shadow: 0 0 0 1.5px var(--wave-from), 0 0 22px color-mix(in oklab, var(--wave-from) 35%, transparent); }
-.spot-voice-ring { display: inline-block; background: linear-gradient(135deg, var(--wave-from), var(--wave-to)); }
-.spot-voice-bar { display: block; flex: 1 1 0; min-width: 1px; max-width: 0.1875rem; min-height: 0.1875rem; border-radius: 999px; background: var(--wave-rest); }
-.spot-voice-head { position: absolute; top: 50%; width: 0.625rem; height: 0.625rem; border-radius: 999px; transform: translate(-50%, -50%); background: var(--wave-from); box-shadow: 0 0 10px var(--wave-from); pointer-events: none; }
-.spot-voice-composer { background: linear-gradient(100deg, var(--wave-edge), var(--wave-to) 45%, var(--wave-from)); box-shadow: 0 0 24px color-mix(in oklab, var(--wave-from) 32%, transparent); }
-.spot-voice-stop { background: var(--wave-from); box-shadow: 0 0 0 4px color-mix(in oklab, var(--wave-from) 22%, transparent), 0 0 20px color-mix(in oklab, var(--wave-from) 60%, transparent); }
-.spot-voice-send { background: linear-gradient(135deg, var(--wave-from), var(--wave-to)); box-shadow: 0 0 18px color-mix(in oklab, var(--wave-from) 45%, transparent); }
-.spot-voice-pointer { position: absolute; top: -0.4375rem; left: 1.75rem; z-index: 1; width: 0.875rem; height: 0.875rem; transform: rotate(45deg); border-radius: 0.1875rem 0 0 0; background: var(--card); border-left: 1.5px solid var(--wave-edge); border-top: 1.5px solid var(--wave-edge); }
+.spot-voice-ring { display: inline-block; background: linear-gradient(200deg, var(--wave-edge) 6%, var(--wave-to) 38%, var(--wave-from) 70%, var(--voice-pink)); }
+.spot-voice-gap { border: 0.09375rem solid var(--voice-card-a); }
+.spot-voice-play { background: linear-gradient(180deg, var(--voice-play-a), var(--voice-play-b)); color: var(--voice-play-icon); box-shadow: inset 0 1px 0 oklch(1 0 0 / 7%), 0 0.25rem 0.75rem oklch(0 0 0 / 28%); }
+.spot-voice-bar { display: block; flex: 0 0 0.1875rem; width: 0.1875rem; min-height: 0.375rem; border-radius: 999px; background: var(--wave-rest); }
+.spot-voice-dot { display: block; flex: 0 0 0.1875rem; width: 0.1875rem; height: 0.1875rem; border-radius: 999px; background: var(--wave-rest); }
+.spot-voice-bar[data-played] { background: linear-gradient(180deg, var(--wave-from), var(--wave-to)) center / 100% var(--wave-h, 1.9rem) no-repeat; }
+.spot-voice-dot[data-played] { background: color-mix(in oklab, var(--wave-from) 55%, var(--wave-to)); }
+.spot-voice-bar[data-under], .spot-voice-dot[data-under] { visibility: hidden; }
+.spot-voice-head { position: absolute; top: 50%; width: 0.4375rem; height: 0.4375rem; border-radius: 999px; transform: translate(-50%, -50%); background: var(--wave-head); box-shadow: 0 0 0.4375rem color-mix(in oklab, var(--wave-head) 70%, transparent); pointer-events: none; }
+.spot-voice-live { background: var(--wave-live); box-shadow: 0 0 0.25rem color-mix(in oklab, var(--wave-live) 40%, transparent); }
+.spot-voice-composer { background: linear-gradient(180deg, var(--voice-card-a), var(--voice-card-b)) padding-box, linear-gradient(100deg, var(--wave-edge), var(--wave-to) 32%, var(--voice-magenta)) border-box; border: 1px solid transparent; box-shadow: 0 0 1.25rem color-mix(in oklab, var(--voice-magenta) 20%, transparent); }
+.spot-voice-stop { background: var(--voice-stop); box-shadow: inset 0 0 0 1.5px var(--voice-stop-rim), 0 0 0.75rem color-mix(in oklab, var(--voice-stop) 55%, transparent), 0 0 2rem 0.375rem color-mix(in oklab, var(--voice-stop) 22%, transparent); }
+.spot-voice-send { background: linear-gradient(135deg, var(--voice-send-a), var(--voice-send-b)); box-shadow: 0 0 1rem color-mix(in oklab, var(--voice-send-a) 42%, transparent); }
+/* Pico del panel: sube hasta debajo de la foto del audio al que respondes (centro a 2,4375 rem del borde). */
+.spot-voice-pointer { position: absolute; z-index: 2; left: 1.875rem; top: calc(1px - 0.8125rem); width: 1.125rem; height: 0.8125rem; overflow: visible; pointer-events: none; }
 
 /* Portadas de perfil de Spotly (fondos que se pueden elegir detrás del perfil). */
 .spot-cover-neon { background: radial-gradient(70% 90% at 15% 20%, color-mix(in oklab, var(--spot-fuchsia) 75%, transparent), transparent 60%), radial-gradient(60% 80% at 85% 30%, color-mix(in oklab, var(--spot-blue) 80%, transparent), transparent 62%), linear-gradient(160deg, oklch(0.24 0.12 290), oklch(0.14 0.07 270)); }

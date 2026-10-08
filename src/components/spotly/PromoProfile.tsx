@@ -10,6 +10,8 @@ import { useGate } from "./Voice";
 import { fmtRemaining, setProfilePromo, toggleFollow, useNow, useStore } from "@/lib/store";
 import { boostRadii, eur, eurToCredits, promoIntensities } from "@/lib/spotlyConfig";
 import { people } from "@/lib/sampleData";
+import { useCloud } from "@/lib/cloud";
+import { CloudPeopleNearby } from "./PeopleNearby";
 
 /** Promoción de perfil: se compra EXPOSICIÓN. Nunca seguidores ni follows automáticos. */
 export function ProfilePromo({ onBack }: { onBack: () => void }) {
@@ -68,14 +70,21 @@ function PersonRow({ p, tag }: { p: (typeof people)[number]; tag?: string | unde
 }
 
 export function SuggestedPeople({ onBack }: { onBack: () => void }) {
-  const { profilePromo } = useStore();
+  const { profilePromo, demo } = useStore();
+  const cloud = useCloud();
   const now = useNow();
   const mine = !!profilePromo && profilePromo.endsAt > now;
   const sections: [string, typeof people][] = [
     ["Personas que quizá te interesen", people.slice(0, 3)], ["Descubre gente cerca", people.slice(2, 5)], ["Personas activas ahora", [people[5]!, people[1]!]], ["Voces de tu ciudad", [people[0]!, people[3]!]],
   ];
+  if (cloud.on) return (
+    <Screen title="Personas sugeridas" sub="Gente real de Spotly" onBack={onBack} z={55}>
+      <CloudPeopleNearby />
+      <Trust>Seguir es siempre una decisión tuya; nunca se generan follows automáticos.</Trust>
+    </Screen>
+  );
   return (
-    <Screen title="Personas sugeridas" sub="Personas reales y verificadas" onBack={onBack} z={55}>
+    <Screen title="Personas sugeridas" sub={demo ? "Personas reales y verificadas" : "Personas de ejemplo"} onBack={onBack} z={55}>
       {sections.map(([t, list], si) => <section key={t} className="mb-5"><h3 className="mb-2 text-sm font-bold">{t}</h3><div className="space-y-2">{si === 0 && mine && <div className="flex items-center gap-3 rounded-xl border border-accent/50 bg-accent/10 p-3"><span className="grid h-12 w-12 place-items-center rounded-full bg-spot-gradient font-bold">Tú</span><span className="flex-1"><strong className="flex items-center gap-2 text-sm">Tu perfil <SponsoredTag label="Promocionado" /></strong><small className="text-muted-foreground">Así te ven los demás</small></span></div>}{list.map((p, i) => <PersonRow key={p.name + si} p={p} tag={si === 0 && i === 1 ? "Promocionado" : undefined} />)}</div></section>)}
       <Trust>Las personas marcadas “Promocionado” han pagado por más exposición de perfil. Seguir es siempre una decisión tuya; nunca se generan follows automáticos.</Trust>
     </Screen>

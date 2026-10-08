@@ -4,7 +4,7 @@ Dos personas en dos navegadores con micrófono simulado de Chromium, contra un S
   1. Ana entra con su correo y publica un Spot solo con voz y título.
   2. Beto lo ve en Inicio, lo escucha (cuenta una vista), le da me gusta y responde con su voz.
   3. Beto abre el perfil de Ana, la sigue y le manda un mensaje de voz privado.
-  4. Ana ve la respuesta en los comentarios, su seguidor nuevo y el chat con la nota de Beto, y la escucha.
+  4. Ana ve la respuesta en los mensajes de voz del Spot, su seguidor nuevo y el chat con la nota de Beto, y la escucha.
   5. Ana crea una comunidad y un evento con su voz; Beto se une, escucha la presentación, se apunta y oye el flyer.
 Uso: python3 -I e2e_cloud.py <url_app> <url_supabase> <keys.json> <carpeta_capturas>
 """
@@ -135,22 +135,27 @@ with sync_playwright() as p:
     attempt("Beto le da me gusta (1)", like)
 
     def reply():
+        # «Voz» abre los mensajes de voz del Spot con el panel pegado al audio original, ya grabando.
         card.locator('button[aria-label="Responder con tu voz"]').click()
+        dlg = pb.locator('[role="dialog"][aria-label="Mensajes de voz"]').last
         pb.locator('button[aria-label="Parar y escuchar antes de enviar"]').wait_for(timeout=10000)  # se abre grabando
         pb.wait_for_timeout(2400)
         shot(pb, "06-beto-grabando-respuesta")
-        pb.click('button[aria-label="Enviar respuesta de voz"]')
-        pb.get_by_text("Respuesta enviada").wait_for(timeout=20000)
-        pb.get_by_role("button", name="Listo").click()
-        pb.wait_for_timeout(2500)
+        dlg.locator('button[aria-label="Enviar voz"]').click()
+        # subida terminada: el play de su voz deja de estar en espera, y lleva «En respuesta a este audio»
+        dlg.locator('article[aria-label^="Voz de Beto"] button[aria-label="Escuchar la voz de Beto"]:not([disabled])').first.wait_for(timeout=20000)
+        ok = dlg.locator('article[aria-label^="Voz de Beto"]').first.get_by_text("En respuesta a este audio").count() == 1
+        dlg.get_by_role("button", name="Cerrar mensajes de voz").click()
+        pb.wait_for_timeout(1500)
+        return ok or "sin marca de respuesta"
     attempt("Beto responde con su voz", reply)
     def own_reply_plays():
         card.locator(".spot-card-media").click()
-        pb.get_by_role("button", name="Escuchar los comentarios de voz (1)").click()
+        pb.locator('div.fixed.inset-x-0.bottom-0 button[aria-label="Escuchar los mensajes de voz (1)"]').click()
         pb.locator('article[aria-label^="Voz de Beto"] button[aria-label="Escuchar la voz de Beto"]').first.click()
         pb.locator('button[aria-label="Pausar la voz de Beto"]').first.wait_for(timeout=4000)
         shot(pb, "06b-beto-escucha-su-respuesta")
-        pb.get_by_role("button", name="Cerrar comentarios").click()
+        pb.get_by_role("button", name="Cerrar mensajes de voz").click()
         pb.get_by_role("button", name="Volver").first.click()
         pb.wait_for_timeout(600)
     attempt("Beto escucha su propia respuesta al momento", own_reply_plays)
@@ -182,19 +187,20 @@ with sync_playwright() as p:
         own = pa.locator('section[aria-label="Spot de Ana"]').first
         own.wait_for(timeout=20000)
         own.scroll_into_view_if_needed(); pa.wait_for_timeout(800)
-        count = own.locator('button[aria-label^="Escuchar las respuestas de voz"]').get_attribute("aria-label")
+        count = own.locator('button[aria-label^="Escuchar los mensajes de voz"]').get_attribute("aria-label")
         shot(pa, "09-ana-feed-con-respuesta")
         own.locator(".spot-card-media").click()
-        pa.get_by_role("button", name="Escuchar los comentarios de voz (1)").wait_for(timeout=15000)
-        pa.get_by_role("button", name="Escuchar los comentarios de voz (1)").click()
+        footer = pa.locator('div.fixed.inset-x-0.bottom-0 button[aria-label="Escuchar los mensajes de voz (1)"]')
+        footer.wait_for(timeout=15000)
+        footer.click()
         pa.locator('article[aria-label^="Voz de Beto"]').first.wait_for(timeout=15000)
-        shot(pa, "10-ana-comentarios")
+        shot(pa, "10-ana-mensajes-de-voz")
         pa.locator('article[aria-label^="Voz de Beto"] button[aria-label="Escuchar la voz de Beto"]').first.click()
         pa.locator('button[aria-label="Pausar la voz de Beto"]').first.wait_for(timeout=4000)  # suena de verdad
         pa.wait_for_timeout(800)
-        pa.get_by_role("button", name="Cerrar comentarios").click()
+        pa.get_by_role("button", name="Cerrar mensajes de voz").click()
         pa.get_by_role("button", name="Volver").first.click()
-        return count == "Escuchar las respuestas de voz (1)" or count
+        return count == "Escuchar los mensajes de voz (1)" or count
     attempt("Ana ve y escucha la respuesta de Beto", ana_sees_reply)
 
     def ana_profile():

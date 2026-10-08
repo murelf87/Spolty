@@ -49,15 +49,20 @@ type State = {
   demo: boolean;
 };
 
+/* Diamantes de la demostración: con una cuenta real no hay saldo ni movimientos inventados (los pagos aún no están
+   conectados con App Store y Google Play). */
+const DEMO_CREDITS = 250;
+const DEMO_HISTORY: Tx[] = [
+  { id: "demo-t1", label: "Recarga 💎 550 diamantes", amount: 550, kind: "purchase", when: "Hace 3 días" },
+  { id: "demo-t2", label: "Impulso x2 · Feria de Triana", amount: -99, kind: "spend", when: "Hace 2 días" },
+  { id: "demo-t3", label: "Bono de bienvenida", amount: 100, kind: "bonus", when: "Hace 3 días" },
+  { id: "demo-t4", label: "Ajuste: impulso interrumpido", amount: 49, kind: "refund", when: "Ayer" },
+  { id: "demo-t5", label: "Incógnito 1 hora", amount: -59, kind: "spend", when: "Ayer" },
+];
+
 let state: State = {
-  credits: 250,
-  history: [
-    { id: "t1", label: "Recarga 💎 550 diamantes", amount: 550, kind: "purchase", when: "Hace 3 días" },
-    { id: "t2", label: "Impulso x2 · Feria de Triana", amount: -99, kind: "spend", when: "Hace 2 días" },
-    { id: "t3", label: "Bono de bienvenida", amount: 100, kind: "bonus", when: "Hace 3 días" },
-    { id: "t4", label: "Ajuste: impulso interrumpido", amount: 49, kind: "refund", when: "Ayer" },
-    { id: "t5", label: "Incógnito 1 hora", amount: -59, kind: "spend", when: "Ayer" },
-  ],
+  credits: 0,
+  history: [],
   incognito: { active: false, until: null, permanent: false, protectVoice: true, precision: "approx", onExpire: "keep" },
   identity: "none",
   idTier: "basic",
@@ -139,8 +144,8 @@ const DEMO_REPORTS: Report[] = [
   { id: "r2", what: "Audio de @anon_4821", reason: "Acoso o insultos", status: "review", when: "Ayer" },
 ];
 export const setDemo = (demo: boolean) => setState((s) => demo
-  ? { demo, blocked: [...new Set([...s.blocked, ...DEMO_BLOCKED])], reports: [...s.reports.filter((r) => !DEMO_REPORTS.some((d) => d.id === r.id)), ...DEMO_REPORTS] }
-  : { demo, blocked: s.blocked.filter((b) => !DEMO_BLOCKED.includes(b)), reports: s.reports.filter((r) => !DEMO_REPORTS.some((d) => d.id === r.id)) });
+  ? { demo, blocked: [...new Set([...s.blocked, ...DEMO_BLOCKED])], reports: [...s.reports.filter((r) => !DEMO_REPORTS.some((d) => d.id === r.id)), ...DEMO_REPORTS], ...(s.demo ? {} : { credits: s.credits + DEMO_CREDITS, history: [...s.history, ...DEMO_HISTORY] }) }
+  : { demo, blocked: s.blocked.filter((b) => !DEMO_BLOCKED.includes(b)), reports: s.reports.filter((r) => !DEMO_REPORTS.some((d) => d.id === r.id)), ...(s.demo ? { credits: 0, history: [] } : {}) });
 /** Una cuenta solo es plenamente operativa con identidad aprobada. */
 export const isVerified = () => state.identity === "approved";
 

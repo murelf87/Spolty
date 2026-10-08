@@ -24,7 +24,19 @@ const KIND_NOTE: Record<Kind, string> = {
  * { status: "succeeded" | "pending" | "failed" | "cancelled" }.
  * En esta versión NO hay cobro real: el resultado se puede simular.
  */
-export function Checkout({ title, kind, lines, onClose, onPaid, onNeedCredits }: { title: string; kind: Kind; lines: { label: string; eur: number }[]; onClose: () => void; onPaid: () => void; onNeedCredits?: () => void }) {
+export function Checkout(props: { title: string; kind: Kind; lines: { label: string; eur: number }[]; onClose: () => void; onPaid: () => void; onNeedCredits?: () => void }) {
+  const { demo } = useStore();
+  /* Con una cuenta real todavía no se cobra nada: los pagos llegarán con App Store, Google Play y la facturación a
+     negocios. Solo la demostración deja simular el resultado. */
+  if (!demo) return (
+    <BottomSheet title="Pagos" onClose={props.onClose} z={80}>
+      <StateCard icon={Clock} tone="premium" title="Pagos muy pronto" text={`${props.title}: las compras se activarán cuando Spotly esté en App Store y Google Play${props.kind === "ads" ? " (y la facturación a negocios)" : ""}. No se ha cobrado nada.`} action="Entendido" onAction={props.onClose} />
+    </BottomSheet>
+  );
+  return <SimulatedCheckout {...props} />;
+}
+
+function SimulatedCheckout({ title, kind, lines, onClose, onPaid, onNeedCredits }: { title: string; kind: Kind; lines: { label: string; eur: number }[]; onClose: () => void; onPaid: () => void; onNeedCredits?: (() => void) | undefined }) {
   const { credits } = useStore();
   const total = lines.reduce((a, l) => a + l.eur, 0);
   const totalCr = eurToCredits(total);
@@ -92,7 +104,7 @@ const kindMeta: Record<TxKind, { label: string; cls: string }> = {
 };
 
 export function TxHistory({ onBack }: { onBack: () => void }) {
-  const { history, credits } = useStore();
+  const { history, credits, demo } = useStore();
   const [f, setF] = useState<"all" | TxKind>("all");
   const list = history.filter((t) => f === "all" || t.kind === f);
   return (
@@ -100,7 +112,7 @@ export function TxHistory({ onBack }: { onBack: () => void }) {
       <div className="flex gap-1.5 overflow-x-auto pb-2">{([["all", "Todo"], ["purchase", "Compras"], ["spend", "Consumo"], ["bonus", "Bonos"], ["refund", "Reembolsos"]] as const).map(([k, l]) => <button key={k} onClick={() => setF(k)} aria-pressed={f === k} className={"shrink-0 rounded-full border px-3 py-1.5 text-xs " + (f === k ? "spot-active-pill border-transparent" : "border-border bg-card")}>{l}</button>)}</div>
       {list.length === 0 ? <StateCard icon={History} tone="muted" title="Sin movimientos" text="Aún no hay movimientos de este tipo." action="Ver todo" onAction={() => setF("all")} /> :
         <div className="divide-y divide-border rounded-2xl border border-border bg-card">{list.map((t) => <div key={t.id} className="flex items-center gap-3 p-3.5"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-secondary">{t.kind === "purchase" ? <Plus size={16} /> : t.kind === "refund" ? <Undo2 size={16} /> : t.kind === "bonus" ? <Flame size={16} /> : <Zap size={16} />}</span><span className="min-w-0 flex-1"><strong className="block truncate text-sm">{t.label}</strong><small className={kindMeta[t.kind].cls}>{kindMeta[t.kind].label} · {t.when}</small></span><strong className={t.amount > 0 ? "text-primary" : ""}>{t.amount > 0 ? "+" : ""}{t.amount.toLocaleString("es-ES")} 💎</strong></div>)}</div>}
-      <p className="mt-3 text-2xs text-muted-foreground">Historial de ejemplo. Los movimientos reales se sincronizarán con tu cuenta.</p>
+      <p className="mt-3 text-2xs text-muted-foreground">{demo ? "Historial de ejemplo de la demostración." : "Tus movimientos aparecerán aquí cuando se activen los pagos."}</p>
     </Screen>
   );
 }
@@ -143,7 +155,7 @@ export function Wallet({ onBack, onOpen }: { onBack: () => void; onOpen: (s: She
       <div className="mt-2 space-y-2">{uses.map(([I, t, d, s]) => <button key={t} onClick={() => onOpen(s)} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-3.5 text-left"><span className="grid h-10 w-10 place-items-center rounded-full bg-secondary text-accent"><I size={18} /></span><span className="flex-1"><strong className="block text-sm">{t}</strong><small className="text-muted-foreground">{d}</small></span><span className="text-muted-foreground">›</span></button>)}</div>
       <button onClick={() => setSub("premium")} className="mt-4 flex w-full items-center gap-3 rounded-xl border border-premium/50 bg-card p-4 text-left"><Crown className="text-premium" /><div className="flex-1"><strong className="block text-sm">Spotly Premium</strong><small className="text-muted-foreground">Suscripción · funciones extra, no verificación</small></div><span className="text-sm text-premium">Ver ›</span></button>
       <div className="mt-6 flex items-center justify-between"><h3 className="font-bold">Últimos movimientos</h3><Button variant="ghost" size="sm" onClick={() => setSub("history")}><History size={14} />Ver todo</Button></div>
-      <div className="mt-2 divide-y divide-border rounded-xl border border-border bg-card">{history.slice(0, 3).map((t) => <p key={t.id} className="flex items-center justify-between p-3 text-sm"><span className="truncate pr-2">{t.label}</span><strong className={t.amount > 0 ? "text-primary" : "text-muted-foreground"}>{t.amount > 0 ? "+" : ""}{t.amount} 💎</strong></p>)}</div>
+      {history.length ? <div className="mt-2 divide-y divide-border rounded-xl border border-border bg-card">{history.slice(0, 3).map((t) => <p key={t.id} className="flex items-center justify-between p-3 text-sm"><span className="truncate pr-2">{t.label}</span><strong className={t.amount > 0 ? "text-primary" : "text-muted-foreground"}>{t.amount > 0 ? "+" : ""}{t.amount} 💎</strong></p>)}</div> : <p className="mt-2 rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">Aún no tienes movimientos.</p>}
       <div className="mt-4"><Trust>El dinero compra visibilidad adicional o privacidad. No compra reputación, seguidores, veracidad ni inmunidad frente a la moderación.</Trust></div>
       {buy && <Checkout title={`${p.credits.toLocaleString("es-ES")} 💎 Spotly`} kind="digital" lines={[{ label: `${p.credits.toLocaleString("es-ES")} 💎`, eur: p.priceEur }]} onClose={() => setBuy(false)} onPaid={() => { addCredits(p.credits, `Recarga ${p.credits.toLocaleString("es-ES")} créditos`); toast.success(`+${p.credits.toLocaleString("es-ES")} 💎 añadidos`); }} />}
     </Screen>

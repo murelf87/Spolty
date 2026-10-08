@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BadgeCheck, Bookmark, Camera, ChevronLeft, ChevronRight, Compass, Flame, Heart, Image as ImageIcon, List, LayoutGrid, MapPin, MessageCircle, Mic, MoreHorizontal, Music, Play, Plus, Search, Share2, SlidersHorizontal, Tag, Users, CalendarPlus, X, Check } from "lucide-react";
+import { BadgeCheck, Bookmark, Camera, ChevronLeft, ChevronRight, Compass, Flame, Heart, Image as ImageIcon, List, LayoutGrid, MapPin, Mic, MoreHorizontal, Music, Play, Plus, Search, Share2, SlidersHorizontal, Tag, Users, CalendarPlus, X, Check, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BottomSheet, Chip, Screen, StateCard, Trust } from "./kit";
 import { useApp } from "./app-context";
-import { VoiceReply, useGate } from "./Voice";
-import { VoiceItem, VoiceThread } from "./VoiceThread";
+import { useGate } from "./Voice";
+import { VoiceRow, VoiceThread } from "./VoiceThread";
 import { useThread } from "@/lib/voice/notes";
 import { sampleThread } from "@/lib/voice/samples";
 import { clockToMs } from "@/lib/voice/notes";
@@ -359,9 +359,11 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
   const { following, demo } = useStore();
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
+  /* Responder abre el panel pegado al audio de la foto (como en el diseño), grabando. */
   const [reply, setReply] = useState(false);
   const [menu, setMenu] = useState(false);
-  /* Comentarios de la foto: solo voz, con respuestas encadenadas. */
+  const voices = useRef<HTMLDivElement | null>(null);
+  /* Mensajes de voz de la foto: solo voz, con respuestas encadenadas. */
   const threadId = `photo:${p.id}`;
   const seed = useMemo(() => sampleThread(threadId, [
     { key: "a", name: authors[(p.id + 1) % authors.length]!, img: imgs[(p.id + 2) % imgs.length], minsAgo: p.mins + 12, dur: "0:09", likes: 6 },
@@ -394,8 +396,8 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
             <Heart size={28} className={liked ? "text-accent" : "text-white"} fill={liked ? "currentColor" : "none"} />
             <span className="text-xs font-bold text-white">{demo || p.mine ? fmtN(p.likes + (liked ? 1 : 0)) : "Me gusta"}</span>
           </button>
-          <button onClick={() => setReply(true)} aria-label="Comentar" className="flex flex-col items-center gap-1">
-            <MessageCircle size={26} className="text-white" />
+          <button onClick={() => voices.current?.scrollIntoView({ behavior: "smooth", block: "start" })} aria-label={`Escuchar los mensajes de voz (${thread.length})`} className="flex flex-col items-center gap-1">
+            <span className="grid h-[2.125rem] w-[2.125rem] place-items-center rounded-full border-2 border-white/80 bg-black/30 backdrop-blur-sm"><Volume2 size={17} className="text-white" /></span>
             <span className="text-xs font-bold text-white">{thread.length}</span>
           </button>
           <button onClick={share} aria-label="Compartir" className="flex flex-col items-center gap-1">
@@ -424,19 +426,22 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
           {!p.mine && <Button size="sm" variant={follows ? "secondary" : "default"} onClick={() => { toggleFollow(p.author); toast(follows ? `Dejaste de seguir a ${p.author}` : `Sigues a ${p.author}`); }}>{follows ? "Siguiendo" : "Seguir"}</Button>}
         </div>
         <p className="mt-3 text-base font-bold">{p.caption}</p>
-        <div className="mt-2"><VoiceItem note={{ id: `${threadId}:audio`, threadId, parentId: null, author: { name: p.author, avatar: p.mine ? undefined : p.img, mine: p.mine, verified: p.verified }, createdAt: Date.now() - p.mins * 60000, durationMs: clockToMs(p.dur), peaks: seededPeaks(`${threadId}:audio`), likes: p.likes, sample: !p.mine, liked: false, replies: thread.length }} onReply={() => setReply(true)} /></div>
-        <h4 className="mb-2 mt-4 text-sm font-bold">Comentarios de voz <span className="font-normal text-muted-foreground">{thread.length}</span></h4>
-        <VoiceThread threadId={threadId} seed={seed} root={{ name: p.mine ? me.name : p.author, atMs: 0, durationMs: clockToMs(p.dur) }} emptyText="Aún no hay voces en esta foto. Comenta con la tuya." />
+        {/* El audio de la foto arriba y, pegado a él, el panel para responder y los mensajes de voz. */}
+        <div ref={voices} className="mt-2 flex scroll-mt-4 flex-col gap-2">
+          <VoiceRow id={`${threadId}:audio`} author={{ name: p.author, avatar: p.mine ? undefined : p.img, mine: p.mine, verified: p.verified }} name={p.mine ? me.name : p.author} durationMs={clockToMs(p.dur)} peaks={seededPeaks(`${threadId}:audio`)}
+            likes={{ count: demo || p.mine ? p.likes + (liked ? 1 : 0) : liked ? 1 : 0, liked, onToggle: () => setLiked(!liked) }}
+            replies={{ count: thread.length, onReply: () => setReply((r) => !r) }} onShare={share} onMore={() => setMenu(true)} />
+          <VoiceThread threadId={threadId} seed={seed} root={{ name: p.mine ? me.name : p.author, author: { name: p.author, avatar: p.mine ? undefined : p.img, mine: p.mine }, atMs: 0, durationMs: clockToMs(p.dur) }}
+            rootPointer composerOpen={reply} onComposerClose={() => setReply(false)} emptyText="Aún no hay mensajes de voz en esta foto. Responde con la tuya." />
+        </div>
         {gate && <div className="mt-3">{gate}</div>}
       </div>
 
       {/* Footer voz */}
       <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-3 border-t border-border bg-background/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
-        <Button className="h-12 w-12 rounded-full bg-spot-gradient text-foreground shadow-glow" aria-label="Comentar con voz" onClick={() => setReply(true)}><Mic size={22} /></Button>
-        <span className="text-xs text-muted-foreground">Pulsa para comentar con voz</span>
+        <button type="button" onClick={() => { setReply(true); voices.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className="spot-voice-send flex min-h-11 w-full items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold text-white transition active:scale-[0.98]"><Mic size={17} />Responder con tu voz</button>
       </div>
 
-      {reply && <VoiceReply name={p.mine ? me.name : p.author} threadId={threadId} target={{ name: p.mine ? me.name : p.author, author: { name: p.author, avatar: p.mine ? undefined : p.img, mine: p.mine }, atMs: 0, durationMs: clockToMs(p.dur) }} onClose={() => setReply(false)} />}
       {menu && <BottomSheet onClose={() => setMenu(false)} z={70}>{["Copiar enlace", "No me interesa", "Denunciar foto"].map((a) => <button key={a} className={"block w-full rounded-xl px-3 py-3 text-left text-sm hover:bg-secondary " + (a.startsWith("Den") ? "text-live" : "")} onClick={() => { setMenu(false); if (a === "Copiar enlace") share(); else toast(a === "Denunciar foto" ? "Gracias. Revisaremos esta foto." : "Verás menos fotos así"); }}>{a}</button>)}</BottomSheet>}
     </div>
   );

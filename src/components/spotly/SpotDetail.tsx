@@ -8,8 +8,8 @@ import { MediaViewer } from "./MediaViewer";
 import { sampleMedia } from "@/lib/media";
 import { addReport, toggleFollow, useStore, useMe } from "@/lib/store";
 import { VoiceReply } from "./Voice";
-import { TalkBar, VoiceComposer, VoiceItem, VoiceThread, type ReplyTarget } from "./VoiceThread";
-import { addVoiceNote, clockToMs, useThread } from "@/lib/voice/notes";
+import { VoiceItem, VoiceRow, VoiceThread, type ReplyTarget } from "./VoiceThread";
+import { clockToMs, useThread } from "@/lib/voice/notes";
 import { sampleThread, type SampleVoice } from "@/lib/voice/samples";
 import { formatClock, seededPeaks } from "@/lib/voice/recorder";
 import { playVoiceQueue, seekVoice, toggleVoice, useVoicePlayback } from "@/lib/voice/player";
@@ -47,7 +47,7 @@ function ColorWave({ active, big = false }: { active: boolean; big?: boolean }) 
   );
 }
 
-/* ── Datos de muestra: comentarios de voz de ejemplo (sin audio) con alguna respuesta encadenada ── */
+/* ── Datos de muestra: mensajes de voz de ejemplo (sin audio) con alguna respuesta encadenada ── */
 const SAMPLE_COMMENTS: SampleVoice[] = [
   { key: "c1", name: "Carlos", img: stage, minsAgo: 64, dur: "0:12", likes: 16, verified: true },
   { key: "c2", name: "María", img: lauraPhoto, minsAgo: 58, dur: "0:08", likes: 8, replyTo: "c1", replyAt: "0:05" },
@@ -57,7 +57,7 @@ const SAMPLE_COMMENTS: SampleVoice[] = [
   { key: "c6", name: "David", img: stage, minsAgo: 140, dur: "0:18", likes: 9 },
   { key: "c7", name: "Elena", img: beach, minsAgo: 185, dur: "0:09", likes: 4 },
 ];
-/** Comentarios de voz de ejemplo de un Spot (ids propias de ese Spot para que los me gusta no se mezclen). */
+/** Mensajes de voz de ejemplo de un Spot (ids propias de ese Spot para que los me gusta no se mezclen). */
 export const spotCommentSeed = (spotKey: string) => sampleThread(`spot:${spotKey}`, SAMPLE_COMMENTS);
 /** Clave estable de un Spot para su conversación de voz. */
 export const spotKeyOf = (s: { id?: string | undefined; text: string }) => s.id ?? s.text.toLowerCase().replace(/[^a-z0-9áéíóúñü]+/gi, "-").slice(0, 40);
@@ -123,30 +123,45 @@ function OptionsSheet({ s, name, onClose }: { s: SpotInfo; name: string; onClose
   );
 }
 
-/* ── Panel de comentarios de voz: el hilo del Spot con respuestas encadenadas, solo voz ── */
-export function CommentsPanel({ spotKey, root, seeded, closed, onSent, onClose }: { spotKey: string; root: ReplyTarget; seeded: boolean; closed?: boolean | undefined; onSent?: (() => void) | undefined; onClose: () => void }) {
+/* ── Mensajes de voz de un Spot, como en el diseño: arriba el audio original (con sus me gusta, respuestas y
+   compartir); «Responder» abre el panel pegado a él, grabando, y debajo van las respuestas, cada una con
+   «↳ En respuesta a este audio». Todo es voz: no hay caja de texto ni comentarios escritos. ── */
+export function VoiceMessagesPanel({ spotKey, root, seeded, closed = false, composerOpen = false, audio, likes, onShare, onMore, onPlay, onSent, onClose }: {
+  spotKey: string; root: ReplyTarget; seeded: boolean; closed?: boolean | undefined;
+  /** Abrir ya respondiendo (botón «Voz» o «Responder con tu voz»). */
+  composerOpen?: boolean;
+  audio?: { src?: string | undefined; peaks: number[] } | undefined;
+  likes?: { count: number; liked: boolean; onToggle: () => void } | undefined;
+  onShare?: (() => void) | undefined; onMore?: (() => void) | undefined; onPlay?: (() => void) | undefined; onSent?: (() => void) | undefined; onClose: () => void;
+}) {
   const threadId = `spot:${spotKey}`;
   const seed = useMemo(() => (seeded ? spotCommentSeed(spotKey) : []), [spotKey, seeded]);
   const notes = useThread(threadId, seed);
-  const [talk, setTalk] = useState(false);
-  const [fresh, setFresh] = useState<string | null>(null);
+  const [open, setOpen] = useState(composerOpen && !closed);
+  const [at, setAt] = useState(root.atMs);
+  const peaks = useMemo(() => (audio?.peaks.length ? audio.peaks : seededPeaks(spotKey, 40)), [audio, spotKey]);
+  const reply = (atMs: number) => {
+    if (closed) { toast("Su autor ha cerrado las respuestas de este Spot."); return; }
+    if (open) { setOpen(false); return; }
+    setAt(atMs); setOpen(true);
+  };
   return (
     <div className="fixed inset-0 z-[70]" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
-      <div className="absolute inset-x-0 bottom-0 mx-auto flex h-[90vh] max-w-[520px] flex-col overflow-hidden rounded-t-3xl bg-background" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Comentarios de voz">
+      <div className="absolute inset-x-0 bottom-0 mx-auto flex h-[90vh] max-w-[520px] flex-col overflow-hidden rounded-t-3xl bg-background" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Mensajes de voz">
         <div className="flex shrink-0 justify-center pt-2.5"><div className="h-1 w-10 rounded-full bg-border" /></div>
         <div className="flex shrink-0 items-center justify-between px-4 py-3">
-          <span className="text-base font-bold">Comentarios de voz <span className="ml-1 font-normal text-muted-foreground">{notes.length}</span></span>
-          <button onClick={onClose} aria-label="Cerrar comentarios" className="grid h-9 w-9 place-items-center rounded-full"><X size={20} /></button>
+          <span className="text-base font-bold">Mensajes de voz <span className="ml-1 font-normal text-muted-foreground">{notes.length}</span></span>
+          <button onClick={onClose} aria-label="Cerrar mensajes de voz" className="grid h-9 w-9 place-items-center rounded-full"><X size={20} /></button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-          <VoiceThread threadId={threadId} seed={seed} root={root} freshId={fresh} emptyText={closed ? "Su autor ha cerrado las respuestas de este Spot." : "Aún no hay voces. Sé la primera en comentar este Spot."} />
-        </div>
-        <div className="shrink-0 border-t border-border bg-card/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
-          {closed ? <p className="py-2 text-center text-xs text-muted-foreground">Respuestas cerradas por su autor</p>
-            : talk
-            ? <VoiceComposer autoFocus target={root} onClose={() => setTalk(false)} onSend={(clip, anon) => { const n = addVoiceNote({ threadId, parentId: null, replyAtMs: root.atMs, clip, anon }); setFresh(n.id); setTalk(false); onSent?.(); if (!n.pending) toast.success(anon ? "Voz enviada como «Anónimo»" : "Voz enviada"); }} />
-            : <TalkBar onTalk={() => setTalk(true)} label="Añade un comentario de voz…" />}
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <div className="flex flex-col gap-2">
+            <VoiceRow id={`spot-audio:${spotKey}`} author={root.author ?? { name: root.name }} name={root.name} src={audio?.src} durationMs={root.durationMs} peaks={peaks}
+              likes={likes} replies={{ count: notes.length, onReply: reply }} onShare={onShare} onMore={onMore} onPlay={onPlay}
+              note={closed ? "Respuestas cerradas por su autor" : undefined} />
+            <VoiceThread threadId={threadId} seed={seed} root={{ ...root, atMs: at }} rootPointer composerOpen={open} onComposerClose={() => setOpen(false)} closed={closed} onSent={() => onSent?.()}
+              emptyText={closed ? "Su autor ha cerrado las respuestas de este Spot." : "Aún no hay mensajes de voz. Toca el globo para responder con la tuya."} />
+          </div>
         </div>
       </div>
     </div>
@@ -211,13 +226,14 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
   const toCity = () => { onClose(); app.openPhotoWall(s.city); };
   const [likedHere,   setLiked]       = useState(false);
   const [saved,       setSaved]       = useState(false);
-  const [replying,    setReplying]    = useState(false);
   const [options,     setOptions]     = useState(false);
-  const [comments,    setComments]    = useState(false);
+  /* Mensajes de voz: «listen» para escucharlos; «reply» abre ya respondiendo, con el panel pegado al audio. */
+  const [messages,    setMessages]    = useState<false | "listen" | "reply">(false);
   /* Spot de la nube: me gusta y respuestas en vivo desde el almacén común (lo mismo que en el feed). */
   const live = s.cloud && s.id ? cloudSpot(s.id) : undefined;
   const liked = s.cloud ? (live?.cloud?.liked ?? !!s.liked) : likedHere;
-  const likes = s.cloud ? (live?.cloud?.likes ?? s.likes ?? 0) : (s.likes ?? 0) + (likedHere ? 1 : 0);
+  /* Las cifras de los Spots de ejemplo solo se enseñan en la demostración; con tu cuenta cuenta solo tu me gusta. */
+  const likes = s.cloud ? (live?.cloud?.likes ?? s.likes ?? 0) : (!demo && !s.own ? 0 : (s.likes ?? 0)) + (likedHere ? 1 : 0);
   const like = () => { if (s.cloud && s.id) toggleSpotLike(s.id); else setLiked((l) => !l); };
   const isSaved = s.cloud ? (live?.cloud?.saved ?? !!s.saved) : saved;
   const toggleSaved = () => {
@@ -233,7 +249,7 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
   const posMs = pb.active ? pb.positionMs : 0;
   const ratio = totalMs ? Math.min(1, posMs / totalMs) : 0;
   const threadId = `spot:${spotKey}`;
-  /* Comentarios de ejemplo solo en los Spots de ejemplo: un Spot real nunca muestra voces inventadas. */
+  /* Mensajes de ejemplo solo en los Spots de ejemplo: un Spot real nunca muestra voces inventadas. */
   const sampleSpot = !s.cloud && !s.own;
   const seed = useMemo(() => (sampleSpot ? spotCommentSeed(spotKey) : []), [spotKey, sampleSpot]);
   const thread = useThread(threadId, seed);
@@ -473,20 +489,20 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
       <div className="fixed inset-x-0 bottom-0 z-10 bg-card/95 backdrop-blur border-t border-border px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
         <div className="flex items-center gap-3">
           <MeAvatar className="h-9 w-9 text-xs" />
-          <button onClick={() => (closed ? toast("Su autor ha cerrado las respuestas de este Spot.") : setReplying(true))}
-            className="flex flex-1 items-center gap-2 rounded-full bg-secondary px-4 py-2.5 text-sm text-muted-foreground text-left">
-            <Mic size={15} className="text-primary shrink-0" />{closed ? "Respuestas cerradas" : "Responde con tu voz…"}
+          <button onClick={() => (closed ? toast("Su autor ha cerrado las respuestas de este Spot.") : setMessages("reply"))} aria-disabled={closed || undefined}
+            className={"flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold transition active:scale-[0.98] " + (closed ? "bg-secondary text-muted-foreground" : "spot-voice-send text-white")}>
+            <Mic size={17} className="shrink-0" />{closed ? "Respuestas cerradas" : "Responder con tu voz"}
           </button>
-          <button onClick={() => setComments(true)} aria-label={`Escuchar los comentarios de voz (${thread.length})`} className="flex min-h-10 items-center gap-1.5 px-1 text-muted-foreground">
+          <button onClick={() => setMessages("listen")} aria-label={`Escuchar los mensajes de voz (${thread.length})`} className="flex min-h-11 items-center gap-1.5 px-1 text-muted-foreground">
             <Volume2 size={20} className="text-primary" />
             <span className="text-sm font-semibold text-foreground">{thread.length}</span>
           </button>
         </div>
       </div>
 
-      {replying && <VoiceReply name={shownName} threadId={threadId} target={root} onClose={() => setReplying(false)} />}
       {options  && <OptionsSheet s={s} name={shownName} onClose={() => setOptions(false)} />}
-      {comments && <CommentsPanel spotKey={spotKey} root={root} seeded={sampleSpot} closed={closed} onClose={() => setComments(false)} />}
+      {messages && <VoiceMessagesPanel spotKey={spotKey} root={root} seeded={sampleSpot} closed={closed} composerOpen={messages === "reply"} audio={s.audio ? { src: s.audio.src, peaks } : { peaks }}
+        likes={{ count: likes, liked, onToggle: like }} onShare={share} onPlay={countView} onMore={() => { setMessages(false); setOptions(true); }} onClose={() => setMessages(false)} />}
       {listeners && <ListenersSheet onClose={() => setListeners(false)} onPerson={(n) => { setListeners(false); setPerson(n); }} />}
       {person && <AuthorProfile name={person} onClose={() => setPerson(null)} />}
       {cloudPerson && <AuthorProfile name={cloudPerson.name} id={cloudPerson.id} avatar={cloudPerson.avatar} onClose={() => setCloudPerson(null)} />}

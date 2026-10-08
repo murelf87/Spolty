@@ -5,8 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Logo } from "./Logo";
 import { useApp } from "./app-context";
-import { AuthorProfile, CommentsPanel, SpotDetail } from "./SpotDetail";
-import { VoiceReply } from "./Voice";
+import { AuthorProfile, SpotDetail, VoiceMessagesPanel } from "./SpotDetail";
 import { VoiceWave } from "./VoiceThread";
 import { spotKeyOf } from "./SpotDetail";
 import { clockToMs, useThread } from "@/lib/voice/notes";
@@ -154,8 +153,8 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
   const { blocked, demo } = useStore();
   const [likedHere, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [reply, setReply] = useState(false);
-  const [comments, setComments] = useState(false);
+  /* Mensajes de voz del Spot: «listen» (altavoz) para escucharlos; «reply» (botón «Voz») abre ya respondiendo. */
+  const [messages, setMessages] = useState<false | "listen" | "reply">(false);
   const [share, setShare] = useState(false);
   const [menu, setMenu] = useState(false);
   const [detail, setDetail] = useState(false);
@@ -260,8 +259,8 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
           <Heart size={30} className={liked ? "text-[#ef4444]" : "text-white"} fill={liked ? "currentColor" : "none"} style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.7))" }} />
           <span className="text-2xs font-bold text-white drop-shadow">{fmt(likeCount)}</span>
         </button>
-        {/* Escuchar las respuestas de voz (altavoz); para hablar, el botón «Voz» del reproductor (micrófono). */}
-        <button onClick={(e) => { e.stopPropagation(); setComments(true); }} aria-label={`Escuchar las respuestas de voz (${replyCount})`} className="flex flex-col items-center gap-0.5">
+        {/* Escuchar los mensajes de voz (altavoz); para hablar, el botón «Voz» del reproductor (micrófono). */}
+        <button onClick={(e) => { e.stopPropagation(); setMessages("listen"); }} aria-label={`Escuchar los mensajes de voz (${replyCount})`} className="flex flex-col items-center gap-0.5">
           <div className="grid h-[2.125rem] w-[2.125rem] place-items-center rounded-full border-2 border-white/80 bg-black/30 backdrop-blur-sm">
             <Volume2 size={17} className="text-white" />
           </div>
@@ -289,7 +288,7 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
         </button>
         <VoiceWave peaks={peaks} progress={pb.active && totalMs ? pb.positionMs / totalMs : 0} playhead={pb.active} className="h-7 flex-1" label={`Audio de ${who}`} onSeek={s.audio ? (r) => { const a = s.audio!; if (pb.active) seekVoice(audioId, r * a.durationMs); else playVoice(audioId, a.src, a.durationMs, r * a.durationMs); } : undefined} />
         <span className="shrink-0 text-xs font-medium tabular-nums text-white/70">{pb.active ? formatClock(pb.positionMs) : s.dur}</span>
-        <button onClick={() => { if (s.repliesAllowed === false) toast("Su autor ha cerrado las respuestas de este Spot."); else setReply(true); }} aria-label="Responder con tu voz" className="shrink-0 flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-white" style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
+        <button onClick={() => { if (s.repliesAllowed === false) toast("Su autor ha cerrado las respuestas de este Spot."); else setMessages("reply"); }} aria-label="Responder con tu voz" className="shrink-0 flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-white" style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
           <Mic size={12} className="text-white" />Voz
         </button>
       </div>
@@ -310,8 +309,11 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
       <p className="mt-2 text-center text-2xs text-white/40">Desliza para ver el siguiente cotilleo <span className="text-white/60">↓</span></p>
     </div>
 
-    {reply && <VoiceReply name={who} threadId={`spot:${key}`} target={{ name: who, author: { id: s.authorId, name: s.name, avatar: authorPhoto || undefined, anon: s.incognito, mine: s.own }, atMs: pb.active ? pb.positionMs : 0, durationMs: totalMs }} onSent={() => { if (s.cloud) setSpotReplies(s.id, replyCount + 1); }} onClose={() => setReply(false)} />}
-    {comments && <CommentsPanel spotKey={key} seeded={!s.cloud && !s.own} closed={s.repliesAllowed === false} root={{ name: who, author: { id: s.authorId, name: s.name, avatar: authorPhoto || undefined, anon: s.incognito, mine: s.own }, atMs: pb.active ? pb.positionMs : 0, durationMs: totalMs }} onSent={() => { if (s.cloud) setSpotReplies(s.id, replyCount + 1); }} onClose={() => setComments(false)} />}
+    {messages && <VoiceMessagesPanel spotKey={key} seeded={!s.cloud && !s.own} closed={s.repliesAllowed === false} composerOpen={messages === "reply"}
+      root={{ name: who, author: { id: s.authorId, name: s.name, avatar: authorPhoto || undefined, anon: s.incognito, mine: s.own }, atMs: pb.active ? pb.positionMs : 0, durationMs: totalMs }}
+      audio={s.audio ? { src: s.audio.src, peaks } : { peaks }} likes={{ count: likeCount, liked, onToggle: like }}
+      onPlay={() => { if (s.cloud && !s.own) recordSpotView(s.id); }} onShare={() => { setMessages(false); setShare(true); }} onMore={() => { setMessages(false); setMenu(true); }}
+      onSent={() => { if (s.cloud) setSpotReplies(s.id, replyCount + 1); }} onClose={() => setMessages(false)} />}
     {share && <ShareSheet s={s} who={who} onClose={() => setShare(false)} />}
     {menu && <SpotMenu s={s} onClose={() => setMenu(false)} onStatus={setStatus} />}
     {detail && <SpotDetail s={s} onClose={() => setDetail(false)} onAuthor={() => { if (!s.incognito && !s.own) setAuthor(true); }} />}
@@ -457,16 +459,16 @@ export function HomeView({ onBell }: { mine: MineSpot; onBell: () => void }) {
               {/* Lo patrocinado y los Hot Spots de ejemplo solo en la demostración y sin nube (nada de anuncios falsos con datos reales). */}
               {!cloud.on && i === 0 && <FeedInsert img={getBiz(carmenOn ? "carmen" : "trinche").img}>{sponsor}</FeedInsert>}
               {!cloud.on && i === 2 && <FeedInsert img={hotspots[0]!.img}><HotSpotCard h={hotspots[0]!} /></FeedInsert>}
-              {i === 4 && <FeedInsert img={sevilleNightPhoto}><IncognitoSpotCard /></FeedInsert>}
+              {!cloud.on && i === 4 && <FeedInsert img={sevilleNightPhoto}><IncognitoSpotCard /></FeedInsert>}
               {cloud.on && i === real.length - 1 && <div ref={sentinel} aria-hidden="true" />}
             </Fragment>
           ))}
           {cloud.on && feed.hasMore && <div className="spot-feed-page bg-black" aria-busy="true"><Skeleton className="h-full rounded-none" /></div>}
           <div className="spot-feed-snap-start pt-3">
             {!cloud.on && <PeopleStrip />}
-            <FlashOfferCard />
+            {!cloud.on && <FlashOfferCard />}
             <p className="px-6 pb-2 pt-4 text-center text-2xs text-muted-foreground">
-              <Flame size={12} className="mr-1 inline text-live" />Lo pagado se etiqueta "Impulsado" o "Patrocinado".
+              {!cloud.on && <><Flame size={12} className="mr-1 inline text-live" />Lo pagado se etiqueta "Impulsado" o "Patrocinado".</>}
               <button onClick={() => (cloud.on ? feed.refresh() : load(filter))} className="ml-2 inline-flex items-center gap-1 text-primary"><RefreshCw size={11} />Actualizar</button>
             </p>
           </div>

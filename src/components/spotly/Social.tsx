@@ -48,7 +48,7 @@ function GroupVoices({ threadId, title, root, seedNames = [] }: { threadId: stri
       <h3 className="mb-2 text-sm font-bold">{title}</h3>
       <div className="mb-3">{talk
         ? <div className="pt-2"><VoiceComposer autoFocus target={{ name: root.name, atMs: 0, durationMs: root.durationMs }} onClose={() => setTalk(false)} onSend={(clip, anon) => { const n = addVoiceNote({ threadId, clip, anon }); setFresh(n.id); setTalk(false); if (!n.pending) toast.success(anon ? "Voz enviada como «Anónimo»" : "Voz enviada al grupo"); }} /></div>
-        : <TalkBar onTalk={() => setTalk(true)} label="Habla al grupo…" />}</div>
+        : <TalkBar onTalk={() => setTalk(true)} label="Hablar al grupo" />}</div>
       <VoiceThread threadId={threadId} seed={seed} freshId={fresh} emptyText="Aún no ha hablado nadie. Rompe el hielo con tu voz." />
     </section>
   );

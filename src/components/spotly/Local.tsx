@@ -130,6 +130,18 @@ export function BusinessProfile({ id, onBack }: { id: string; onBack: () => void
 /* ---------- Panel de negocio (Spotly Local) ---------- */
 type Tab = "Resumen" | "Campañas" | "Ofertas" | "Disponibilidad";
 export function LocalDashboard({ onBack }: { onBack: () => void }) {
+  const { demo } = useStore();
+  /* Las herramientas para negocios aún no tienen servidor ni cobro: con una cuenta real se explican sin fingir. */
+  if (!demo) return (
+    <Screen title="Spotly Local" sub="Para negocios" onBack={onBack} z={52}>
+      <StateCard icon={Store} tone="premium" title="Para negocios, muy pronto" text="Campañas por radio y horario, ofertas flash con tu voz y disponibilidad en tiempo real para tu local. Llegarán con la facturación a negocios y los pagos de App Store y Google Play." action="Entendido" onAction={onBack} />
+      <div className="mt-4"><Trust>Lo pagado siempre irá marcado como «Patrocinado» y Spotly solo medirá lo que puede medir: impresiones, reproducciones y clics.</Trust></div>
+    </Screen>
+  );
+  return <LocalDashboardDemo onBack={onBack} />;
+}
+
+function LocalDashboardDemo({ onBack }: { onBack: () => void }) {
   const b = getBiz(MINE);
   const { bizCampaign: c, bizOffers, bizAvailability: av } = useStore();
   const now = useNow();

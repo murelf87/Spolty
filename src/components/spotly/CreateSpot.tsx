@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, Check, FileAudio, Flame, Ghost, Headphones, ImageIcon, Loader2, MapPin, MessageCircle, Mic, Pause, Play, Radio, RefreshCw, Rocket, Shield, Trash2, Type, Users, X, Zap } from "lucide-react";
+import { AudioLines, Camera, Check, FileAudio, Flame, Ghost, Headphones, ImageIcon, Loader2, MapPin, Mic, Pause, Play, Radio, RefreshCw, Rocket, Shield, Trash2, Type, Users, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Toggle, Trust, TopBar, BottomSheet } from "./kit";
@@ -317,7 +317,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
         </div>
         <h3 className="mt-6 text-base font-bold">Conversación</h3>
         <div className="mt-3 space-y-2">
-          <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"><MessageCircle className="shrink-0 text-primary" size={19} /><span className="min-w-0 flex-1"><strong className="block text-sm">Respuestas de voz</strong><small className="block text-muted-foreground">{replies ? "Permitir que te respondan hablando" : "No recibir respuestas a este Spot"}</small></span><Toggle on={replies} onChange={setReplies} label="Respuestas de voz" /></div>
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"><AudioLines className="shrink-0 text-primary" size={19} /><span className="min-w-0 flex-1"><strong className="block text-sm">Respuestas de voz</strong><small className="block text-muted-foreground">{replies ? "Permitir que te respondan hablando" : "No recibir respuestas a este Spot"}</small></span><Toggle on={replies} onChange={setReplies} label="Respuestas de voz" /></div>
           <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"><Flame className="shrink-0 text-live" size={19} /><span className="min-w-0 flex-1"><strong className="block text-sm">Está pasando ahora</strong><small className="block text-muted-foreground">{live ? "Destacar en lo que sucede ahora" : "Publicar sin marcar como acontecimiento actual"}</small></span><Toggle on={live} onChange={setLive} label="Está pasando ahora" /></div>
         </div>
         <h3 className="mt-6 text-base font-bold">Privacidad y alcance <span className="text-xs font-normal text-muted-foreground">(opcional)</span></h3>
