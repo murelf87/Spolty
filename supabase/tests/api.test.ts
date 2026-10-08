@@ -98,6 +98,10 @@ await rejects("no grabar la presentación de otro", "not_your_thread", () => api
 await check("dejar una voz en el muro de alguien y que la borre su dueña", async () => { const r = await api.postNote(beto.c, beto.id, { threadId: `muro:${ana.id}`, blob: audio(), mime: "audio/webm", durationMs: 1200, peaks: [] }); await api.deleteNote(ana.c, r.id); return (await api.fetchThread(ana.c, `muro:${ana.id}`)).length === 0; });
 await check("soporte: solo lo oye quien lo envía", async () => { await api.postNote(carla.c, carla.id, { threadId: `soporte:${carla.id}`, blob: audio(), mime: "audio/webm", durationMs: 1200, peaks: [] }); return (await api.fetchThread(carla.c, `soporte:${carla.id}`)).length === 1 && (await api.fetchThread(beto.c, `soporte:${carla.id}`)).length === 0; });
 
+// Historias de 24 h
+await check("publicar una historia con foto y verla", async () => { const r = await api.publishStory(beto.c, beto.id, { city: "Sevilla", audio: audio(), audioMime: "audio/webm", durationMs: 3200, peaks: [0.4], photo: jpeg() }); const l = await api.fetchStories(ana.c); const st = l.find((x) => x.id === r.id); return !!st && st.author_username === "beto" && !!st.media_path && !st.mine && (await api.fetchStories(beto.c)).some((x) => x.id === r.id && x.mine); });
+await check("historia sobre un fondo de Spotly y borrarla", async () => { const r = await api.publishStory(beto.c, beto.id, { city: "Sevilla", audio: audio(), audioMime: "audio/webm", durationMs: 2000, peaks: [], background: "preset:aurora" }); const st = (await api.fetchStories(ana.c)).find((x) => x.id === r.id); await api.deleteStory(beto.c, r.id, [r.audioPath]); return st?.background === "preset:aurora" && !(await api.fetchStories(ana.c)).some((x) => x.id === r.id); });
+
 // Seguidores
 await check("seguir y ver seguidores / seguidos", async () => { await api.setFollow(beto.c, beto.id, ana.id, true); const followers = await api.fetchPeople(ana.c, ana.id, "followers"); const following = await api.fetchPeople(beto.c, beto.id, "following"); return followers[0]?.id === beto.id && following[0]?.id === ana.id && (await api.isFollowing(beto.c, beto.id, ana.id)) && (await api.fetchFollowingIds(beto.c, beto.id)).includes(ana.id); });
 await check("contadores del perfil", async () => { const p = await api.fetchProfile(carla.c, ana.id); return p?.followers === 1 && p.spots === 1; });
@@ -144,6 +148,8 @@ await check("denunciar (una vez por contenido)", async () => { await api.report(
 
 // Descubrir gente, enlaces y derecho de acceso
 await check("personas de tu ciudad", async () => { const l = await api.discoverPeople(carla.c, { city: "Sevilla", exclude: carla.id }); return l.some((p) => p.id === ana.id) && l.some((p) => p.id === beto.id) && !l.some((p) => p.id === carla.id); });
+await check("buscar personas por nombre o usuario", async () => (await api.searchPeople(carla.c, "ana")).some((p) => p.id === ana.id) && (await api.searchPeople(carla.c, "@BETO")).some((p) => p.id === beto.id) && !(await api.searchPeople(carla.c, "zzz%,()")).length);
+await check("buscar Spots por título o lugar (con texto hablado)", async () => (await api.searchSpots(carla.c, "¿alameda?")).length >= 1 && !(await api.searchSpots(carla.c, "x")).length);
 await check("perfil por su usuario (enlaces ?perfil=)", async () => (await api.fetchProfileByUsername(carla.c, "ANA_S"))?.id === ana.id && !(await api.fetchProfileByUsername(carla.c, "nadie_aun")));
 await check("tus denuncias con su estado", async () => { const r = await api.fetchMyReports(beto.c, beto.id); return r.length === 1 && r[0]!.status === "review" && !(await api.fetchMyReports(ana.c, ana.id)).length; });
 await check("descargar tus datos", async () => { const d = await api.exportMyData(beto.c, beto.id); return d.profile?.username === "beto" && d.voice_notes.length > 0 && d.following.some((p) => p.id === ana.id) && d.chats.length >= 1 && Array.isArray(d.reports); });

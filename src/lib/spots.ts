@@ -140,7 +140,7 @@ export async function publishSpot({ clip, mediaFile, mediaKind, ...info }: NewSp
     };
     byId.set(spot.id, spot);
     mineIds = [spot.id, ...mineIds.filter((x) => x !== spot.id)];
-    for (const f of feeds.values()) if (f.kind === "recent" && !f.city && !f.following) f.ids = [spot.id, ...f.ids.filter((x) => x !== spot.id)];
+    for (const f of feeds.values()) if (f.kind === "recent" && !f.city && !f.following && (!f.media || spot.media)) f.ids = [spot.id, ...f.ids.filter((x) => x !== spot.id)];
     emit();
     return spot;
   }
@@ -226,6 +226,13 @@ export function setSpotReplies(id: string, replies: number) {
   if (s?.cloud && s.cloud.replies !== replies) { byId.set(id, { ...s, cloud: { ...s.cloud, replies } }); emit(); }
 }
 export const cloudSpot = (id: string) => byId.get(id);
+/** Busca Spots de la nube por título, ciudad o zona (búsqueda por voz). */
+export async function searchCloudSpots(text: string): Promise<MySpot[]> {
+  const rows = await api.searchSpots(db(), text);
+  const ids = keep(rows);
+  emit();
+  return ids.map((id) => byId.get(id)).filter((x): x is MySpot => !!x);
+}
 /** Trae un Spot concreto de la nube (enlaces compartidos). */
 export async function loadCloudSpot(id: string): Promise<MySpot | null> {
   const row = await api.fetchSpot(db(), id);
@@ -249,7 +256,7 @@ export function useMySpots() {
 
 /* ───────────── Feed de la nube ───────────── */
 export type FeedKind = "recent" | "trending";
-type Feed = { kind: FeedKind; city?: string | undefined; following?: boolean | undefined; ids: string[]; status: "idle" | "loading" | "ready" | "error"; more: boolean; busy: boolean; seq: number; at: number };
+type Feed = { kind: FeedKind; city?: string | undefined; following?: boolean | undefined; media?: boolean | undefined; ids: string[]; status: "idle" | "loading" | "ready" | "error"; more: boolean; busy: boolean; seq: number; at: number };
 const feeds = new Map<string, Feed>();
 const PAGE = 8;
 async function loadFeed(key: string, reset: boolean) {
@@ -262,7 +269,7 @@ async function loadFeed(key: string, reset: boolean) {
   try {
     const following = f.following ? getCloud().following : undefined;
     const last = f.ids.length && !reset ? byId.get(f.ids[f.ids.length - 1]!) : undefined;
-    const rows = await api.fetchFeed(db(), { city: f.city, authorIds: following, trending: f.kind === "trending", offset: reset ? 0 : f.ids.length, before: f.kind === "recent" && last ? new Date(last.createdAt).toISOString() : undefined, limit: PAGE });
+    const rows = await api.fetchFeed(db(), { city: f.city, authorIds: following, withMedia: f.media, trending: f.kind === "trending", offset: reset ? 0 : f.ids.length, before: f.kind === "recent" && last ? new Date(last.createdAt).toISOString() : undefined, limit: PAGE });
     if (f.seq !== mySeq) return;
     const ids = keep(rows);
     f.ids = reset ? ids : [...f.ids, ...ids.filter((id) => !f.ids.includes(id))];
@@ -280,16 +287,16 @@ async function loadFeed(key: string, reset: boolean) {
  * Spots de la nube para una pestaña del feed, con scroll infinito (`loadMore`) y `refresh`. `following` usa a quien
  * sigues; `city` filtra por ciudad; `trending` ordena por escuchas de la última semana.
  */
-export function useCloudFeed(opts: { kind: FeedKind; city?: string | undefined; following?: boolean | undefined; enabled: boolean }) {
+export function useCloudFeed(opts: { kind: FeedKind; city?: string | undefined; following?: boolean | undefined; media?: boolean | undefined; enabled: boolean }) {
   const v = useSyncExternalStore(subscribe, getVersion, getVersion);
   const followingKey = opts.following ? getCloud().following.join(",") : "";
-  const key = `${opts.kind}|${opts.city ?? ""}|${opts.following ? `f:${followingKey}` : ""}`;
+  const key = `${opts.kind}|${opts.city ?? ""}|${opts.following ? `f:${followingKey}` : ""}|${opts.media ? "m" : ""}`;
   useEffect(() => {
     if (!opts.enabled) return;
     let f = feeds.get(key);
-    if (!f) { f = { kind: opts.kind, city: opts.city, following: opts.following, ids: [], status: "idle", more: true, busy: false, seq: 0, at: 0 }; feeds.set(key, f); }
+    if (!f) { f = { kind: opts.kind, city: opts.city, following: opts.following, media: opts.media, ids: [], status: "idle", more: true, busy: false, seq: 0, at: 0 }; feeds.set(key, f); }
     if (f.status === "idle" || Date.now() - f.at > 60000) void loadFeed(key, true);
-  }, [key, opts.enabled, opts.kind, opts.city, opts.following]);
+  }, [key, opts.enabled, opts.kind, opts.city, opts.following, opts.media]);
   return useMemo(() => {
     const f = feeds.get(key);
     return {

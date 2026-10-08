@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { Bookmark, CalendarCheck, Clock, Flame, MapPin, Megaphone, Mic, Minus, Navigation, Pause, Phone, Plus, Store, Trash2, Zap } from "lucide-react";
+import { Bookmark, CalendarCheck, Clock, Flame, MapPin, Megaphone, Mic, Minus, Navigation, Pause, Phone, Plus, Store, Trash2, Zap, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { AudioRow, BottomSheet, Chip, Screen, SponsoredTag, StateCard, Toggle, Trust, Waveform } from "./kit";
+import { BottomSheet, Chip, Screen, SponsoredTag, StateCard, Toggle, Trust, Waveform } from "./kit";
 import { Checkout } from "./Credits";
 import { useApp } from "./app-context";
-import { useGate, useRecorder } from "./Voice";
+import { useGate } from "./Voice";
+import { VoiceRecordTile } from "./VoiceRecord";
+import { VoiceItem, VoiceThread } from "./VoiceThread";
+import { sampleThread } from "@/lib/voice/samples";
+import { formatClock, type VoiceClip } from "@/lib/voice/recorder";
 import { addOffer, fmtRemaining, removeOffer, setAvailability, setCampaign, useNow, useStore, type Campaign } from "@/lib/store";
 import { availabilityMaxSlots, availabilityWindows, campaignBudget, campaignDays, campaignRadii, eur, estimateReach, flashDurations } from "@/lib/spotlyConfig";
 import { bizStats, businesses, campaignEligible, fmtDist, type Business } from "@/lib/sampleData";
@@ -18,7 +22,6 @@ export function SponsoredSpot({ b, label = "Patrocinado" }: { b: Business; label
   const app = useApp();
   const { bizAvailability, bizOffers } = useStore();
   const now = useNow();
-  const [play, setPlay] = useState(false);
   const [reserve, setReserve] = useState(false);
   const av = b.mine && bizAvailability?.on && bizAvailability.until > now ? bizAvailability : null;
   const slots = av?.slots ?? b.slots;
@@ -33,8 +36,8 @@ export function SponsoredSpot({ b, label = "Patrocinado" }: { b: Business; label
         <div className="flex items-center gap-2"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-secondary text-primary"><Store size={18} /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{b.name}</p><p className="flex items-center gap-1 text-xs text-muted-foreground"><MapPin size={11} />A {fmtDist(b.distM)} · <span className={b.open ? "text-primary" : ""}>{b.open ? "Abierto ahora" : "Cerrado"}</span></p></div></div>
         {(offer || slots) && <p className="mt-2 flex flex-wrap gap-1.5 text-2xs font-semibold">{offer && <span className="flex items-center gap-1 rounded-full bg-live/15 px-2 py-1 text-live"><Flame size={12} />Oferta activa: {offer.discount}% · {fmtRemaining(offer.endsAt - now)}</span>}{slots ? <span className="rounded-full bg-primary/15 px-2 py-1 text-primary">{slots} huecos {av ? `· próximos ${Math.round((av.until - now) / 60000)} min` : ""}</span> : null}</p>}
         <div className="mt-2 flex items-center gap-2 rounded-full border border-border bg-secondary p-1">
-          <button aria-label={play ? "Pausar oferta" : "Escuchar oferta"} onClick={() => setPlay(!play)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">{play ? <Pause size={13} fill="currentColor" /> : <Mic size={14} />}</button>
-          <span className="shrink-0 text-2xs font-semibold">🎙 Escuchar oferta</span><Waveform active={play} seed={b.name.length} /><span className="pr-2 text-xs">{b.voiceDur}</span>
+          <button aria-label="Escuchar oferta" onClick={() => toast("Oferta de ejemplo: no tiene audio. Las ofertas que graban los negocios se escuchan aquí.")} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground"><Volume2 size={15} /></button>
+          <span className="shrink-0 text-2xs font-semibold">Escuchar oferta</span><Waveform active={false} seed={b.name.length} /><span className="pr-2 text-xs">{b.voiceDur}</span>
         </div>
         <p className="mt-2 text-sm italic text-foreground/85">“{b.voice}”</p>
         <div className="mt-3 grid grid-cols-3 gap-2 text-xs font-semibold">
@@ -96,6 +99,7 @@ export function BusinessProfile({ id, onBack }: { id: string; onBack: () => void
   const now = useNow();
   const [saved, setSaved] = useState(false);
   const [reserve, setReserve] = useState(false);
+  const [talk, setTalk] = useState(false);
   const offer = b.mine ? bizOffers.find((o) => o.endsAt > now) : undefined;
   const av = b.mine && bizAvailability?.on && bizAvailability.until > now ? bizAvailability : null;
   const sponsored = b.paidBy === "other" || (b.mine && !!bizCampaign && campaignEligible(bizCampaign, b.distM, new Date()));
@@ -113,10 +117,10 @@ export function BusinessProfile({ id, onBack }: { id: string; onBack: () => void
       {av && <div className="mt-3 rounded-xl border border-primary/40 bg-primary/10 p-3 text-sm"><b className="text-primary">Tengo disponibilidad ahora</b><br />{av.slots} huecos · próximos {Math.max(1, Math.round((av.until - now) / 60000))} min</div>}
       {b.staticOffer && !b.mine && <div className="mt-3 rounded-xl border border-live/50 bg-live/10 p-3 text-sm"><b className="flex items-center gap-1 text-live"><Flame size={14} />OFERTA FLASH</b>{b.staticOffer.title}</div>}
       <h3 className="mb-2 mt-4 text-sm font-bold">Mensaje de voz del negocio</h3>
-      <AudioRow name={b.name} dur={b.voiceDur} seed={b.name.length} />
-      <h3 className="mb-2 mt-4 text-sm font-bold">Lo que dice la gente</h3>
-      <div className="space-y-2">{[["Laura", "0:11", "hace 1 día"], ["Carlos", "0:07", "hace 3 días"]].map(([n, d, a], i) => <AudioRow key={n} name={n!} dur={d!} ago={a} seed={i + 5} />)}</div>
-      <p className="mt-1 text-2xs text-muted-foreground">Voces de ejemplo. El pago de publicidad da visibilidad, no una mejor reputación.</p>
+      <VoiceItem note={{ ...sampleThread(`biz-voz:${b.id}`, [{ key: "voz", name: b.name, img: b.img, minsAgo: 180, dur: b.voiceDur, likes: 0 }])[0]!, liked: false, replies: 0 }} />
+      <div className="mb-2 mt-4 flex items-center justify-between gap-2"><h3 className="text-sm font-bold">Lo que dice la gente</h3><Button size="sm" variant="secondary" onClick={() => setTalk(true)}><Mic size={14} />Opinar con voz</Button></div>
+      <VoiceThread threadId={`biz:${b.id}`} seed={sampleThread(`biz:${b.id}`, [{ key: "a", name: "Laura", minsAgo: 1440, dur: "0:11", likes: 0 }, { key: "b", name: "Carlos", minsAgo: 4320, dur: "0:07", likes: 0 }])} root={{ name: b.name, atMs: 0, durationMs: 0 }} composerOpen={talk} onComposerClose={() => setTalk(false)} emptyText="Aún no hay opiniones. Sé la primera voz." />
+      <p className="mt-1 text-2xs text-muted-foreground">El pago de publicidad da visibilidad, no una mejor reputación.</p>
       {b.mine && <Button variant="secondary" className="mt-4 w-full" onClick={() => { onBack(); app.open("local"); }}><Store size={16} />Gestionar mi negocio</Button>}
       {reserve && <Reserve b={b} onClose={() => setReserve(false)} />}
     </Screen>
@@ -204,27 +208,27 @@ function CampaignWizard({ onBack, onDone }: { onBack: () => void; onDone: () => 
   const [budget, setBudget] = useState<number>(campaignBudget.defaultPerDay);
   const [nDays, setNDays] = useState<number>(7);
   const [pay, setPay] = useState(false);
-  const r = useRecorder();
+  const [clip, setClip] = useState<VoiceClip | null>(null);
   const gate = useGate({ verified: true, mic: step === 0 });
   const b = getBiz(MINE);
   const total = budget * nDays;
   const [lo, hi] = estimateReach(budget);
   const rad = campaignRadii.find((x) => x.id === radius)!;
   const titles = ["Mensaje de voz", "Radio de la campaña", "Horario y días", "Presupuesto", "Vista previa del anuncio"];
-  const can = [r.secs > 0 && !r.rec, true, days.length > 0 && from < to, true, true][step]!;
-  const preview: Business = { ...b, voice: "Tu mensaje de voz sonará aquí." , voiceDur: r.label };
+  const can = [!!clip, true, days.length > 0 && from < to, true, true][step]!;
+  const preview: Business = { ...b, voice: "Tu mensaje de voz sonará aquí.", voiceDur: clip ? formatClock(clip.durationMs) : "0:00" };
   return (
     <Screen title={titles[step]!} sub={`Crear campaña comercial · paso ${step + 1} de 5`} onBack={() => (step === 0 ? onBack() : setStep(step - 1))} z={60}
       footer={<Button className="h-12 w-full rounded-full bg-spot-gradient text-base text-foreground" disabled={!can || !!gate} onClick={() => (step < 4 ? setStep(step + 1) : setPay(true))}>{step < 4 ? "Continuar" : `Contratar · ${eur(total)}`}</Button>}>
       {gate ?? <>
-        {step === 0 && <div className="text-center"><p className="text-sm text-muted-foreground">Menos escribir, más hablar: graba tu oferta en menos de 30 segundos.</p><div className="mx-auto my-6 flex h-10 max-w-xs"><Waveform active={r.rec} bars={34} /></div><button onClick={r.toggle} aria-label={r.rec ? "Detener grabación" : "Grabar mensaje"} className={(r.rec ? "spot-pulse " : "") + "mx-auto grid h-24 w-24 place-items-center rounded-full bg-spot-gradient shadow-glow"}><Mic size={36} /></button><p className="mt-3 font-semibold tabular-nums">{r.label} / 0:30</p><p className="text-xs text-muted-foreground">{r.rec ? "Grabando… pulsa para terminar" : r.secs ? "Mensaje grabado" : "Pulsa para empezar"}</p>{r.secs > 0 && !r.rec && <Button variant="ghost" className="mt-2" onClick={r.reset}><Trash2 size={14} />Repetir</Button>}</div>}
+        {step === 0 && <div className="text-center"><p className="text-sm text-muted-foreground">Menos escribir, más hablar: graba tu oferta en menos de 30 segundos.</p><VoiceRecordTile maxSeconds={30} onChange={setClip} /></div>}
         {step === 1 && <><div className="spot-neon-map relative grid aspect-[4/3] place-items-center overflow-hidden rounded-2xl border border-border"><span className="spot-radar absolute aspect-square rounded-full bg-accent/10 transition-all" style={{ width: `${20 + campaignRadii.findIndex((x) => x.id === radius) * 15}%` }} /><span className="relative grid h-12 w-12 place-items-center rounded-full bg-spot-gradient shadow-glow"><Store size={20} /></span><span className="absolute bottom-2 rounded-full bg-background/80 px-3 py-1 text-xs font-bold">{rad.label} alrededor de {b.name}</span></div><div className="mt-4 grid grid-cols-3 gap-2">{campaignRadii.map((x) => <button key={x.id} onClick={() => setRadius(x.id)} aria-pressed={radius === x.id} className={"min-h-11 rounded-xl border text-sm font-semibold " + (radius === x.id ? "spot-active-pill border-transparent" : "border-border bg-card")}>{x.label}</button>)}</div></>}
         {step === 2 && <><div className="grid grid-cols-2 gap-3">{([["Desde", from, setFrom], ["Hasta", to, setTo]] as const).map(([l, v, set]) => <label key={l} className="text-xs text-muted-foreground">{l}<input type="time" value={v} onChange={(e) => set(e.target.value)} className="mt-1 h-12 w-full rounded-xl border border-border bg-card px-3 text-base text-foreground" /></label>)}</div>{from >= to && <p className="mt-2 text-xs text-live">La hora de inicio debe ser anterior a la de fin.</p>}<p className="mb-2 mt-4 text-sm font-semibold">Días</p><div className="flex justify-between">{campaignDays.map((d) => <button key={d} onClick={() => setDays(days.includes(d) ? days.filter((x) => x !== d) : [...days, d])} aria-pressed={days.includes(d)} aria-label={`Día ${d}`} className={"grid h-11 w-11 place-items-center rounded-full border text-sm font-bold " + (days.includes(d) ? "spot-active-pill border-transparent" : "border-border bg-card")}>{d}</button>)}</div><div className="mt-3 flex gap-2"><Button variant="secondary" size="sm" onClick={() => setDays(campaignDays.slice(0, 5))}>Lunes–Viernes</Button><Button variant="secondary" size="sm" onClick={() => setDays([...campaignDays])}>Todos</Button></div></>}
         {step === 3 && <><p className="text-sm font-semibold">Presupuesto diario</p><div className="mt-2 flex items-center justify-between rounded-2xl border border-border bg-card p-3"><Button variant="icon" size="icon" aria-label="Menos" onClick={() => setBudget(Math.max(campaignBudget.minPerDay, budget - campaignBudget.step))}><Minus size={16} /></Button><strong className="text-3xl tabular-nums">{eur(budget)}</strong><Button variant="icon" size="icon" aria-label="Más" onClick={() => setBudget(Math.min(campaignBudget.maxPerDay, budget + campaignBudget.step))}><Plus size={16} /></Button></div><input aria-label="Presupuesto diario" type="range" min={campaignBudget.minPerDay} max={campaignBudget.maxPerDay} step={campaignBudget.step} value={budget} onChange={(e) => setBudget(+e.target.value)} className="mt-3 w-full accent-[var(--primary)]" /><p className="mb-2 mt-4 text-sm font-semibold">Duración</p><div className="flex gap-2">{campaignBudget.days.map((d) => <Chip key={d} active={nDays === d} onClick={() => setNDays(d)}>{d} días</Chip>)}</div><div className="mt-4 rounded-2xl border border-border bg-card p-4 text-sm"><p className="flex justify-between"><span className="text-muted-foreground">Total</span><strong>{eur(total)}</strong></p><p className="mt-1 flex justify-between"><span className="text-muted-foreground">Impresiones estimadas al día</span><strong>{lo.toLocaleString("es-ES")}–{hi.toLocaleString("es-ES")}</strong></p></div><p className="mt-2 text-2xs text-muted-foreground">Estimación orientativa; no es una garantía de resultados.</p></>}
         {step === 4 && <><SponsoredSpotPreview b={preview} /><div className="mt-3 divide-y divide-border rounded-2xl border border-border bg-card text-sm">{[["Radio", rad.label], ["Horario", `${from}–${to}`], ["Días", days.join(" ")], ["Presupuesto", `${eur(budget)}/día × ${nDays}`], ["Total", eur(total)]].map(([k, v]) => <p key={k} className="flex justify-between p-3"><span className="text-muted-foreground">{k}</span><strong>{v}</strong></p>)}</div><div className="mt-3"><Trust>Se mostrará siempre como “Patrocinado”. Pagar da visibilidad, no significa “mejor {b.category.toLowerCase()}”.</Trust></div></>}
       </>}
       {pay && <Checkout title={`Campaña hiperlocal · ${rad.label} · ${nDays} días`} kind="ads" lines={[{ label: `${eur(budget)}/día × ${nDays} días`, eur: total }]} onClose={() => setPay(false)}
-        onPaid={() => { setCampaign({ id: "c" + Date.now(), radiusId: radius, from, to, days, budgetPerDay: budget, totalDays: nDays, message: r.label, status: "active", startedAt: Date.now() }); toast.success("Campaña creada"); onDone(); }} />}
+        onPaid={() => { setCampaign({ id: "c" + Date.now(), radiusId: radius, from, to, days, budgetPerDay: budget, totalDays: nDays, message: clip ? formatClock(clip.durationMs) : "0:00", status: "active", startedAt: Date.now() }); toast.success("Campaña creada"); onDone(); }} />}
     </Screen>
   );
 }
@@ -236,7 +240,7 @@ function SponsoredSpotPreview({ b }: { b: Business }) {
 function OffersTab({ offers, now }: { offers: { id: string; title: string; discount: number; endsAt: number }[]; now: number }) {
   const [discount, setDiscount] = useState(30);
   const [dur, setDur] = useState(60);
-  const r = useRecorder(20);
+  const [round, setRound] = useState(0);
   const gate = useGate({ verified: true, mic: true });
   const live = offers.filter((o) => o.endsAt > now);
   return (
@@ -246,8 +250,8 @@ function OffersTab({ offers, now }: { offers: { id: string; title: string; disco
         <p className="mb-2 mt-3 text-xs font-semibold text-muted-foreground">DESCUENTO</p><div className="flex gap-2">{[10, 20, 30, 40, 50].map((d) => <Chip key={d} active={discount === d} onClick={() => setDiscount(d)}>{d}%</Chip>)}</div>
         <p className="mb-2 mt-3 text-xs font-semibold text-muted-foreground">DURACIÓN</p><div className="flex flex-wrap gap-2">{flashDurations.map((d) => <Chip key={d} active={dur === d} onClick={() => setDur(d)}>{d >= 60 ? `${d / 60} h` : `${d} min`}</Chip>)}</div>
         <p className="mb-2 mt-3 text-xs font-semibold text-muted-foreground">MENSAJE DE VOZ (opcional)</p>
-        {gate ?? <button onClick={r.toggle} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-3 text-left"><span className={(r.rec ? "spot-pulse " : "") + "grid h-10 w-10 place-items-center rounded-full bg-spot-gradient"}><Mic size={16} /></span><span className="flex-1 text-sm">{r.rec ? "Grabando… pulsa para parar" : r.secs ? `Mensaje grabado (${r.label})` : "Grabar mensaje"}</span></button>}
-        <Button className="mt-4 w-full" onClick={() => { addOffer({ title: `durante ${dur >= 60 ? dur / 60 + " h" : dur + " min"}`, discount, endsAt: Date.now() + dur * 60_000 }); r.reset(); toast.success("Oferta flash publicada"); }}><Zap size={16} />Publicar oferta flash</Button>
+        {gate ?? <VoiceRecordTile key={round} variant="row" maxSeconds={20} />}
+        <Button className="mt-4 w-full" onClick={() => { addOffer({ title: `durante ${dur >= 60 ? dur / 60 + " h" : dur + " min"}`, discount, endsAt: Date.now() + dur * 60_000 }); setRound((n) => n + 1); toast.success("Oferta flash publicada"); }}><Zap size={16} />Publicar oferta flash</Button>
       </div>
       {live.length === 0 ? <StateCard icon={Flame} tone="muted" title="Sin ofertas activas" text="Las ofertas flash aparecen en el feed y en las búsquedas cercanas." /> : live.map((o) => <div key={o.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3"><span className="grid h-10 w-10 place-items-center rounded-full bg-live/15 text-live"><Flame size={18} /></span><span className="flex-1"><strong className="block text-sm">{o.discount}% {o.title}</strong><small className="text-muted-foreground">Termina en {fmtRemaining(o.endsAt - now)}</small></span><Button variant="ghost" size="icon" aria-label="Retirar oferta" onClick={() => { removeOffer(o.id); toast("Oferta retirada"); }}><Trash2 size={16} /></Button></div>)}
     </div>

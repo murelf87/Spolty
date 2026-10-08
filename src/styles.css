@@ -120,6 +120,8 @@
   --wave-from: oklch(0.7 0.27 345);
   --wave-to: oklch(0.63 0.25 295);
   --wave-rest: oklch(0.72 0.02 270 / 42%);
+  /* Borde del panel de respuesta: de azul violeta a fucsia, como en el diseño. */
+  --wave-edge: oklch(0.62 0.2 272);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -165,6 +167,7 @@
   --wave-from: oklch(0.6 0.26 345);
   --wave-to: oklch(0.52 0.24 295);
   --wave-rest: oklch(0.55 0.03 270 / 38%);
+  --wave-edge: oklch(0.55 0.2 272);
   --nav-1a: oklch(0.66 0.14 210); --nav-1b: oklch(0.56 0.19 240);
   --nav-2a: oklch(0.58 0.18 238); --nav-2b: oklch(0.54 0.24 290);
   --nav-3a: oklch(0.55 0.24 292); --nav-3b: oklch(0.58 0.26 330);
@@ -349,10 +352,10 @@ html.spot-feed-snap { scroll-snap-type: y mandatory; scroll-padding-top: var(--h
 .spot-voice-ring { display: inline-block; background: linear-gradient(135deg, var(--wave-from), var(--wave-to)); }
 .spot-voice-bar { display: block; flex: 1 1 0; min-width: 1px; max-width: 0.1875rem; min-height: 0.1875rem; border-radius: 999px; background: var(--wave-rest); }
 .spot-voice-head { position: absolute; top: 50%; width: 0.625rem; height: 0.625rem; border-radius: 999px; transform: translate(-50%, -50%); background: var(--wave-from); box-shadow: 0 0 10px var(--wave-from); pointer-events: none; }
-.spot-voice-composer { background: linear-gradient(100deg, var(--wave-to), var(--wave-from)); box-shadow: 0 0 24px color-mix(in oklab, var(--wave-from) 32%, transparent); }
+.spot-voice-composer { background: linear-gradient(100deg, var(--wave-edge), var(--wave-to) 45%, var(--wave-from)); box-shadow: 0 0 24px color-mix(in oklab, var(--wave-from) 32%, transparent); }
 .spot-voice-stop { background: var(--wave-from); box-shadow: 0 0 0 4px color-mix(in oklab, var(--wave-from) 22%, transparent), 0 0 20px color-mix(in oklab, var(--wave-from) 60%, transparent); }
 .spot-voice-send { background: linear-gradient(135deg, var(--wave-from), var(--wave-to)); box-shadow: 0 0 18px color-mix(in oklab, var(--wave-from) 45%, transparent); }
-.spot-voice-pointer { position: absolute; top: -0.4375rem; left: 1.75rem; z-index: 1; width: 0.875rem; height: 0.875rem; transform: rotate(45deg); border-radius: 0.1875rem 0 0 0; background: var(--card); border-left: 1.5px solid var(--wave-to); border-top: 1.5px solid var(--wave-to); }
+.spot-voice-pointer { position: absolute; top: -0.4375rem; left: 1.75rem; z-index: 1; width: 0.875rem; height: 0.875rem; transform: rotate(45deg); border-radius: 0.1875rem 0 0 0; background: var(--card); border-left: 1.5px solid var(--wave-edge); border-top: 1.5px solid var(--wave-edge); }
 
 /* Portadas de perfil de Spotly (fondos que se pueden elegir detrás del perfil). */
 .spot-cover-neon { background: radial-gradient(70% 90% at 15% 20%, color-mix(in oklab, var(--spot-fuchsia) 75%, transparent), transparent 60%), radial-gradient(60% 80% at 85% 30%, color-mix(in oklab, var(--spot-blue) 80%, transparent), transparent 62%), linear-gradient(160deg, oklch(0.24 0.12 290), oklch(0.14 0.07 270)); }

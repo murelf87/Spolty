@@ -151,7 +151,7 @@ export function useVoiceRecorder({ maxSeconds = 30, minMs = 800 }: { maxSeconds?
       return;
     }
     // Se soltó el botón, se cerró la pantalla o se canceló mientras el navegador pedía permiso: no se graba nada.
-    if (!s.alive || s.cancelled || !s.pending) { stream.getTracks().forEach((t) => t.stop()); s.pending = false; return; }
+    if (!s.alive || s.cancelled || !s.pending) { stream.getTracks().forEach((t) => t.stop()); s.pending = false; if (s.alive) setState("idle"); return; }
     s.pending = false;
     s.stream = stream;
     const mimeType = pickMime();
@@ -254,7 +254,9 @@ export function useVoiceRecorder({ maxSeconds = 30, minMs = 800 }: { maxSeconds?
 
   useEffect(() => {
     const s = r.current;
-    s.alive = true;
+    /* Al (re)montarse vuelve a estar vivo: si React lo desmonta y monta otra vez al instante (modo estricto), la
+       grabación que se estaba pidiendo al abrir el panel sigue adelante en vez de quedarse esperando. */
+    s.alive = true; s.cancelled = false;
     return () => {
       s.alive = false; s.cancelled = true;
       if (s.rec && s.rec.state !== "inactive") s.rec.stop();

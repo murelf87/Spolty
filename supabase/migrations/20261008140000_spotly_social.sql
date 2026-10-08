@@ -223,6 +223,37 @@ begin
   return inserted > 0;
 end $$;
 
+-- ─────────────────────────────── Historias (24 h) ───────────────────────────────
+-- Una voz de hasta 60 s sobre tu foto o un fondo de Spotly; desaparece a las 24 horas.
+create table public.stories (
+  id uuid primary key default gen_random_uuid(),
+  author_id uuid not null references public.profiles (id) on delete cascade,
+  city text not null default '' check (char_length(city) <= 80),
+  audio_path text not null check (char_length(audio_path) <= 300),
+  duration_ms integer not null check (duration_ms between 800 and 60000),
+  peaks real[] not null default '{}' check (coalesce(array_length(peaks, 1), 0) <= 128),
+  media_path text check (media_path is null or char_length(media_path) <= 300),
+  background text check (background is null or background ~ '^preset:[a-z]{1,20}$'),
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null default now() + interval '24 hours'
+);
+create index stories_live on public.stories (expires_at desc);
+create index stories_author on public.stories (author_id, created_at desc);
+create or replace function public.stories_guard()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.author_id is distinct from auth.uid() then raise exception 'author_mismatch' using errcode = '42501'; end if;
+  if (select count(*) from public.stories s where s.author_id = new.author_id and s.created_at > now() - interval '1 day') >= 30 then
+    raise exception 'rate_limited' using errcode = '54000';
+  end if;
+  if new.audio_path !~ ('^voces/' || new.author_id::text || '/[A-Za-z0-9._-]{1,100}$') then raise exception 'invalid_path' using errcode = '22023'; end if;
+  if new.media_path is not null and new.media_path !~ ('^media/' || new.author_id::text || '/[A-Za-z0-9._-]{1,100}$') then raise exception 'invalid_path' using errcode = '22023'; end if;
+  new.created_at := now();
+  new.expires_at := now() + interval '24 hours';
+  return new;
+end $$;
+create trigger stories_guard before insert on public.stories for each row execute function public.stories_guard();
+
 -- ─────────────────────────────── Chats de voz ───────────────────────────────
 create table public.chats (
   id uuid primary key default gen_random_uuid(),
@@ -425,7 +456,7 @@ end $$;
 create table public.reports (
   id uuid primary key default gen_random_uuid(),
   reporter_id uuid not null references public.profiles (id) on delete cascade,
-  target_type text not null check (target_type in ('spot', 'voice', 'profile', 'chat')),
+  target_type text not null check (target_type in ('spot', 'voice', 'profile', 'chat', 'story')),
   target_id text not null check (char_length(target_id) <= 120),
   reason text not null check (char_length(reason) between 3 and 60),
   status text not null default 'review' check (status in ('review', 'resolved', 'removed')),
@@ -496,6 +527,13 @@ where (v.status = 'published' or v.author_id = auth.uid())
   and public.can_read_thread(v.thread_id)
   and not public.has_block_with(v.author_id);
 
+create view public.stories_public with (security_barrier = true) as
+select st.id, st.author_id, p.display_name as author_name, p.username as author_username, p.avatar_path as author_avatar,
+  st.city, st.audio_path, st.duration_ms, st.peaks, st.media_path, st.background, st.created_at, st.expires_at,
+  st.author_id = auth.uid() as mine
+from public.stories st join public.profiles p on p.id = st.author_id
+where st.expires_at > now() and not public.has_block_with(st.author_id);
+
 -- Mis chats con el último movimiento.
 create view public.my_chats with (security_barrier = true) as
 select c.id, c.is_group, c.title, c.created_at,
@@ -515,6 +553,7 @@ alter table public.spots enable row level security;
 alter table public.spot_likes enable row level security;
 alter table public.spot_views enable row level security;
 alter table public.saved_spots enable row level security;
+alter table public.stories enable row level security;
 alter table public.chats enable row level security;
 alter table public.chat_members enable row level security;
 alter table public.voice_notes enable row level security;
@@ -551,6 +590,10 @@ create policy "quitar me gusta" on public.spot_likes for delete to authenticated
 
 create policy "mis vistas" on public.spot_views for select to authenticated using (viewer_id = auth.uid());
 
+create policy "mis historias" on public.stories for select to authenticated using (author_id = auth.uid());
+create policy "publicar historia" on public.stories for insert to authenticated with check (author_id = auth.uid());
+create policy "borrar mi historia" on public.stories for delete to authenticated using (author_id = auth.uid() or public.is_moderator());
+
 create policy "mis guardados" on public.saved_spots for select to authenticated using (user_id = auth.uid());
 create policy "guardar un spot" on public.saved_spots for insert to authenticated with check (user_id = auth.uid());
 create policy "quitar de guardados" on public.saved_spots for delete to authenticated using (user_id = auth.uid());
@@ -577,7 +620,7 @@ create policy "moderar denuncias" on public.reports for update to authenticated 
 create policy "mi solicitud de borrado" on public.account_deletions for select to authenticated using (user_id = auth.uid());
 
 grant select on public.profiles_public, public.spots_public, public.voice_notes_public to anon, authenticated;
-grant select on public.my_chats to authenticated;
+grant select on public.my_chats, public.stories_public to authenticated;
 revoke all on function public.delete_voice_note(uuid) from public;
 grant execute on function public.delete_voice_note(uuid) to authenticated;
 revoke all on function public.record_spot_view(uuid) from public;

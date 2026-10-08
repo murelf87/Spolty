@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { ChevronLeft, Ghost, Loader2, ShieldCheck, X, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -66,26 +66,6 @@ export function Waveform({ active, seed = 1, bars = 28, className = "" }: { acti
 }
 
 /** Fila de audio (avatar + onda + duración + play). */
-/** Fila de audio con su autor: nombre y foto, o fantasma y «Anónimo» si el autor ha pagado Incógnito. */
-export function AudioRow({ name, img, dur, ago, seed = 1, right, anon = false }: { name: string; img?: string | undefined; dur: string; ago?: string | undefined; seed?: number; right?: ReactNode; anon?: boolean }) {
-  const [on, setOn] = useState(false);
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
-      {anon ? <span role="img" aria-label="Anónimo" className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-accent/60 bg-accent/20"><Ghost size={18} /></span> : img ? <img src={img} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" /> : <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-secondary font-bold">{name[0]}</span>}
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">{anon ? "Anónimo" : name}{ago && <small className="font-normal text-muted-foreground"> · {ago}</small>}</p>
-        <div className="mt-1 flex items-center gap-2">
-          <button aria-label={on ? `Pausar audio de ${name}` : `Escuchar audio de ${name}`} onClick={() => setOn(!on)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
-            {on ? <span className="flex gap-[0.125rem]"><i className="h-3 w-[0.1875rem] bg-current" /><i className="h-3 w-[0.1875rem] bg-current" /></span> : <span className="ml-0.5 h-0 w-0 border-y-[6px] border-l-[10px] border-y-transparent border-l-current" />}
-          </button>
-          <Waveform active={on} seed={seed} />
-          <span className="text-xs text-muted-foreground">{dur}</span>
-        </div>
-      </div>
-      {right}
-    </div>
-  );
-}
 
 /**
  * Cabecera común de las pantallas: atrás (o cerrar), título con subtítulo opcional y acciones a la derecha.

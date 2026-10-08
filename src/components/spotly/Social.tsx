@@ -13,6 +13,7 @@ import { TopBar, BottomSheet } from "./kit";
 import { TalkBar, VoiceComposer, VoiceItem, VoiceThread } from "./VoiceThread";
 import { addVoiceNote } from "@/lib/voice/notes";
 import { sampleThread } from "@/lib/voice/samples";
+import { useStore } from "@/lib/store";
 
 /** Conversación de voz de un grupo (comunidad o evento): todos pueden hablar y responderse, solo con voz. */
 function GroupVoices({ threadId, title, root, seedNames }: { threadId: string; title: string; root: { name: string; durationMs: number }; seedNames: string[] }) {
@@ -39,12 +40,13 @@ const communities = [
 ];
 
 function LiveRoom({ room, onLeave }: { room: string; onLeave: () => void }) {
+  const { demo } = useStore();
   const [hand, setHand] = useState(false);
   const [muted, setMuted] = useState(true);
   const [speaking, setSpeaking] = useState(false);
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-background">
-      <TopBar title={room} sub={<><span className="mr-1.5 rounded bg-live px-1.5 py-px text-4xs font-bold text-foreground">● EN DIRECTO</span>24 escuchando</>} right={<Button variant="outline" size="sm" onClick={onLeave}>Salir</Button>} />
+      <TopBar title={room} sub={<><span className="mr-1.5 rounded bg-live px-1.5 py-px text-4xs font-bold text-foreground">● EN DIRECTO</span>{demo ? "24 escuchando" : "Sala de demostración"}</>} right={<Button variant="outline" size="sm" onClick={onLeave}>Salir</Button>} />
       <main className="flex-1 overflow-y-auto p-5">
         <p className="text-xs font-bold tracking-wider text-muted-foreground">HABLANDO</p>
         <div className="mt-3 grid grid-cols-3 gap-4">
@@ -93,6 +95,7 @@ function CreateCommunity({ onDone }: { onDone: (name: string) => void }) {
 }
 
 export function Communities({ onBack }: { onBack: () => void }) {
+  const { demo } = useStore();
   const [open, setOpen] = useState<string | null>(null);
   const [joined, setJoined] = useState<string[]>(["Música en directo"]);
   const [room, setRoom] = useState<string | null>(null);
@@ -115,7 +118,7 @@ export function Communities({ onBack }: { onBack: () => void }) {
         </div>
         <div className="-mt-8 relative flex items-end gap-3 px-2">
           <span className="grid h-16 w-16 place-items-center rounded-2xl border-4 border-background bg-spot-gradient"><c.icon size={26} /></span>
-          <div className="flex-1 pb-1"><strong className="block">{c.name}</strong><small className="text-muted-foreground">{c.members} miembros · {c.live} en directo</small></div>
+          <div className="flex-1 pb-1"><strong className="block">{c.name}</strong><small className="text-muted-foreground">{demo ? `${c.members} miembros · ${c.live} en directo` : "Conversación de voz abierta a todos"}</small></div>
         </div>
         <Button className="mt-4 w-full" variant={isJoined ? "secondary" : "primary"} onClick={() => { setJoined((j) => isJoined ? j.filter((n) => n !== c.name) : [...j, c.name]); toast.success(isJoined ? "Has salido de la comunidad" : "Te has unido a la comunidad"); }}>
           {isJoined ? "Miembro ✓ · Salir" : "Unirme"}
@@ -128,7 +131,7 @@ export function Communities({ onBack }: { onBack: () => void }) {
           {["Quedada de esta noche", "Recomendaciones del barrio"].map((r, i) => (
             <button key={r} onClick={() => i === 0 ? setRoom(r) : toast.success("Te avisaremos a las 20:00")} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left hover:border-primary">
               <span className={i === 0 ? "spot-pulse grid h-10 w-10 place-items-center rounded-full bg-live/20 text-live" : "grid h-10 w-10 place-items-center rounded-full bg-secondary text-primary"}><Mic size={18} /></span>
-              <span className="flex-1"><strong className="block text-sm">{r}</strong><small className="text-muted-foreground">{i === 0 ? "En directo · 24 escuchando" : "Programada · 20:00"}</small></span>
+              <span className="flex-1"><strong className="block text-sm">{r}</strong><small className="text-muted-foreground">{i === 0 ? (demo ? "En directo · 24 escuchando" : "Sala de demostración") : "Programada · 20:00"}</small></span>
               <span className="text-xs text-primary">{i === 0 ? "Entrar" : "Avisarme"}</span>
             </button>
           ))}
@@ -156,8 +159,8 @@ export function Communities({ onBack }: { onBack: () => void }) {
         {list.map((c) => (
           <button key={c.name} onClick={() => { setOpen(c.name); setInner("Voces"); }} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left hover:border-primary">
             <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl"><img src={[stage, festival, beach, sevilleNight][all.indexOf(c) % 4]} alt="" className="h-full w-full object-cover" /><span className="absolute bottom-0.5 right-0.5 grid h-5 w-5 place-items-center rounded-full bg-background/80 text-primary"><c.icon size={11} /></span></span>
-            <span className="flex-1"><strong className="block text-sm">{c.name}</strong><small className="text-muted-foreground">{c.members} miembros{c.live > 0 ? ` · ${c.live} en directo` : ""}</small></span>
-            {c.live > 0 && <span className="rounded-md bg-live px-2 py-1 text-3xs font-bold">EN DIRECTO</span>}
+            <span className="flex-1"><strong className="block text-sm">{c.name}</strong><small className="text-muted-foreground">{demo ? `${c.members} miembros${c.live > 0 ? ` · ${c.live} en directo` : ""}` : "Conversación de voz"}</small></span>
+            {demo && c.live > 0 && <span className="rounded-md bg-live px-2 py-1 text-3xs font-bold">EN DIRECTO</span>}
             {joined.includes(c.name) && <CheckCircle2 size={18} className="text-primary" />}
           </button>
         ))}

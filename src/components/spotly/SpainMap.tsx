@@ -10,6 +10,7 @@ import sevilla from "@/assets/seville-night.jpg";
 import { cn } from "@/lib/utils";
 import { municipiosOf, provinceByCode, provinceOfPlace, projectLonLat, provinces, viewBox, type Province } from "@/lib/geo";
 import { PlaceBrowser } from "./Places";
+import { useStore } from "@/lib/store";
 
 export type MapPin = { id: string; name: string; lon: number; lat: number; img?: string; count?: string };
 const [VX, VY, W, H] = viewBox;
@@ -35,6 +36,7 @@ const clampVB = ([x, y, w]: VB): VB => {
  * y etiqueta al pasar/enfocar. Las cifras de los pines son de ejemplo.
  */
 export function SpainMap({ pins = spainCities, selected, onSelect, className, showNames = true, province, onProvince }: { pins?: MapPin[]; selected?: string | undefined; onSelect?: (p: MapPin) => void; className?: string; showNames?: boolean; province?: string | undefined; onProvince?: (p: Province) => void }) {
+  const { demo } = useStore();
   const tiny = provinces.filter((p) => p.c === "51" || p.c === "52");
   const box = useRef<HTMLDivElement | null>(null);
   const paths = useRef<Record<string, SVGPathElement | null>>({});
@@ -143,9 +145,9 @@ export function SpainMap({ pins = spainCities, selected, onSelect, className, sh
         if (l < -4 || l > 104 || t < -4 || t > 104) return null;
         const on = selected === p.id;
         return (
-          <button key={p.id} onClick={() => { if (gesture.current.moved) return; onSelect?.(p); const pr = provinceOfPlace(p.name); if (pr) { onProvince?.(pr); const f = frame(pr.c); if (f) flyTo(f); } }} aria-label={`${p.name}${p.count ? `, ${p.count} personas cerca` : ""}`} aria-pressed={on}
+          <button key={p.id} onClick={() => { if (gesture.current.moved) return; onSelect?.(p); const pr = provinceOfPlace(p.name); if (pr) { onProvince?.(pr); const f = frame(pr.c); if (f) flyTo(f); } }} aria-label={`${p.name}${p.count && demo ? `, ${p.count} personas cerca` : ""}`} aria-pressed={on}
             className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${l}%`, top: `${t}%`, zIndex: on ? 3 : 2 }}>
-            <span className={cn("grid place-items-center rounded-full border-2 bg-background/90 font-bold", on ? "h-8 w-8 border-accent text-3xs shadow-glow" : "h-6 w-6 border-primary text-4xs")}>{p.count ?? "·"}</span>
+            <span className={cn("grid place-items-center rounded-full border-2 bg-background/90 font-bold", on ? "h-8 w-8 border-accent text-3xs shadow-glow" : "h-6 w-6 border-primary text-4xs")}>{(demo && p.count) || "·"}</span>
             {showNames && <span className="absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap rounded bg-background/80 px-1 text-4xs font-semibold">{p.name}</span>}
           </button>
         );

@@ -478,7 +478,7 @@ function Help({ onBack }: { onBack: () => void }) {
       <div className="mt-5 rounded-2xl border border-primary/30 bg-card p-4 text-center">
         {sent ? <><Check className="mx-auto text-primary" size={32} /><p className="mt-2 font-bold">{cloudUid() ? "Mensaje de voz enviado" : "Mensaje de voz guardado"}</p><p className="text-sm text-muted-foreground">{cloudUid() ? "Lo escucha el equipo de Spotly desde el panel de soporte. Solo lo oyen tú y el equipo." : "Queda guardado en este dispositivo; se enviará al equipo cuando entres con tu cuenta."}</p></> : <>
           <p className="font-bold">¿No encuentras la respuesta?</p><p className="mb-3 text-sm text-muted-foreground">Cuéntanos tu problema con tu voz</p>
-          <VoiceComposer allowAnon={false} sendLabel="Enviar a soporte" onSend={(clip) => { addVoiceNote({ threadId: myThreadId("soporte", "soporte"), clip }); setSent(true); }} /></>}
+          <VoiceComposer autoStart={false} allowAnon={false} sendLabel="Enviar a soporte" onSend={(clip) => { addVoiceNote({ threadId: myThreadId("soporte", "soporte"), clip }); setSent(true); }} /></>}
       </div>
     </Shell>
   );

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Bookmark, Camera, Check, ChevronLeft, Flag, Flame, Heart, MapPin, Mic, Navigation, Share2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { AudioRow, Chip, Screen, Trust } from "./kit";
+import { Chip, Screen, Trust } from "./kit";
 import { useApp } from "./app-context";
 import { VoiceReply, useGate } from "./Voice";
 import { VoiceThread } from "./VoiceThread";
@@ -15,17 +15,18 @@ import { LocationOff } from "./Status";
 /** Tarjeta de Hot Spot para el feed. */
 export function HotSpotCard({ h = hotspots[0]! }: { h?: HotSpot }) {
   const app = useApp();
+  const { demo } = useStore();
   return (
     <button onClick={() => app.openHot(h.id)} className="spot-feed-card mx-3 block overflow-hidden rounded-xl bg-card text-left" aria-label={`Abrir Hot Spot: ${h.title}`}>
       <span className="relative block aspect-[16/8]">
         <img src={h.img} alt="" loading="lazy" className="h-full w-full object-cover" />
         <span className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
         <span className="absolute left-3 top-3 flex items-center gap-1 rounded-md bg-live px-2 py-1 text-3xs font-bold"><Flame size={12} />HOT SPOT</span>
-        <span className="absolute inset-x-3 bottom-2"><strong className="block text-base leading-tight">🔥 ESTÁ PASANDO A {fmtDist(h.distM).toUpperCase()}</strong><small className="text-foreground/85">{h.title}</small></span>
+        <span className="absolute inset-x-3 bottom-2"><strong className="block text-base leading-tight">🔥 ESTÁ PASANDO A {fmtDist(h.distM).toUpperCase()}</strong><small className="text-foreground/85">{h.title}{!demo && " · ejemplo"}</small></span>
       </span>
-      <span className="grid grid-cols-4 gap-1 px-3 py-2.5 text-center text-2xs">
+      {demo && <span className="grid grid-cols-4 gap-1 px-3 py-2.5 text-center text-2xs">
         {[[Users, `${h.people}`, "hablando"], [Camera, `${h.photos}`, "fotos"], [Mic, `${h.audios}`, "audios"], [Flame, `${h.startedMin}′`, "desde hace"]].map(([I, v, l]) => { const Ic = I as typeof Users; return <span key={String(l)} className="rounded-lg bg-secondary py-1.5"><Ic size={13} className="mx-auto text-primary" /><strong className="block">{String(v)}</strong><small className="text-3xs text-muted-foreground">{String(l)}</small></span>; })}
-      </span>
+      </span>}
     </button>
   );
 }
@@ -41,7 +42,7 @@ const hotVoices = (id: string) => sampleThread(`hot:${id}`, [
 
 export function HotSpotView({ id, onBack }: { id: string; onBack: () => void }) {
   const h = hotspots.find((x) => x.id === id) ?? hotspots[0]!;
-  const { confirmed, perms, identity } = useStore();
+  const { confirmed, perms, identity, demo } = useStore();
   const app = useApp();
   const mine = confirmed.includes(h.id);
   const [tab, setTab] = useState<"Audios" | "Fotos">("Audios");
@@ -65,7 +66,7 @@ export function HotSpotView({ id, onBack }: { id: string; onBack: () => void }) 
         <div className="absolute bottom-24 right-3 flex flex-col items-center gap-5">
           <button onClick={() => toast("Me gusta")} aria-label="Me gusta" className="flex flex-col items-center gap-1">
             <Heart size={28} className="text-white" />
-            <span className="text-xs font-bold text-white">{h.people}</span>
+            <span className="text-xs font-bold text-white">{demo ? h.people : "Me gusta"}</span>
           </button>
           <button onClick={() => toast("Compartir Hot Spot")} aria-label="Compartir" className="flex flex-col items-center gap-1">
             <Share2 size={26} className="text-white" />
@@ -73,7 +74,7 @@ export function HotSpotView({ id, onBack }: { id: string; onBack: () => void }) 
           </button>
           <button onClick={() => toast("Hot Spot guardado")} aria-label="Guardar" className="flex flex-col items-center gap-1">
             <Bookmark size={26} className="text-white" />
-            <span className="text-xs font-bold text-white">{h.photos}</span>
+            <span className="text-xs font-bold text-white">{demo ? h.photos : "Guardar"}</span>
           </button>
         </div>
         {/* Chip lugar + título */}
@@ -82,23 +83,23 @@ export function HotSpotView({ id, onBack }: { id: string; onBack: () => void }) 
             <MapPin size={12} />{h.place} · {fmtDist(h.distM)}
           </div>
           <strong className="block text-base leading-tight text-white drop-shadow">🔥 ESTÁ PASANDO</strong>
-          <small className="text-white/80">{h.title}</small>
+          <small className="text-white/80">{h.title}{!demo && " · ejemplo"}</small>
         </div>
       </div>
 
       {/* Contenido scrollable */}
       <div className="flex-1 overflow-y-auto bg-background px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-4">
-        <div className="grid grid-cols-4 gap-2 text-center">{[[`${h.people}`, "personas"], [`${h.photos}`, "fotos"], [`${h.audios}`, "audios"], [`${h.startedMin} min`, "de inicio"]].map(([v, l]) => <div key={l} className="rounded-xl border border-border bg-card py-2"><strong className="block text-sm">{v}</strong><small className="text-3xs text-muted-foreground">{l}</small></div>)}</div>
+        {demo && <div className="grid grid-cols-4 gap-2 text-center">{[[`${h.people}`, "personas"], [`${h.photos}`, "fotos"], [`${h.audios}`, "audios"], [`${h.startedMin} min`, "de inicio"]].map(([v, l]) => <div key={l} className="rounded-xl border border-border bg-card py-2"><strong className="block text-sm">{v}</strong><small className="text-3xs text-muted-foreground">{l}</small></div>)}</div>}
 
       <div className="mt-4 rounded-2xl border border-primary/40 bg-primary/5 p-4">
-        <p className="text-sm font-bold">{total} personas cercanas lo han confirmado</p>
+        <p className="text-sm font-bold">{demo ? `${total} personas cercanas lo han confirmado` : mine ? "Has confirmado que está pasando" : "¿Lo estás viendo? Confírmalo"}</p>
         {!perms.location ? <div className="mt-2"><LocationOff compact /></div> : gate ? <div className="mt-2">{gate}</div> : (
           <Button variant={mine ? "secondary" : "default"} className="mt-2 w-full" onClick={() => { toggleConfirm(h.id); toast(mine ? "Has retirado tu confirmación" : "Gracias: has confirmado que está pasando"); }}>{mine ? <><Check size={16} />Confirmado · toca para retirar</> : <><Flame size={16} />Confirmo que está pasando</>}</Button>
         )}
         <p className="mt-2 text-2xs text-muted-foreground">Es una señal comunitaria de personas próximas. <b>Spotly no certifica que la información sea verdadera.</b></p>
       </div>
 
-      <div className="mt-4 flex gap-2"><Chip active={tab === "Audios"} onClick={() => setTab("Audios")}>Audio Wall · {thread.length}</Chip><Chip active={tab === "Fotos"} onClick={() => setTab("Fotos")}>Fotos · {h.photos}</Chip></div>
+      <div className="mt-4 flex gap-2"><Chip active={tab === "Audios"} onClick={() => setTab("Audios")}>Audio Wall · {thread.length}</Chip><Chip active={tab === "Fotos"} onClick={() => setTab("Fotos")}>{demo ? `Fotos · ${h.photos}` : "Fotos"}</Chip></div>
       {tab === "Audios" ? <div className="mt-3"><VoiceThread threadId={`hot:${h.id}`} seed={seed} root={{ name: h.title, atMs: 0, durationMs: 0 }} emptyText="Aún no hay voces aquí. Cuenta lo que ves." /></div>
         : <div className="mt-3 grid grid-cols-3 gap-1.5">{photos.map((p, i) => <button key={i} onClick={() => toast("Foto " + (i + 1) + " · con audio del autor")} className="overflow-hidden rounded-lg"><img src={p} alt={`Foto ${i + 1} del Hot Spot`} loading="lazy" className="aspect-square w-full object-cover" /></button>)}</div>}
 

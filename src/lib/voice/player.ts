@@ -18,6 +18,7 @@ let frame = 0;
 let queue: { id: string; src: string; durationMs: number }[] = [];
 const listeners = new Set<() => void>();
 const errorListeners = new Set<(message: string) => void>();
+const endListeners = new Set<(id: string) => void>();
 
 function emit(next: Partial<PlaybackSnapshot>) {
   snap = { ...snap, ...next };
@@ -43,7 +44,9 @@ function element() {
   audio.addEventListener("pause", () => { cancelAnimationFrame(frame); if (audio) emit({ playing: false, positionMs: audio.currentTime * 1000 }); });
   audio.addEventListener("ended", () => {
     cancelAnimationFrame(frame);
+    const ended = snap.id;
     emit({ playing: false, positionMs: 0 });
+    if (ended) endListeners.forEach((l) => l(ended));
     const next = queue.shift();
     if (next) playVoice(next.id, next.src, next.durationMs, undefined, true);
   });
@@ -126,6 +129,12 @@ export function useVoicePlayback(id: string) {
   const s = useSyncExternalStore(subscribe, get, getServer);
   const mine = s.id === id;
   return { playing: mine && s.playing, loading: mine && s.loading, positionMs: mine ? s.positionMs : 0, durationMs: mine ? s.durationMs : 0, active: mine };
+}
+
+/** Aviso cuando una voz termina de sonar (las historias pasan a la siguiente). */
+export function onVoiceEnded(listener: (id: string) => void) {
+  endListeners.add(listener);
+  return () => { endListeners.delete(listener); };
 }
 
 /** Avisos de error del reproductor (la app los muestra como toast). */

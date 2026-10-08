@@ -7,6 +7,7 @@ import { SelfieStep } from "./Selfie";
 import { Checkout } from "./Credits";
 import { verificationPricesEur, eur } from "@/lib/spotlyConfig";
 import { setIdentity, setIdTier, useStore, type IdentityStatus, type IdTier } from "@/lib/store";
+import { VoiceRecordTile } from "./VoiceRecord";
 import me from "@/assets/spotly-me.jpg";
 
 type Step = "hub" | "intro" | "methods" | "doc" | "selfie" | "phone" | "sms" | "social" | "creator" | "processing" | "result";
@@ -90,6 +91,7 @@ export function Verification({ onBack }: { onBack: () => void }) {
     const [social, setSocial] = useState<Record<string, string>>({ Instagram: "", TikTok: "", YouTube: "", X: "" });
   const [cat, setCat] = useState("");
   const [about, setAbout] = useState("");
+  const [aboutVoice, setAboutVoice] = useState(false);
   const [progress, setProgress] = useState(0);
   const [outcome, setOutcome] = useState<Outcome>("approved");
   const [sheet, setSheet] = useState<null | "phone" | "recovery">(null);
@@ -242,10 +244,11 @@ export function Verification({ onBack }: { onBack: () => void }) {
   );
 
   if (step === "creator") return (
-    <Frame onBack={goBack} title="Verificación de creador" cta="Continuar" disabled={!cat || about.trim().length < 10} onCta={goNext}>
-      <p className="mb-3 text-sm text-muted-foreground">Cuéntanos a qué te dedicas. Una persona del equipo lo revisa; el distintivo Creador es aparte de tu identidad.</p>
+    <Frame onBack={goBack} title="Verificación de creador" cta="Continuar" disabled={!cat || (!aboutVoice && !/^https?:\/\/\S+\.\S+/.test(about.trim()))} onCta={goNext}>
+      <p className="mb-3 text-sm text-muted-foreground">Cuéntanos con tu voz a qué te dedicas. Una persona del equipo lo revisa; el distintivo Creador es aparte de tu identidad.</p>
       <div className="flex flex-wrap gap-2">{["Modelo", "Artista", "Músico", "Creador de contenido", "Deportista", "Otro"].map((c) => <Chip key={c} active={cat === c} onClick={() => setCat(c)}>{c}</Chip>)}</div>
-      <textarea value={about} onChange={(e) => setAbout(e.target.value)} rows={4} maxLength={300} placeholder="Enlace a tu portfolio o una descripción de tu trabajo (mín. 10 caracteres)" aria-label="Sobre tu trabajo" className="mt-3 w-full resize-none rounded-xl border border-border bg-card p-3 text-sm text-foreground" />
+      <div className="mt-3"><VoiceRecordTile variant="row" maxSeconds={30} idleText="Graba a qué te dedicas" onChange={(c) => setAboutVoice(!!c)} /></div>
+      <input type="url" inputMode="url" value={about} onChange={(e) => setAbout(e.target.value.slice(0, 200))} placeholder="Enlace a tu portfolio (opcional)" aria-label="Enlace a tu portfolio" autoCapitalize="none" spellCheck={false} className="mt-2 h-12 w-full rounded-xl border border-border bg-card px-3 text-sm text-foreground" />
       <p className="mt-2 text-2xs text-muted-foreground">DEMO: no se envía nada.</p>
     </Frame>
   );

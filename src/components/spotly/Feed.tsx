@@ -1,11 +1,11 @@
 import { Fragment, useMemo, useState, useEffect, useRef, type ReactNode } from "react";
-import { Bell, Bookmark, Check, ChevronLeft, ChevronRight, Compass, Flame, Heart, Linkedin, MapPin, MoreHorizontal, Mic, Pause, Play, Search, Share2, WifiOff, Ghost, RefreshCw, X } from "lucide-react";
+import { AudioLines, Bell, Bookmark, Check, ChevronLeft, ChevronRight, Compass, Flame, Heart, Linkedin, MapPin, MoreHorizontal, Mic, Pause, Play, Search, Share2, Volume2, WifiOff, Ghost, RefreshCw, X } from "lucide-react";
 import { siX, siFacebook, siInstagram, siWhatsapp, siTelegram, siTiktok, siSnapchat, siMessenger, siReddit, siPinterest, siThreads, siBluesky } from "simple-icons";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Logo } from "./Logo";
 import { useApp } from "./app-context";
-import { AuthorProfile, SpotDetail } from "./SpotDetail";
+import { AuthorProfile, CommentsPanel, SpotDetail } from "./SpotDetail";
 import { VoiceReply } from "./Voice";
 import { VoiceWave } from "./VoiceThread";
 import { spotKeyOf } from "./SpotDetail";
@@ -15,6 +15,7 @@ import { playVoice, seekVoice, toggleVoice, useVoicePlayback } from "@/lib/voice
 import { deleteSpot, recordSpotView, setSpotReplies, toggleSpotLike, toggleSpotSaved, useCloudFeed, useMySpots, type MySpot } from "@/lib/spots";
 import { api, cloudErrorText, cloudUid, db, followId, isFollowingId, useCloud } from "@/lib/cloud";
 import { NowStrip } from "./NowStrip";
+import { StoriesStrip } from "./Stories";
 import { HotSpotCard } from "./HotSpots";
 import { FlashOfferCard, SponsoredSpot, getBiz } from "./Local";
 import { IncognitoExpiredNote, IncognitoSpotCard } from "./Incognito";
@@ -37,207 +38,6 @@ import sevilleNightPhoto from "@/assets/seville-night.jpg";
 
 /** Último Spot que acabas de publicar (Inicio vuelve arriba para enseñártelo). */
 export type MineSpot = MySpot | null;
-
-/* ---------- Stories ---------- */
-const storyPeople = [
-  { name: "Cerca", img: sevilleEvening, live: true, place: "Sevilla", ago: "hace 3 min" },
-  { name: "Ahora", img: stagePhoto, live: true, place: "Madrid", ago: "hace 7 min" },
-  { name: "Alicia", img: lauraPhoto, live: false, place: "Sevilla", ago: "hace 22 min" },
-  { name: "Marcos", img: festivalPhoto, live: false, place: "Sevilla", ago: "hace 1 h" },
-  { name: "Dani", img: beachPhoto, live: false, place: "Valencia", ago: "hace 2 h" },
-  { name: "Marta", img: valenciaSunset, live: false, place: "Valencia", ago: "hace 3 h" },
-];
-
-function StoryViewer({ stories, startIndex, onClose }: { stories: typeof storyPeople; startIndex: number; onClose: () => void }) {
-  const [idx, setIdx] = useState(startIndex);
-  const [progress, setProgress] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [liked, setLiked] = useState<boolean[]>(stories.map(() => false));
-  const [reply, setReply] = useState(false);
-  const rafRef = useRef<number | null>(null);
-  const startRef = useRef<number | null>(null);
-  const DURATION = 5000;
-
-  const advance = (dir: 1 | -1) => {
-    const next = idx + dir;
-    if (next < 0 || next >= stories.length) { onClose(); return; }
-    setIdx(next); setProgress(0); startRef.current = null;
-  };
-
-  useEffect(() => {
-    if (paused || reply) { if (rafRef.current) cancelAnimationFrame(rafRef.current); return; }
-    const tick = (now: number) => {
-      if (!startRef.current) startRef.current = now;
-      const p = Math.min((now - startRef.current) / DURATION, 1);
-      setProgress(p);
-      if (p < 1) rafRef.current = requestAnimationFrame(tick);
-      else advance(1);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [idx, paused, reply]);
-
-  const s = stories[idx]!;
-  return (
-    <div className="fixed inset-0 z-[80] mx-auto flex max-w-[520px] flex-col bg-black"
-      onPointerDown={() => { setPaused(true); }}
-      onPointerUp={() => { setPaused(false); startRef.current = null; }}>
-      {/* Barras progreso */}
-      <div className="absolute inset-x-3 flex gap-1" style={{ top: "max(0.5rem, env(safe-area-inset-top))", zIndex: 3 }}>
-        {stories.map((_, i) => (
-          <div key={i} className="h-[0.1875rem] flex-1 overflow-hidden rounded-full bg-white/30">
-            <div className="h-full rounded-full bg-white" style={{ width: i < idx ? "100%" : i === idx ? `${progress * 100}%` : "0%", transition: "none" }} />
-          </div>
-        ))}
-      </div>
-      {/* Header usuario */}
-      <div className="absolute inset-x-3 flex items-center gap-2.5" style={{ top: "max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem))", zIndex: 3 }}>
-        <img src={s.img} alt={s.name} className="h-9 w-9 rounded-full object-cover ring-2 ring-white/60" />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold leading-none text-white">{s.name}</p>
-          <p className="text-2xs text-white/70">{s.place} · {s.ago}</p>
-        </div>
-        {s.live && <span className="rounded-md bg-live px-2 py-0.5 text-3xs font-bold text-white">LIVE</span>}
-        <button onClick={onClose} aria-label="Cerrar" className="grid h-8 w-8 place-items-center rounded-full bg-black/40 text-white"><X size={18} /></button>
-      </div>
-      {/* Foto fullscreen */}
-      <img src={s.img} alt={s.name} className="absolute inset-0 h-full w-full object-cover" />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/40" />
-      {/* Toque prev / next */}
-      <button onClick={(e) => { e.stopPropagation(); advance(-1); }} aria-label="Anterior" className="absolute left-0 top-0 h-full w-1/3" style={{ zIndex: 2 }} />
-      <button onClick={(e) => { e.stopPropagation(); advance(1); }} aria-label="Siguiente" className="absolute right-0 top-0 h-full w-1/3" style={{ zIndex: 2 }} />
-      {/* Acciones derecha */}
-      <div className="absolute bottom-28 right-3 flex flex-col items-center gap-5" style={{ zIndex: 3 }}>
-        <button onClick={() => setLiked(l => l.map((v, i) => i === idx ? !v : v))} className="flex flex-col items-center gap-1">
-          <Heart size={28} className={liked[idx] ? "text-accent" : "text-white"} fill={liked[idx] ? "currentColor" : "none"} />
-          <span className="text-xs font-bold text-white">{liked[idx] ? 128 : 127}</span>
-        </button>
-        <button onClick={(e) => { e.stopPropagation(); setReply(true); }} aria-label={`Responder a la historia de ${s.name} con tu voz`} className="flex flex-col items-center gap-1">
-          <Mic size={26} className="text-white" />
-          <span className="text-xs font-bold text-white">Voz</span>
-        </button>
-        <button onClick={() => toast.success("Enlace copiado")} className="flex flex-col items-center gap-1">
-          <Share2 size={26} className="text-white" />
-          <span className="text-xs font-bold text-white">Enviar</span>
-        </button>
-      </div>
-      {/* Chip lugar */}
-      <div className="absolute bottom-[5.5rem] left-3" style={{ zIndex: 3 }}>
-        <span className="flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm">
-          <MapPin size={12} />{s.place}
-        </span>
-      </div>
-      {/* Footer respuesta voz */}
-      <div className="absolute inset-x-0 bottom-0 flex items-center gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3" style={{ zIndex: 3 }}>
-        <button onClick={(e) => { e.stopPropagation(); setReply(true); }} aria-label={`Responder a la historia de ${s.name} con tu voz`}
-          className="grid h-12 w-12 shrink-0 place-items-center rounded-full shadow-glow"
-          style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
-          <Mic size={22} className="text-white" />
-        </button>
-        <button onClick={(e) => { e.stopPropagation(); setReply(true); }} className="flex-1 rounded-full border border-white/30 bg-white/10 px-4 py-2.5 text-left text-sm text-white/60 backdrop-blur-sm">
-          Responde con tu voz…
-        </button>
-      </div>
-      {reply && <div onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()}><VoiceReply name={s.name} mode="message" onClose={() => setReply(false)} /></div>}
-    </div>
-  );
-}
-
-function CreateStorySheet({ onClose }: { onClose: () => void }) {
-  const [step, setStep] = useState<0 | 1 | 2>(0);
-  const [recording, setRecording] = useState(false);
-  const [selImg, setSelImg] = useState(0);
-  const imgs = [sevilleEvening, stagePhoto, festivalPhoto, valenciaSunset, beachPhoto, lauraPhoto];
-  return (
-    <div className="fixed inset-0 z-[85] mx-auto flex max-w-[520px] flex-col bg-black">
-      <div className="absolute inset-x-3 flex items-center justify-between" style={{ top: "max(1rem, env(safe-area-inset-top))", zIndex: 2 }}>
-        <span className="text-base font-bold text-white">Nueva historia</span>
-        <button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full bg-black/50 text-white backdrop-blur-sm"><X size={20} /></button>
-      </div>
-      {/* Fondo seleccionado */}
-      <img src={imgs[selImg]} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60" />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/50" />
-      {/* Miniaturas selector */}
-      {step === 0 && (
-        <div className="absolute inset-x-3 bottom-36 flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none", zIndex: 2 }}>
-          {imgs.map((im, i) => (
-            <button key={i} onClick={() => setSelImg(i)} className={`h-16 w-12 shrink-0 overflow-hidden rounded-lg border-2 ${selImg === i ? "border-white" : "border-transparent opacity-60"}`}>
-              <img src={im} alt="" className="h-full w-full object-cover" />
-            </button>
-          ))}
-        </div>
-      )}
-      {/* Acciones por step */}
-      <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 pb-[max(2rem,env(safe-area-inset-bottom))] pt-4" style={{ zIndex: 2 }}>
-        {step === 0 && <>
-          <button onClick={() => setStep(1)} className="spot-pulse grid h-20 w-20 place-items-center rounded-full shadow-glow" style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
-            <Mic size={36} className="text-white" />
-          </button>
-          <span className="text-sm text-white/70">Pulsa y cuenta qué está pasando</span>
-        </>}
-        {step === 1 && <>
-          <p className="text-lg font-bold text-white">{recording ? "Grabando…" : "Mantén para grabar"}</p>
-          <button
-            onPointerDown={() => setRecording(true)}
-            onPointerUp={() => { setRecording(false); setStep(2); }}
-            className="grid h-24 w-24 place-items-center rounded-full shadow-glow transition-transform active:scale-110"
-            style={{ background: recording ? "#ef4444" : "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
-            <Mic size={44} className="text-white" />
-          </button>
-          <span className="text-xs text-white/50">{recording ? "Suelta para terminar" : "Pulsa y mantén"}</span>
-        </>}
-        {step === 2 && <>
-          <div className="flex items-center gap-2 rounded-2xl bg-black/60 px-5 py-3 backdrop-blur-sm">
-            {Array.from({ length: 18 }).map((_, i) => <span key={i} className="rounded-full bg-white/70" style={{ width: 2.5, height: `${[4,9,14,8,16,6,12,10,18,7,13,5,11,9,15,6,10,7][i]! / 16}rem`, display: "block" }} />)}
-            <span className="ml-2 text-sm text-white/70">0:06</span>
-          </div>
-          <p className="text-sm text-white/60">Tu historia · Sevilla</p>
-          <div className="w-full px-4 space-y-2">
-            <button onClick={() => { onClose(); toast.success("¡Historia publicada! Visible 24 h"); }} className="w-full rounded-full py-3.5 text-base font-bold text-white" style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
-              Publicar historia
-            </button>
-            <button onClick={() => setStep(1)} className="w-full rounded-full border border-white/30 py-3 text-sm text-white/70">
-              Volver a grabar
-            </button>
-          </div>
-        </>}
-      </div>
-    </div>
-  );
-}
-
-function StoriesStrip({ onOpenCreate }: { onOpenCreate: () => void }) {
-  const [viewed, setViewed] = useState<string[]>([]);
-  const [viewerIdx, setViewerIdx] = useState<number | null>(null);
-  const [creating, setCreating] = useState(false);
-  return (
-    <>
-      <div className="flex gap-3 overflow-x-auto px-3 pb-2 pt-1 scrollbar-none" style={{ scrollbarWidth: "none" }}>
-        <button onClick={() => setCreating(true)} className="flex shrink-0 flex-col items-center gap-1.5" aria-label="Crear tu historia">
-          <span className="relative grid h-16 w-16 place-items-center rounded-full border-2 border-dashed border-primary/60 bg-secondary">
-            <MeAvatar className="h-full w-full text-xl opacity-60" />
-            <span className="absolute bottom-0 right-0 grid h-5 w-5 place-items-center rounded-full bg-primary text-primary-foreground shadow"><svg viewBox="0 0 16 16" className="h-3 w-3 fill-current"><path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg></span>
-          </span>
-          <span className="text-2xs text-muted-foreground">Tu historia</span>
-        </button>
-        {storyPeople.map((p, i) => {
-          const seen = viewed.includes(p.name);
-          return (
-            <button key={p.name} onClick={() => { setViewed(v => [...v, p.name]); setViewerIdx(i); }} className="flex shrink-0 flex-col items-center gap-1.5" aria-label={`Historia de ${p.name}`}>
-              <span className={`relative h-16 w-16 rounded-full p-[0.15625rem] ${seen ? "bg-secondary" : "bg-spot-gradient"}`}>
-                <img src={p.img} alt={p.name} className="h-full w-full rounded-full object-cover" />
-                {p.live && !seen && <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 rounded-full bg-live px-1.5 py-0 text-4xs font-bold leading-4 text-white">LIVE</span>}
-              </span>
-              <span className={`text-2xs ${seen ? "text-muted-foreground" : "font-semibold"}`}>{p.name}</span>
-            </button>
-          );
-        })}
-      </div>
-      {viewerIdx !== null && <StoryViewer stories={storyPeople} startIndex={viewerIdx} onClose={() => setViewerIdx(null)} />}
-      {creating && <CreateStorySheet onClose={() => setCreating(false)} />}
-    </>
-  );
-}
 
 const waves = [5, 9, 14, 22, 13, 7, 19, 11, 25, 16, 9, 18, 27, 12, 7, 21, 15, 10, 23, 14, 8, 19, 26, 11, 6, 16, 24, 12, 7, 20, 13, 9, 17, 25, 11, 6, 15, 21, 9, 5];
 
@@ -281,7 +81,7 @@ function ShareSheet({ s, who, onClose }: { s: SpotData; who: string; onClose: ()
     void shareLink({ title: "Spotly", text, url }).then((ok) => { if (ok) onClose(); });
   };
   return <BottomSheet onClose={onClose} z={50}>
-    <div className="flex items-center gap-3 rounded-2xl bg-secondary p-2">{s.img ? <img src={s.img} alt="" className="h-14 w-14 rounded-xl object-cover"/> : <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-spot-gradient"><Mic size={22} /></span>}<div className="min-w-0"><p className="text-sm font-semibold">Spot de {who}</p><p className="truncate text-xs text-muted-foreground">{s.text}</p></div></div>
+    <div className="flex items-center gap-3 rounded-2xl bg-secondary p-2">{s.img ? <img src={s.img} alt="" className="h-14 w-14 rounded-xl object-cover"/> : <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-spot-gradient"><AudioLines size={22} /></span>}<div className="min-w-0"><p className="text-sm font-semibold">Spot de {who}</p><p className="truncate text-xs text-muted-foreground">{s.text}</p></div></div>
     {demo && <><p className="mt-4 px-1 text-xs font-semibold text-muted-foreground">ENVIAR EN SPOTLY</p>
     <div className="mt-2 flex gap-4 overflow-x-auto pb-1">{people.map(p=>{const on=sent.includes(p);return <button key={p} onClick={()=>{if(!on){setSent([...sent,p]);toast("Spot enviado a "+p)}}} className="flex w-14 shrink-0 flex-col items-center gap-1"><span className={"grid h-14 w-14 place-items-center rounded-full text-lg font-bold "+(on?"bg-primary text-primary-foreground":"bg-secondary")}>{on?<Check size={20}/>:p[0]}</span><span className="text-2xs">{on?"Enviado":p}</span></button>})}</div></>}
     <p className="mt-4 px-1 text-xs font-semibold text-muted-foreground">COMPARTIR FUERA</p>
@@ -354,6 +154,7 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
   const [likedHere, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [reply, setReply] = useState(false);
+  const [comments, setComments] = useState(false);
   const [share, setShare] = useState(false);
   const [menu, setMenu] = useState(false);
   const [detail, setDetail] = useState(false);
@@ -370,9 +171,11 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
   const pb = useVoicePlayback(audioId);
   /* En la nube el número de respuestas viene del servidor (no se abre la conversación de cada tarjeta del feed). */
   const myReplies = useThread(s.cloud ? "" : `spot:${key}`).length;
-  const replyCount = s.cloud ? (s.replies ?? 0) : (s.replies ?? 0) + myReplies;
+  /* Las cifras de los Spots de ejemplo solo se enseñan en la demostración; con tu cuenta cuentan solo las tuyas. */
+  const sampleNums = !demo && !s.cloud && !s.own;
+  const replyCount = s.cloud ? (s.replies ?? 0) : sampleNums ? myReplies : (s.replies ?? 0) + myReplies;
   const liked = s.cloud ? !!s.liked : likedHere;
-  const likeCount = s.cloud ? s.likes : s.likes + (likedHere ? 1 : 0);
+  const likeCount = s.cloud ? s.likes : sampleNums ? (likedHere ? 1 : 0) : s.likes + (likedHere ? 1 : 0);
   const like = () => { if (s.cloud) toggleSpotLike(s.id); else setLiked(!likedHere); };
   const peaks = useMemo(() => (s.audio?.peaks.length ? s.audio.peaks : seededPeaks(key, 40)), [s.audio, key]);
   const totalMs = s.audio?.durationMs ?? clockToMs(s.dur);
@@ -456,9 +259,10 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
           <Heart size={30} className={liked ? "text-[#ef4444]" : "text-white"} fill={liked ? "currentColor" : "none"} style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.7))" }} />
           <span className="text-2xs font-bold text-white drop-shadow">{fmt(likeCount)}</span>
         </button>
-        <button onClick={(e) => { e.stopPropagation(); if (s.repliesAllowed === false) toast("Su autor ha cerrado las respuestas de este Spot."); else setReply(true); }} aria-label={`Responder con tu voz (${replyCount} respuestas)`} className="flex flex-col items-center gap-0.5">
+        {/* Escuchar las respuestas de voz (altavoz); para hablar, el botón «Voz» del reproductor (micrófono). */}
+        <button onClick={(e) => { e.stopPropagation(); setComments(true); }} aria-label={`Escuchar las respuestas de voz (${replyCount})`} className="flex flex-col items-center gap-0.5">
           <div className="grid h-[2.125rem] w-[2.125rem] place-items-center rounded-full border-2 border-white/80 bg-black/30 backdrop-blur-sm">
-            <Mic size={17} className="text-white" />
+            <Volume2 size={17} className="text-white" />
           </div>
           <span className="text-2xs font-bold text-white drop-shadow">{fmt(replyCount)}</span>
         </button>
@@ -466,7 +270,7 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
           <div className="grid h-[2.125rem] w-[2.125rem] place-items-center">
             <svg viewBox="0 0 24 24" className="h-7 w-7 fill-none stroke-white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.7))" }}><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
           </div>
-          <span className="text-2xs font-bold text-white drop-shadow">{s.cloud || s.own ? "Enviar" : fmt(s.shares ?? 0)}</span>
+          <span className="text-2xs font-bold text-white drop-shadow">{s.cloud || s.own || !demo ? "Enviar" : fmt(s.shares ?? 0)}</span>
         </button>
         <button onClick={(e) => { e.stopPropagation(); if (s.cloud) { const on = toggleSpotSaved(s.id); if (on !== null) toast(on ? "Guardado en tu perfil" : "Quitado de guardados"); } else { setSaved(!saved); toast(saved ? "Quitado de guardados" : "Guardado"); } }} aria-pressed={s.cloud ? !!s.saved : saved} className="flex flex-col items-center gap-0.5">
           <Bookmark size={28} className="text-white" fill={(s.cloud ? s.saved : saved) ? "currentColor" : "none"} style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.7))" }} />
@@ -484,7 +288,7 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
         </button>
         <VoiceWave peaks={peaks} progress={pb.active && totalMs ? pb.positionMs / totalMs : 0} playhead={pb.active} className="h-7 flex-1" label={`Audio de ${who}`} onSeek={s.audio ? (r) => { const a = s.audio!; if (pb.active) seekVoice(audioId, r * a.durationMs); else playVoice(audioId, a.src, a.durationMs, r * a.durationMs); } : undefined} />
         <span className="shrink-0 text-xs font-medium tabular-nums text-white/70">{pb.active ? formatClock(pb.positionMs) : s.dur}</span>
-        <button onClick={() => { if (s.repliesAllowed === false) toast("Su autor ha cerrado las respuestas de este Spot."); else setReply(true); }} className="shrink-0 flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-white" style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
+        <button onClick={() => { if (s.repliesAllowed === false) toast("Su autor ha cerrado las respuestas de este Spot."); else setReply(true); }} aria-label="Responder con tu voz" className="shrink-0 flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-white" style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
           <Mic size={12} className="text-white" />Voz
         </button>
       </div>
@@ -506,6 +310,7 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
     </div>
 
     {reply && <VoiceReply name={who} threadId={`spot:${key}`} target={{ name: who, author: { id: s.authorId, name: s.name, avatar: authorPhoto || undefined, anon: s.incognito, mine: s.own }, atMs: pb.active ? pb.positionMs : 0, durationMs: totalMs }} onSent={() => { if (s.cloud) setSpotReplies(s.id, replyCount + 1); }} onClose={() => setReply(false)} />}
+    {comments && <CommentsPanel spotKey={key} seeded={!s.cloud && !s.own} closed={s.repliesAllowed === false} root={{ name: who, author: { id: s.authorId, name: s.name, avatar: authorPhoto || undefined, anon: s.incognito, mine: s.own }, atMs: pb.active ? pb.positionMs : 0, durationMs: totalMs }} onSent={() => { if (s.cloud) setSpotReplies(s.id, replyCount + 1); }} onClose={() => setComments(false)} />}
     {share && <ShareSheet s={s} who={who} onClose={() => setShare(false)} />}
     {menu && <SpotMenu s={s} onClose={() => setMenu(false)} onStatus={setStatus} />}
     {detail && <SpotDetail s={s} onClose={() => setDetail(false)} onAuthor={() => { if (!s.incognito && !s.own) setAuthor(true); }} />}
@@ -615,7 +420,7 @@ export function HomeView({ onBell }: { mine: MineSpot; onBell: () => void }) {
       {/* Arriba: historias y «Ahora en Spotly» (primera parada del desplazamiento) */}
       <div className="spot-feed-snap-start pb-3">
         <div className="pt-1 pb-3">
-          <StoriesStrip onOpenCreate={() => app.create()} />
+          <StoriesStrip />
         </div>
         <NowStrip />
         <IncognitoExpiredNote />

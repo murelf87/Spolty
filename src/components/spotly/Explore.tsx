@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronLeft, BadgeCheck, Camera, Check, Heart, Layers, MapPin, Mic, Navigation, Play, SlidersHorizontal, UserPlus, X } from "lucide-react";
+import { ChevronLeft, BadgeCheck, Camera, Check, Heart, Layers, MapPin, Mic, Navigation, Play, SlidersHorizontal, UserPlus, X, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { Sheet } from "./Extras";
@@ -17,6 +17,11 @@ import { api, cloudUid, db, fileUrl, useCloud } from "@/lib/cloud";
 import { useMe } from "@/lib/store";
 import { FollowButton, PersonAvatar } from "./CloudPeople";
 import { AuthorProfile } from "./SpotDetail";
+import { RealPhotos } from "./PhotoWall";
+import { VoiceThread } from "./VoiceThread";
+import { useApp } from "./app-context";
+import { useStore } from "@/lib/store";
+import { sampleThread } from "@/lib/voice/samples";
 
 const imgs = [festival, beach, stage, valenciaSunset, sevilleNight, festival];
 const photos = [
@@ -43,6 +48,10 @@ type Photo = (typeof photos)[number];
 type Person = (typeof people)[number];
 
 export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => void; mine?: boolean }) {
+  const app = useApp();
+  const { demo } = useStore();
+  const me = useMe();
+  const [placeTalk, setPlaceTalk] = useState(false);
   const [tab, setTab] = useState("Mapa");
   const [layer, setLayer] = useState<"Oscuro" | "Satélite">("Oscuro");
   const [prov, setProv] = useState("Sevilla");
@@ -52,7 +61,6 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [person, setPerson] = useState<Person | null>(null);
   const [pin, setPin] = useState<number | null>(null);
-  const [upload, setUpload] = useState(false);
   const [f, setF] = useState({ km: 5, when: "Ahora", only: [] as string[] });
   const [peopleFilter, setPeopleFilter] = useState<"Cerca" | "Nuevos" | "Verificados" | "Online">("Cerca");
   const [place, setPlace] = useState<number | null>(null);
@@ -78,12 +86,12 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
            {pins.map(([x, y, c, s], i) => (
               <Button key={i} variant="ghost" aria-label="Ver Spot" onClick={() => setPin(i)} className="absolute flex h-auto -translate-x-1/2 -translate-y-full flex-col items-center p-0" style={{ left: `${x}%`, top: `${y}%` }}><span className={`relative rounded-full border-2 ${ring[c]} ${pin === i ? "ring-2 ring-primary" : ""}`} style={{ width: s + 12, height: s + 12 }}><img src={i === 0 ? lauraPhoto : imgs[i]} alt="" className={`h-full w-full rounded-full object-cover ${i === 0 ? "spot-pulse" : ""}`} />{i < 2 && <BadgeCheck size={14} className="absolute -right-1 -top-1 rounded-full bg-background text-primary" aria-label="Autor verificado de ejemplo" />}</span><span className={`-mt-0.5 h-2 w-2 rotate-45 ${dot[c]}`} /></Button>
           ))}
-            {mine && <Button variant="ghost" aria-label="Tu Spot" onClick={() => toast("Tu Spot · Hace 1 min · 1,2K vistas")} className="absolute left-1/2 top-1/2 h-auto -translate-x-1/2 -translate-y-1/2 flex-col p-0"><span className="h-24 w-24 overflow-hidden rounded-full border-[3px] border-accent shadow-glow"><img src={valenciaSunset} alt="" className="h-full w-full object-cover" /></span><span className="mt-1 rounded-full bg-background/90 px-3 py-1 text-3xs font-bold text-foreground shadow-glow">TU SPOT</span></Button>}
+            {mine && <Button variant="ghost" aria-label="Tu Spot" onClick={() => toast("Tu Spot · recién publicado. Lo verás en Inicio y en tu perfil.")} className="absolute left-1/2 top-1/2 h-auto -translate-x-1/2 -translate-y-1/2 flex-col p-0"><span className="h-24 w-24 overflow-hidden rounded-full border-[3px] border-accent shadow-glow"><img src={valenciaSunset} alt="" className="h-full w-full object-cover" /></span><span className="mt-1 rounded-full bg-background/90 px-3 py-1 text-3xs font-bold text-foreground shadow-glow">TU SPOT</span></Button>}
           <div className="absolute right-3 top-3 flex flex-col gap-2">
             <Button size="icon" variant="secondary" aria-label="Cambiar capa" onClick={() => setLayer(layer === "Oscuro" ? "Satélite" : "Oscuro")}><Layers size={18} /></Button>
             <Button size="icon" variant="secondary" aria-label="Mi ubicación" onClick={() => toast("Centrado en tu ubicación")}><Navigation size={18} /></Button>
           </div>
-           <Button size="sm" variant="secondary" onClick={() => setFilters(true)} className="absolute left-3 top-3 h-7 rounded-full bg-background/80 px-2 text-3xs font-semibold backdrop-blur"><SlidersHorizontal size={12} className="text-primary" />8 en directo · {layer}</Button>
+           <Button size="sm" variant="secondary" onClick={() => setFilters(true)} className="absolute left-3 top-3 h-7 rounded-full bg-background/80 px-2 text-3xs font-semibold backdrop-blur"><SlidersHorizontal size={12} className="text-primary" />{demo ? "8 en directo" : "Filtros"} · {layer}</Button>
            {pin !== null ? (
             <div className="absolute inset-x-3 bottom-3 flex gap-3 rounded-xl border border-border bg-background/95 p-3 backdrop-blur">
               <img src={imgs[pin % imgs.length]} alt="" className="h-16 w-16 rounded-lg object-cover" />
@@ -92,7 +100,7 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
                <Button variant="ghost" size="icon" aria-label="Cerrar" onClick={() => setPin(null)} className="h-7 w-7"><X size={16} /></Button>
             </div>
            ) : (
-              <Button variant="secondary" onClick={() => mine ? toast("Tu Spot · Hace 1 min · 1,2K vistas") : onOpen("ciudad")} className="absolute inset-x-3 bottom-3 h-auto justify-start gap-3 rounded-xl border border-primary/50 bg-background/90 p-2 text-left backdrop-blur"><span className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-accent"><img src={mine ? valenciaSunset : imgs[0]} alt="" className="h-full w-full object-cover" /></span><span><strong className="block text-sm">{mine ? "Tu Spot" : town}</strong><span className="block text-xs text-muted-foreground">{mine ? "Hace 1 min · 1,2K vistas" : "246 personas cerca · 8 en directo · Ver muro"}</span></span></Button>
+              <Button variant="secondary" onClick={() => mine ? toast("Tu Spot · recién publicado. Lo verás en Inicio y en tu perfil.") : onOpen("ciudad")} className="absolute inset-x-3 bottom-3 h-auto justify-start gap-3 rounded-xl border border-primary/50 bg-background/90 p-2 text-left backdrop-blur"><span className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-accent"><img src={mine ? valenciaSunset : imgs[0]} alt="" className="h-full w-full object-cover" /></span><span><strong className="block text-sm">{mine ? "Tu Spot" : town}</strong><span className="block text-xs text-muted-foreground">{mine ? "Recién publicado" : demo ? "246 personas cerca · 8 en directo · Ver muro" : "Fotos y voces de la ciudad · Ver muro"}</span></span></Button>
           )}
         </section>
       )}
@@ -101,7 +109,8 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
 
       {tab === "Fotos" && (
         <section className="p-4">
-          <div className="flex items-center justify-between"><p className="text-sm font-semibold">Fotos cerca de ti · {f.km} km</p><Button size="sm" onClick={() => setUpload(true)}><Camera size={16} />Subir</Button></div>
+          <div className="flex items-center justify-between"><p className="text-sm font-semibold">Fotos cerca de ti · {f.km} km</p><Button size="sm" onClick={() => app.create()}><Camera size={16} />Subir</Button></div>
+          <div className="mt-3"><RealPhotos city={me.city} title={`En ${me.city}`} /></div>
           <div className="mt-3 columns-2 gap-2">
             {shownPhotos.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">No hay fotos a {f.km} km. Amplía la distancia en Filtros.</p>}
             {shownPhotos.map((p) => { const i = photos.indexOf(p); return (
@@ -136,7 +145,7 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
             <div key={n} onClick={() => setPlace(i)} className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-card p-3">
               <img src={imgs[i % imgs.length]} alt={n} className="h-14 w-14 rounded-lg object-cover" />
               <div className="flex-1"><p className="font-semibold">{n}</p><p className="text-xs text-muted-foreground">{c}</p><p className="text-xs text-primary">{s}</p></div>
-              <Button size="icon" variant="secondary" aria-label={`Escuchar ${n}`} onClick={(e) => { e.stopPropagation(); toast(`Audio de ${n}`); }}><Play size={16} /></Button>
+              <Button size="icon" variant="secondary" aria-label={`Escuchar las voces de ${n}`} onClick={(e) => { e.stopPropagation(); setPlace(i); }}><Volume2 size={17} /></Button>
             </div>
           ))}
         </section>
@@ -170,10 +179,10 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
         <img src={imgs[place % imgs.length]} alt={places[place]![0]} className="aspect-video w-full rounded-xl object-cover" />
         <p className="mt-3 text-sm text-muted-foreground">{places[place]![1]} · <span className="text-primary">{places[place]![2]}</span></p>
         <p className="mt-3 text-xs font-semibold text-muted-foreground">LO QUE DICE LA GENTE</p>
-        {["Laura · 0:18", "Carlos · 0:32"].map((v) => <button key={v} onClick={() => toast(`Escuchando a ${v.split(" ")[0]}`)} className="mt-2 flex w-full items-center gap-2 rounded-xl bg-secondary p-2 text-left text-sm"><Play size={14} className="text-primary" />{v}</button>)}
-        <div className="mt-4 grid grid-cols-2 gap-2"><Button variant="secondary" onClick={() => toast("Ruta abierta en el mapa")}><Navigation size={16} />Cómo llegar</Button><Button onClick={() => { setPlace(null); toast.success("Opinión de voz enviada"); }}><Mic size={16} />Opinar con voz</Button></div>
+        <div className="mt-2"><VoiceThread threadId={`hot:lugar-${place}`} seed={sampleThread(`hot:lugar-${place}`, [{ key: "a", name: "Laura", img: lauraPhoto, minsAgo: 40, dur: "0:18", likes: 4 }, { key: "b", name: "Carlos", img: beach, minsAgo: 95, dur: "0:32", likes: 2 }])} root={{ name: places[place]![0], atMs: 0, durationMs: 0 }} composerOpen={placeTalk} onComposerClose={() => setPlaceTalk(false)} emptyText="Aún no hay opiniones. Sé la primera voz." /></div>
+        <div className="mt-4 grid grid-cols-2 gap-2"><Button variant="secondary" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${places[place]![0]}, ${town}`)}`, "_blank", "noopener,noreferrer")}><Navigation size={16} />Cómo llegar</Button><Button onClick={() => setPlaceTalk(true)}><Mic size={16} />Opinar con voz</Button></div>
       </Modal>}
-      {upload && <UploadPhoto town={town} onClose={() => setUpload(false)} />}
+
     </main>
   );
 }
@@ -223,8 +232,10 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
 }
 
 function PhotoDetail({ p, img, onBack }: { p: Photo; img: string; onBack: () => void }) {
+  const { demo } = useStore();
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [reply, setReply] = useState(false);
   return (
     <div className="fixed inset-0 z-50 mx-auto flex max-w-[520px] flex-col overflow-hidden bg-black">
       {/* Foto fullscreen */}
@@ -237,17 +248,17 @@ function PhotoDetail({ p, img, onBack }: { p: Photo; img: string; onBack: () => 
         <div className="absolute bottom-24 right-3 flex flex-col items-center gap-5">
           <button onClick={() => setLiked(!liked)} aria-label="Me gusta" className="flex flex-col items-center gap-1">
             <Heart size={28} className={liked ? "text-accent" : "text-white"} fill={liked ? "currentColor" : "none"} />
-            <span className="text-xs font-bold text-white">{p.l + (liked ? 1 : 0)}</span>
+            <span className="text-xs font-bold text-white">{demo ? p.l + (liked ? 1 : 0) : "Me gusta"}</span>
           </button>
-          <button onClick={() => toast(`Escuchando la voz de ${p.u}`)} aria-label="Escuchar" className="flex flex-col items-center gap-1">
-            <Play size={26} className="text-white" />
+          <button onClick={() => toast("Foto de ejemplo: no tiene audio. Las fotos con voz de la comunidad se escuchan aquí.")} aria-label="Escuchar" className="flex flex-col items-center gap-1">
+            <Volume2 size={26} className="text-white" />
             <span className="text-xs font-bold text-white">Escuchar</span>
           </button>
-          <button onClick={() => toast.success("Respuesta de voz enviada")} aria-label="Responder con voz" className="flex flex-col items-center gap-1">
+          <button onClick={() => setReply(true)} aria-label="Responder con voz" className="flex flex-col items-center gap-1">
             <Mic size={26} className="text-white" />
             <span className="text-xs font-bold text-white">Voz</span>
           </button>
-          <button onClick={() => { setSaved(!saved); toast(saved ? "Quitada de guardados" : "Guardada"); }} aria-label="Guardar" className="flex flex-col items-center gap-1">
+          <button onClick={() => { setSaved(!saved); toast("Foto de ejemplo: no tiene enlace para enviar."); }} aria-label="Enviar" className="flex flex-col items-center gap-1">
             <Navigation size={26} className={saved ? "text-primary" : "text-white"} />
             <span className="text-xs font-bold text-white">Enviar</span>
           </button>
@@ -261,8 +272,9 @@ function PhotoDetail({ p, img, onBack }: { p: Photo; img: string; onBack: () => 
       {/* Info scrollable */}
       <div className="flex-1 overflow-y-auto bg-background px-4 pb-6 pt-4">
         <h2 className="text-xl font-bold">{p.t}</h2>
-        <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground"><MapPin size={14} className="text-primary" />{p.p} · {p.d} · por {p.u}</p>
-        <p className="mt-3 text-sm text-muted-foreground">Foto con audio de {p.u}. Escucha el contexto y responde con tu voz.</p>
+        <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground"><MapPin size={14} className="text-primary" />{p.p} · {p.d} · por {p.u}{!demo && <span className="ml-1 rounded-full border border-border px-1.5 text-4xs">ejemplo</span>}</p>
+        <h4 className="mb-2 mt-4 text-sm font-bold">Voces sobre esta foto</h4>
+        <VoiceThread threadId={`photo:explora-${photos.indexOf(p)}`} root={{ name: p.u, atMs: 0, durationMs: 0 }} composerOpen={reply} onComposerClose={() => setReply(false)} emptyText="Aún no hay voces en esta foto. Comenta con la tuya." />
       </div>
     </div>
   );
@@ -296,13 +308,3 @@ function PersonDetail({ p, onBack }: { p: Person; onBack: () => void }) {
   );
 }
 
-function UploadPhoto({ town, onClose }: { town: string; onClose: () => void }) {
-  const [step, setStep] = useState(0);
-  return (
-    <Modal title={step === 0 ? "Subir foto" : step === 1 ? "Añade tu voz" : "¡Foto publicada!"} onClose={onClose}>
-      {step === 0 && <div className="grid grid-cols-2 gap-2">{imgs.map((im, i) => <button key={i} onClick={() => setStep(1)}><img src={im} alt="Elegir" className="aspect-square w-full rounded-xl object-cover" /></button>)}</div>}
-      {step === 1 && <div className="text-center"><button aria-label="Grabar" onClick={() => setStep(2)} className="spot-pulse mx-auto grid h-20 w-20 place-items-center rounded-full bg-spot-gradient shadow-glow"><Mic size={32} /></button><p className="mt-3 text-sm text-muted-foreground">Pulsa y cuenta qué se ve · {town}</p></div>}
-      {step === 2 && <div className="text-center"><Check className="mx-auto text-primary" size={40} /><p className="mt-2 text-sm">Aparece en el muro de {town} y en Fotos cercanas.</p><Button className="mt-4 w-full" onClick={onClose}>Listo</Button></div>}
-    </Modal>
-  );
-}

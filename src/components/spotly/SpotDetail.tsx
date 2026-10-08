@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ChevronLeft, Bookmark, Check, ChevronRight, Heart, Loader2, MapPin, Mic, MoreHorizontal, Pause, Play, RotateCcw, RotateCw, UserPlus, X, AlignJustify, Map, Flag, Navigation } from "lucide-react";
+import { ChevronLeft, Bookmark, Check, ChevronRight, Heart, Loader2, MapPin, Mic, MoreHorizontal, Pause, Play, RotateCcw, RotateCw, UserPlus, X, AlignJustify, Map, Flag, Navigation, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { NewFollowers } from "./LocalAd";
 import { useApp } from "./app-context";
@@ -124,7 +124,7 @@ function OptionsSheet({ s, name, onClose }: { s: SpotInfo; name: string; onClose
 }
 
 /* ── Panel de comentarios de voz: el hilo del Spot con respuestas encadenadas, solo voz ── */
-function CommentsPanel({ spotKey, root, seeded, closed, onSent, onClose }: { spotKey: string; root: ReplyTarget; seeded: boolean; closed?: boolean | undefined; onSent?: (() => void) | undefined; onClose: () => void }) {
+export function CommentsPanel({ spotKey, root, seeded, closed, onSent, onClose }: { spotKey: string; root: ReplyTarget; seeded: boolean; closed?: boolean | undefined; onSent?: (() => void) | undefined; onClose: () => void }) {
   const threadId = `spot:${spotKey}`;
   const seed = useMemo(() => (seeded ? spotCommentSeed(spotKey) : []), [spotKey, seeded]);
   const notes = useThread(threadId, seed);
@@ -477,8 +477,8 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
             className="flex flex-1 items-center gap-2 rounded-full bg-secondary px-4 py-2.5 text-sm text-muted-foreground text-left">
             <Mic size={15} className="text-primary shrink-0" />{closed ? "Respuestas cerradas" : "Responde con tu voz…"}
           </button>
-          <button onClick={() => setComments(true)} aria-label={`Ver comentarios de voz (${thread.length})`} className="flex min-h-10 items-center gap-1.5 px-1 text-muted-foreground">
-            <Mic size={19} className="text-primary" />
+          <button onClick={() => setComments(true)} aria-label={`Escuchar los comentarios de voz (${thread.length})`} className="flex min-h-10 items-center gap-1.5 px-1 text-muted-foreground">
+            <Volume2 size={20} className="text-primary" />
             <span className="text-sm font-semibold text-foreground">{thread.length}</span>
           </button>
         </div>

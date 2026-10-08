@@ -134,7 +134,7 @@ export async function setNoteLike(client: Client, uid: string, noteId: string, o
 
 /* ───────────── Spots ───────────── */
 const SPOT_COLS = "id, author_id, author_name, author_username, author_avatar, anon, mine, title, city, zone, topic, visibility, location_hidden, happening_now, replies_allowed, audio_path, duration_ms, peaks, media_path, media_kind, views, created_at, likes, liked, replies, saved";
-export type FeedQuery = { city?: string | undefined; before?: string | undefined; authorId?: string | undefined; authorIds?: string[] | undefined; trending?: boolean | undefined; offset?: number | undefined; limit?: number | undefined };
+export type FeedQuery = { city?: string | undefined; before?: string | undefined; authorId?: string | undefined; authorIds?: string[] | undefined; trending?: boolean | undefined; withMedia?: boolean | undefined; offset?: number | undefined; limit?: number | undefined };
 /**
  * Página del feed. Por defecto lo más reciente primero y `before` (fecha del último Spot cargado) para el scroll
  * infinito; `trending`: lo más escuchado de la última semana, paginado con `offset`.
@@ -146,6 +146,7 @@ export async function fetchFeed(client: Client, opts: FeedQuery = {}): Promise<S
   if (opts.city) q = q.eq("city", opts.city);
   if (opts.authorId) q = q.eq("author_id", opts.authorId);
   if (opts.authorIds) q = q.in("author_id", opts.authorIds.slice(0, 200));
+  if (opts.withMedia) q = q.not("media_path", "is", null);
   if (opts.trending) {
     const since = new Date(Date.now() - 7 * 86400000).toISOString();
     const from = opts.offset ?? 0;
@@ -156,6 +157,16 @@ export async function fetchFeed(client: Client, opts: FeedQuery = {}): Promise<S
   if (opts.before) q = q.lt("created_at", opts.before);
   const { data, error } = await q.order("created_at", { ascending: false }).limit(limit);
   if (error) fail(error, "feed_failed");
+  return (data ?? []) as SpotRow[];
+}
+/** Texto seguro para los filtros de búsqueda (sin comodines ni separadores de PostgREST). */
+const searchable = (text: string) => text.replace(/[%_,()*\\:."'¿?¡!]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
+/** Busca Spots por título, ciudad o zona (lo más reciente primero). */
+export async function searchSpots(client: Client, text: string, limit = 20): Promise<SpotRow[]> {
+  const t = searchable(text);
+  if (t.length < 2) return [];
+  const { data, error } = await client.from("spots_public").select(SPOT_COLS).or(`title.ilike.%${t}%,city.ilike.%${t}%,zone.ilike.%${t}%`).order("created_at", { ascending: false }).limit(limit);
+  if (error) fail(error, "search_failed");
   return (data ?? []) as SpotRow[];
 }
 export async function fetchSpot(client: Client, id: string): Promise<SpotRow | null> {
@@ -213,6 +224,30 @@ export async function setSpotLike(client: Client, uid: string, spotId: string, o
   if (error && error.code !== "23505") fail(error, "like_failed");
 }
 
+/* ───────────── Historias (24 h) ───────────── */
+export type StoryRow = { id: string; author_id: string; author_name: string; author_username: string; author_avatar: string | null; city: string; audio_path: string; duration_ms: number; peaks: number[] | null; media_path: string | null; background: string | null; created_at: string; expires_at: string; mine: boolean };
+const STORY_COLS = "id, author_id, author_name, author_username, author_avatar, city, audio_path, duration_ms, peaks, media_path, background, created_at, expires_at, mine";
+/** Historias vivas (las últimas 24 h), de la más nueva a la más antigua. */
+export async function fetchStories(client: Client, limit = 120): Promise<StoryRow[]> {
+  const { data, error } = await client.from("stories_public").select(STORY_COLS).order("created_at", { ascending: false }).limit(limit);
+  if (error) fail(error, "stories_failed");
+  return (data ?? []) as StoryRow[];
+}
+export async function publishStory(client: Client, uid: string, s: { city: string; audio: Blob; audioMime: string; durationMs: number; peaks: number[]; photo?: Blob | undefined; background?: string | undefined }): Promise<{ id: string; audioPath: string; mediaPath: string | null }> {
+  const audio_path = await uploadVoice(client, uid, s.audio, s.audioMime);
+  let media_path: string | null = null;
+  try { media_path = s.photo ? await upload(client, "media", `${uid}/${rnd()}.${extOf(s.photo.type)}`, s.photo, s.photo.type) : null; }
+  catch (e) { await removeFiles(client, [audio_path]); throw e; }
+  const { data, error } = await client.from("stories").insert({ author_id: uid, city: s.city.slice(0, 80), audio_path, duration_ms: Math.round(s.durationMs), peaks: packPeaks(s.peaks), media_path, background: media_path ? null : s.background ?? "preset:neon" }).select("id").single();
+  if (error || !data) { await removeFiles(client, [audio_path, media_path]); fail(error, "story_failed"); }
+  return { id: (data as { id: string }).id, audioPath: audio_path, mediaPath: media_path };
+}
+export async function deleteStory(client: Client, id: string, files: (string | null | undefined)[] = []) {
+  const { error } = await client.from("stories").delete().eq("id", id);
+  if (error) fail(error, "delete_failed");
+  await removeFiles(client, files);
+}
+
 /* ───────────── Perfiles y seguidores ───────────── */
 const PROFILE_COLS = "id, username, display_name, city, avatar_path, cover, created_at, followers, following, spots";
 export async function ensureProfile(client: Client) {
@@ -223,6 +258,14 @@ export async function fetchProfile(client: Client, id: string): Promise<ProfileR
   const { data, error } = await client.from("profiles_public").select(PROFILE_COLS).eq("id", id).maybeSingle();
   if (error) fail(error, "profile_failed");
   return (data as ProfileRow | null) ?? null;
+}
+/** Busca personas por nombre, usuario o ciudad. */
+export async function searchPeople(client: Client, text: string, limit = 20): Promise<ProfileRow[]> {
+  const t = searchable(text).replace(/^@/, "");
+  if (t.length < 2) return [];
+  const { data, error } = await client.from("profiles_public").select(PROFILE_COLS).or(`username.ilike.%${t}%,display_name.ilike.%${t}%,city.ilike.%${t}%`).order("created_at", { ascending: false }).limit(limit);
+  if (error) fail(error, "search_failed");
+  return (data ?? []) as ProfileRow[];
 }
 /** Personas de una ciudad (o las últimas en llegar), para descubrir gente. */
 export async function discoverPeople(client: Client, opts: { city?: string | undefined; exclude?: string | undefined; limit?: number } = {}): Promise<ProfileRow[]> {
@@ -319,7 +362,7 @@ export async function fetchMyReports(client: Client, uid: string): Promise<Repor
   if (error) fail(error, "reports_failed");
   return (data ?? []) as ReportRow[];
 }
-export async function report(client: Client, uid: string, targetType: "spot" | "voice" | "profile" | "chat", targetId: string, reason: string) {
+export async function report(client: Client, uid: string, targetType: "spot" | "voice" | "profile" | "chat" | "story", targetId: string, reason: string) {
   const { error } = await client.from("reports").insert({ reporter_id: uid, target_type: targetType, target_id: targetId, reason: reason.slice(0, 60) });
   if (error && error.code !== "23505") fail(error, "report_failed");
 }

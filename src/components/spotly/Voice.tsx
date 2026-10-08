@@ -1,15 +1,13 @@
-import { useEffect, useRef, useState } from "react";
-import { BadgeCheck, Camera, Check, MapPin, Mic, MicOff, ShieldAlert, WifiOff } from "lucide-react";
+import { useState } from "react";
+import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { BottomSheet, StateCard, Waveform } from "./kit";
-import { useApp } from "./app-context";
-import { setPerm, useMe, useStore } from "@/lib/store";
+import { BottomSheet } from "./kit";
+import { useMe } from "@/lib/store";
 import { VoiceComposer, type ReplyTarget } from "./VoiceThread";
 import { addVoiceNote, type VoiceNote } from "@/lib/voice/notes";
 import { api, cloudErrorText, cloudOn, db } from "@/lib/cloud";
 import { formatClock } from "@/lib/voice/recorder";
-import { commerce } from "@/lib/spotlyConfig";
 
 export { useGate } from "./Gate";
 
@@ -48,20 +46,4 @@ export function VoiceReply({ name, onClose, onSent, mode = "reply", threadId, ta
       )}
     </BottomSheet>
   );
-}
-
-/** Grabadora mínima (temporizador) para mensajes de voz de negocios y formularios. */
-export function useRecorder(max = commerce.voiceMaxSeconds) {
-  const [rec, setRec] = useState(false);
-  const [secs, setSecs] = useState(0);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
-  const stop = () => { if (timer.current) clearInterval(timer.current); setRec(false); };
-  const toggle = () => {
-    if (rec) return stop();
-    setSecs(0); setRec(true);
-    timer.current = setInterval(() => setSecs((s) => { if (s + 1 >= max) { stop(); return max; } return s + 1; }), 1000);
-  };
-  const reset = () => { stop(); setSecs(0); };
-  return { rec, secs, toggle, reset, label: `0:${String(secs).padStart(2, "0")}` };
 }

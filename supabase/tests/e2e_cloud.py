@@ -49,13 +49,25 @@ def login(page, email):
     page.wait_for_timeout(2500)
 
 
+open_pages = []
+fails = [0]
+
+
 def attempt(name, fn):
-    """Cada paso devuelve None/True si va bien; False o un texto (lo que se encontró) si no, o lanza una excepción."""
+    """Cada paso devuelve None/True si va bien; False o un texto (lo que se encontró) si no, o lanza una excepción.
+    Si falla, guarda una captura de cada navegador abierto para ver qué había en pantalla."""
     try:
         r = fn()
-        step(name, r is None or r is True, "" if r in (None, True) else f"encontrado: {r}")
+        ok = r is None or r is True
+        step(name, ok, "" if ok else f"encontrado: {r}")
     except Exception as e:  # noqa: BLE001 - se registra y se sigue con el resto
+        ok = False
         step(name, False, str(e).splitlines()[0][:220])
+    if not ok:
+        fails[0] += 1
+        for i, pg in enumerate(open_pages):
+            try: pg.screenshot(path=str(OUT / f"fallo-{fails[0]:02d}-{i}.png"))
+            except Exception: pass  # noqa: BLE001
 
 
 with sync_playwright() as p:
@@ -64,6 +76,7 @@ with sync_playwright() as p:
     def new_page(tag):
         ctx = browser.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, permissions=["microphone", "camera"])
         page = ctx.new_page()
+        open_pages.append(page)
         page.on("pageerror", lambda e: errors.append(f"[{tag}] pageerror: {str(e)[:300]}"))
         page.on("console", lambda m: errors.append(f"[{tag}] console: {m.text[:300]}") if m.type == "error" and "realtime" not in m.text.lower() and "websocket" not in m.text.lower() else None)
         return page
@@ -121,8 +134,8 @@ with sync_playwright() as p:
     attempt("Beto le da me gusta (1)", like)
 
     def reply():
-        card.locator('button[aria-label^="Responder con tu voz"]').click()
-        pb.click('button[aria-label="Grabar con el micrófono"]')
+        card.locator('button[aria-label="Responder con tu voz"]').click()
+        pb.locator('button[aria-label="Parar y escuchar antes de enviar"]').wait_for(timeout=10000)  # se abre grabando
         pb.wait_for_timeout(2400)
         shot(pb, "06-beto-grabando-respuesta")
         pb.click('button[aria-label="Enviar respuesta de voz"]')
@@ -132,7 +145,7 @@ with sync_playwright() as p:
     attempt("Beto responde con su voz", reply)
     def own_reply_plays():
         card.locator(".spot-card-media").click()
-        pb.get_by_role("button", name="Ver comentarios de voz (1)").click()
+        pb.get_by_role("button", name="Escuchar los comentarios de voz (1)").click()
         pb.locator('article[aria-label^="Voz de Beto"] button[aria-label="Escuchar la voz de Beto"]').first.click()
         pb.locator('button[aria-label="Pausar la voz de Beto"]').first.wait_for(timeout=4000)
         shot(pb, "06b-beto-escucha-su-respuesta")
@@ -149,7 +162,7 @@ with sync_playwright() as p:
         pb.get_by_role("button", name="Seguir", exact=True).first.click()
         pb.get_by_role("button", name="Siguiendo", exact=True).first.wait_for(timeout=10000)
         pb.get_by_role("button", name="Mensaje de voz").first.click()
-        pb.click('button[aria-label="Grabar con el micrófono"]')
+        pb.locator('button[aria-label="Parar y escuchar antes de enviar"]').wait_for(timeout=10000)  # se abre grabando
         pb.wait_for_timeout(2400)
         pb.click('button[aria-label="Enviar mensaje de voz"]')
         pb.get_by_text("Mensaje enviado").wait_for(timeout=20000)
@@ -168,11 +181,11 @@ with sync_playwright() as p:
         own = pa.locator('section[aria-label="Spot de Ana"]').first
         own.wait_for(timeout=20000)
         own.scroll_into_view_if_needed(); pa.wait_for_timeout(800)
-        count = own.locator('button[aria-label^="Responder con tu voz"]').get_attribute("aria-label")
+        count = own.locator('button[aria-label^="Escuchar las respuestas de voz"]').get_attribute("aria-label")
         shot(pa, "09-ana-feed-con-respuesta")
         own.locator(".spot-card-media").click()
-        pa.get_by_role("button", name="Ver comentarios de voz (1)").wait_for(timeout=15000)
-        pa.get_by_role("button", name="Ver comentarios de voz (1)").click()
+        pa.get_by_role("button", name="Escuchar los comentarios de voz (1)").wait_for(timeout=15000)
+        pa.get_by_role("button", name="Escuchar los comentarios de voz (1)").click()
         pa.locator('article[aria-label^="Voz de Beto"]').first.wait_for(timeout=15000)
         shot(pa, "10-ana-comentarios")
         pa.locator('article[aria-label^="Voz de Beto"] button[aria-label="Escuchar la voz de Beto"]').first.click()
@@ -180,7 +193,7 @@ with sync_playwright() as p:
         pa.wait_for_timeout(800)
         pa.get_by_role("button", name="Cerrar comentarios").click()
         pa.get_by_role("button", name="Volver").first.click()
-        return count == "Responder con tu voz (1 respuestas)" or count
+        return count == "Escuchar las respuestas de voz (1)" or count
     attempt("Ana ve y escucha la respuesta de Beto", ana_sees_reply)
 
     def ana_profile():

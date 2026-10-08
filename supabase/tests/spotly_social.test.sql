@@ -193,6 +193,19 @@ select pg_temp.as_user('00000000-0000-0000-0000-00000000000c');
 insert into public.blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-00000000000c', '00000000-0000-0000-0000-00000000000b');
 select pg_temp.ok((select count(*) from public.follows where follower_id = '00000000-0000-0000-0000-00000000000b' and followee_id = '00000000-0000-0000-0000-00000000000c') = 0, 'al bloquear, quien te seguía deja de seguirte');
 
+-- ───── Historias de 24 h
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
+insert into public.stories (id, author_id, city, audio_path, duration_ms, background, expires_at) values ('30000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000b', 'Sevilla', 'voces/00000000-0000-0000-0000-00000000000b/h1.webm', 5000, 'preset:neon', now() + interval '9 days');
+select pg_temp.ok((select expires_at < now() + interval '25 hours' from public.stories where id = '30000000-0000-0000-0000-000000000001'), 'una historia dura 24 h aunque se pida más');
+select pg_temp.err($$insert into public.stories (author_id, audio_path, duration_ms) values ('00000000-0000-0000-0000-00000000000b', 'voces/00000000-0000-0000-0000-00000000000a/x.webm', 5000)$$, 'invalid_path', 'historia con el audio de otra persona');
+select pg_temp.err($$insert into public.stories (author_id, audio_path, duration_ms) values ('00000000-0000-0000-0000-00000000000b', 'voces/00000000-0000-0000-0000-00000000000b/largo.webm', 90000)$$, 'check', 'historia de más de 60 s');
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.ok((select author_name = 'beto' or author_username = 'beto' from public.stories_public where id = '30000000-0000-0000-0000-000000000001'), 'las historias se ven con su autor');
+select pg_temp.as_admin();
+update public.stories set expires_at = now() - interval '1 minute' where id = '30000000-0000-0000-0000-000000000001';
+select pg_temp.as_user('00000000-0000-0000-0000-00000000000a');
+select pg_temp.ok((select count(*) from public.stories_public where id = '30000000-0000-0000-0000-000000000001') = 0, 'a las 24 h desaparece');
+
 -- ───── Denuncias
 select pg_temp.as_user('00000000-0000-0000-0000-00000000000b');
 insert into public.reports (reporter_id, target_type, target_id, reason) values ('00000000-0000-0000-0000-00000000000b', 'spot', '10000000-0000-0000-0000-000000000002', 'Acoso o insultos');

@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Shell } from "./Extras";
 import { BottomSheet, TopBar } from "./kit";
 import { AnonAvatar, MeAvatar } from "./Author";
-import { FailedNote, VoiceComposer, VoiceWave, playNote, useVoiceName } from "./VoiceThread";
+import { FailedNote, VoiceComposer, VoiceThread, VoiceWave, playNote, useVoiceName } from "./VoiceThread";
 import { PersonAvatar } from "./CloudPeople";
-import { useMe } from "@/lib/store";
+import { useMe, useStore } from "@/lib/store";
 import { addVoiceNote, useMyVoiceNotes, useThread, useThreadStatus, type ThreadNote } from "@/lib/voice/notes";
 import { sampleThread, type SampleVoice } from "@/lib/voice/samples";
 import { formatClock } from "@/lib/voice/recorder";
@@ -47,10 +47,11 @@ function ChatAvatar({ note, chat }: { note: ThreadNote; chat: ChatInfo }) {
 /** Burbuja de voz del chat: diseño de bocadillo con la onda real, el progreso y el botón de responder. */
 function VoiceBubble({ note, mine, who, parentName, onReply, onJump }: { note: ThreadNote; mine: boolean; who: string; parentName?: string | undefined; onReply: (atMs: number) => void; onJump?: (() => void) | undefined }) {
   const pb = useVoicePlayback(note.id);
+  const { demo } = useStore();
   const total = pb.active && pb.durationMs ? pb.durationMs : note.durationMs;
   return (
     <div className={`flex min-w-0 flex-1 flex-col ${mine ? "items-end" : "items-start"}`}>
-      <span className="mb-1 flex max-w-full items-center gap-1 px-1 text-3xs font-semibold text-muted-foreground">{note.author.anon && <Ghost size={11} className="shrink-0" />}<span className="truncate">{who}</span>{mine && !note.author.anon && <span className="shrink-0 font-normal">· tú</span>}{note.sample && <span className="shrink-0 font-normal">· ejemplo</span>}{note.pending && <span className="flex shrink-0 items-center gap-0.5 font-normal"><Loader2 size={10} className="animate-spin" />enviando…</span>}</span>
+      <span className="mb-1 flex max-w-full items-center gap-1 px-1 text-3xs font-semibold text-muted-foreground">{note.author.anon && <Ghost size={11} className="shrink-0" />}<span className="truncate">{who}</span>{mine && !note.author.anon && who.trim().toLowerCase() !== "tú" && <span className="shrink-0 font-normal">· tú</span>}{note.sample && !demo && <span className="shrink-0 font-normal">· ejemplo</span>}{note.pending && <span className="flex shrink-0 items-center gap-0.5 font-normal"><Loader2 size={10} className="animate-spin" />enviando…</span>}</span>
       {note.parentId && <button type="button" onClick={onJump} className="mb-1 flex max-w-[80%] items-center gap-1 rounded-full border border-border bg-card/70 px-2 py-0.5 text-3xs text-muted-foreground"><CornerDownRight size={11} className="shrink-0" /><span className="truncate">En respuesta a {parentName ?? "este audio"}{note.replyAtMs ? ` · ${formatClock(note.replyAtMs)}` : ""}</span></button>}
       <div className={`flex w-full items-center gap-1.5 ${mine ? "flex-row-reverse" : ""}`}>
         <div id={`voz-${note.id}`} className={`voice-chat-bubble ${mine ? "voice-chat-bubble-me" : "voice-chat-bubble-them"} flex h-12 w-[80%] min-w-0 max-w-[17rem] items-center gap-2 rounded-xl px-2 text-foreground ${note.pending ? "opacity-70" : ""}`}>
@@ -67,6 +68,12 @@ function VoiceBubble({ note, mine, who, parentName, onReply, onJump }: { note: T
   );
 }
 
+/** GIF, imagen o reacción que has mandado (solo en esta sesión, en los chats de ejemplo). */
+function ExtraItem({ e }: { e: Extra }) {
+  return <div className="flex flex-row-reverse items-end gap-2"><MeAvatar className="h-9 w-9 border border-primary/70 text-xs" />
+    {e.kind === "reaction" ? <span className="rounded-full border border-border bg-card px-4 py-2 text-2xl" aria-label={`Reacción ${e.value}`}>{e.value}</span> : <img src={e.src} alt="Imagen enviada" className="max-h-48 max-w-[80%] rounded-lg border border-border object-contain" />}</div>;
+}
+
 function ChatRoom({ chat, onBack, onLeft }: { chat: ChatInfo; onBack: () => void; onLeft?: (() => void) | undefined }) {
   const threadId = chat.threadId;
   const seed = useMemo(() => (chat.cloud ? [] : seedOf(chat)), [chat]);
@@ -78,6 +85,7 @@ function ChatRoom({ chat, onBack, onLeft }: { chat: ChatInfo; onBack: () => void
   const [talk, setTalk] = useState(false);
   const [replyTo, setReplyTo] = useState<{ note: ThreadNote; atMs: number } | null>(null);
   const [extras, setExtras] = useState<Extra[]>([]);
+  const [fresh, setFresh] = useState<string | null>(null);
   const input = useRef<HTMLInputElement | null>(null);
   const list = useRef<HTMLElement | null>(null);
   const urls = useRef<string[]>([]);
@@ -94,8 +102,8 @@ function ChatRoom({ chat, onBack, onLeft }: { chat: ChatInfo; onBack: () => void
     addExtra({ kind: "image", src }); if (input.current) input.current.value = "";
   };
   const send = (clip: Parameters<typeof addVoiceNote>[0]["clip"], anon: boolean) => {
-    addVoiceNote({ threadId, parentId: replyTo?.note.id ?? null, replyAtMs: replyTo?.atMs, clip, anon: !!chat.group && anon });
-    setTalk(false); setReplyTo(null);
+    const n = addVoiceNote({ threadId, parentId: replyTo?.note.id ?? null, replyAtMs: replyTo?.atMs, clip, anon: !!chat.group && anon });
+    setFresh(n.id); setTalk(false); setReplyTo(null);
   };
   const jump = (id: string) => document.getElementById(`voz-${id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
   const leave = async () => {
@@ -125,6 +133,13 @@ function ChatRoom({ chat, onBack, onLeft }: { chat: ChatInfo; onBack: () => void
       </div>}
     </div>
     <main ref={list} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5" aria-label="Mensajes de voz">
+      {/* En un grupo habla mucha gente: cada voz con el diseño de las respuestas de voz (en una fila, «Respondiendo a» al
+          responder justo debajo y «En respuesta a este audio»), en orden de llegada. En un chat 1 a 1, burbujas. */}
+      {chat.group && <>
+        <VoiceThread threadId={threadId} seed={seed} order="oldest" freshId={fresh} emptyText="Aún no ha hablado nadie. Rompe el hielo con tu voz." />
+        {extras.map((e) => <ExtraItem key={e.id} e={e} />)}
+      </>}
+      {!chat.group && <>
       {status === "loading" && !items.length && <div className="grid h-full place-items-center" aria-busy="true"><Loader2 className="animate-spin text-primary" size={26} /></div>}
       {status === "error" && !items.length && <div className="grid h-full place-items-center text-center"><div><WifiOff className="mx-auto text-muted-foreground" size={26} /><p className="mt-2 text-sm text-muted-foreground">No se pudo cargar el chat. Comprueba tu conexión.</p></div></div>}
       {status === "ready" && !items.length && <div className="grid h-full place-items-center text-center"><div><Mic className="mx-auto text-primary" size={28} /><p className="mt-2 text-sm text-muted-foreground">{chat.group ? "Aún no ha hablado nadie. Rompe el hielo con tu voz." : `Empieza la conversación con ${chat.name} con tu voz.`}</p></div></div>}
@@ -137,13 +152,12 @@ function ChatRoom({ chat, onBack, onLeft }: { chat: ChatInfo; onBack: () => void
             <VoiceBubble note={note} mine={mine} who={whoOf(note)} parentName={parent ? whoOf(parent) : undefined} onJump={parent ? () => jump(parent.id) : undefined} onReply={(atMs) => { setReplyTo({ note, atMs }); setTalk(true); }} />
           </div>;
         }
-        const e = extra!;
-        return <div key={e.id} className="flex flex-row-reverse items-end gap-2"><MeAvatar className="h-9 w-9 border border-primary/70 text-xs" />
-          {e.kind === "reaction" ? <span className="rounded-full border border-border bg-card px-4 py-2 text-2xl" aria-label={`Reacción ${e.value}`}>{e.value}</span> : <img src={e.src} alt="Imagen enviada" className="max-h-48 max-w-[80%] rounded-lg border border-border object-contain" />}</div>;
+        return <ExtraItem key={extra!.id} e={extra!} />;
       })}
+      </>}
     </main>
     <footer className="voice-chat-footer shrink-0 rounded-t-lg border border-primary/20 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3">
-      {talk ? <VoiceComposer autoStart={!replyTo} autoFocus allowAnon={!!chat.group} target={replyTo ? { id: replyTo.note.id, name: whoOf(replyTo.note), author: replyTo.note.author, atMs: replyTo.atMs, durationMs: replyTo.note.durationMs } : undefined} sendLabel="Enviar nota de voz" onClose={() => { setTalk(false); setReplyTo(null); }} onSend={send} />
+      {talk ? <VoiceComposer autoFocus allowAnon={!!chat.group} target={replyTo ? { id: replyTo.note.id, name: whoOf(replyTo.note), author: replyTo.note.author, atMs: replyTo.atMs, durationMs: replyTo.note.durationMs } : undefined} sendLabel="Enviar nota de voz" onClose={() => { setTalk(false); setReplyTo(null); }} onSend={send} />
         : <>
           {extrasOn && menu === "attach" && <div className="mb-3 grid grid-cols-3 gap-2"><Button variant="secondary" className="h-16 flex-col gap-1 border border-border text-xs" onClick={() => setMenu("gifs")}><Film size={20} className="text-primary" /> GIF</Button><Button variant="secondary" className="h-16 flex-col gap-1 border border-border text-xs" onClick={() => input.current?.click()}><ImagePlus size={20} className="text-primary" /> Imagen</Button><Button variant="secondary" className="h-16 flex-col gap-1 border border-border text-xs" onClick={() => setMenu("reactions")}><Smile size={20} className="text-primary" /> Reacción</Button></div>}
           {extrasOn && menu === "gifs" && <div className="mb-3"><div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold">Reacciones Spotly</span><Button variant="ghost" size="icon" aria-label="Cerrar GIF" className="h-7 w-7" onClick={() => setMenu(null)}><X size={16} /></Button></div><div className="grid grid-cols-3 gap-2">{gifs.map((g) => <Button key={g.title} variant="secondary" className="h-20 flex-col gap-1 p-1" aria-label={`Enviar ${g.title}`} onClick={() => addExtra({ kind: "reaction", value: g.emoji })}><span className="text-4xl leading-none">{g.emoji}</span><span className="text-3xs text-muted-foreground">{g.title}</span></Button>)}</div></div>}
@@ -204,7 +218,7 @@ function NewGroup({ onClose, onCreated }: { onClose: () => void; onCreated: (cha
 function useCloudChats(enabled: boolean) {
   const [chats, setChats] = useState<api.ChatRow[] | null>(null);
   const [error, setError] = useState(false);
-  const load = useCallback(() => { api.fetchChats(db()).then((c) => { setChats(c); setError(false); }).catch(() => setError(true)); }, []);
+  const load = useCallback(() => { if (!enabled) return; api.fetchChats(db()).then((c) => { setChats(c); setError(false); }).catch(() => setError(true)); }, [enabled]);
   useEffect(() => {
     if (!enabled) return;
     load();
