@@ -117,6 +117,9 @@ export function stopAllVoices() {
 /** Si la voz que suena es `id`, libera el audio (p. ej. al borrar esa nota o al cerrar su panel). */
 export function releaseVoice(id: string) { if (snap.id === id) stopAllVoices(); }
 
+/** Por dónde va la voz `id` si es la que está cargada (para «Respondiendo a 0:53 / 8:02»); si no, 0. */
+export const voicePosition = (id: string) => (snap.id === id ? snap.positionMs : 0);
+
 /** Id de la voz cargada en el reproductor (o null). */
 export const currentVoiceId = () => snap.id;
 
@@ -129,6 +132,12 @@ export function useVoicePlayback(id: string) {
   const s = useSyncExternalStore(subscribe, get, getServer);
   const mine = s.id === id;
   return { playing: mine && s.playing, loading: mine && s.loading, positionMs: mine ? s.positionMs : 0, durationMs: mine ? s.durationMs : 0, active: mine };
+}
+
+/** Qué voz suena (o está cargando) ahora: sirve para marcar «escuchando las respuestas» mientras pasa la cola. */
+export function useCurrentVoice() {
+  const s = useSyncExternalStore(subscribe, get, getServer);
+  return { id: s.playing || s.loading ? s.id : null };
 }
 
 /** Aviso cuando una voz termina de sonar (las historias pasan a la siguiente). */

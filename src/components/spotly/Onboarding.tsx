@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bell, Camera, Check, ChevronLeft, MapPin, Mic, Search, Music, Utensils, PartyPopper, Trophy, Palette, Heart, Store, User, Users, Plane, Landmark, Trees, Cpu, PawPrint, Clapperboard, Disc3, MessageSquare, Antenna, Gamepad2, Flower2, Image as ImageIcon, Sprout, Crosshair, X } from "lucide-react";
+import { Bell, Camera, Check, ChevronLeft, MapPin, Mic, Search, Music, Utensils, PartyPopper, Trophy, Palette, Heart, Store, User, Users, Plane, Landmark, Trees, Cpu, PawPrint, Clapperboard, Disc3, Antenna, Gamepad2, Flower2, Image as ImageIcon, Sprout, Crosshair, X, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import sevilleNight from "@/assets/seville-night.jpg";
 import valenciaSunset from "@/assets/valencia-sunset.jpg";
@@ -17,7 +17,7 @@ import { PlaceBrowser } from "./Places";
 const interests = [["Música", Music], ["Deportes", Trophy], ["Gastronomía", Utensils], ["Viajes", Plane], ["Cultura", Landmark], ["Naturaleza", Trees], ["Arte", Palette], ["Fiestas", PartyPopper], ["Tecnología", Cpu], ["Mascotas", PawPrint], ["Cine", Clapperboard], ["Planes", Heart]] as const;
 /* Lámina 2: 3×3 de losetas de neón; forma (círculo / cuadrado redondeado) y color alternos. */
 const introTiles = [
-  [Disc3, "#7c5cff", true], [Mic, "#ff3fa8", false], [MessageSquare, "#d63cff", false],
+  [Disc3, "#7c5cff", true], [Mic, "#ff3fa8", false], [Volume2, "#d63cff", false],
   [Antenna, "#19d3ff", true], [MapPin, "#1ea7ff", false], [Gamepad2, "#ff4fd8", false],
   [Flower2, "#ff9a2e", true], [ImageIcon, "#8b5cff", false], [Sprout, "#22e28a", true],
 ] as const;

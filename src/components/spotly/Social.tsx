@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Calendar, Camera, CheckCircle2, ChevronLeft, Eye, EyeOff, Flame, Heart, Loader2, MapPin, MessageCircle, Mic, Music, Radio, Share2, ShieldCheck, Sparkles, Trash2, Trophy, Users, Utensils, WifiOff, X } from "lucide-react";
+import { Calendar, Camera, CheckCircle2, ChevronLeft, Eye, EyeOff, Flame, Heart, Loader2, MapPin, Mic, Music, Radio, Share2, ShieldCheck, Sparkles, Trash2, Trophy, Users, Utensils, WifiOff, X, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Shell } from "./Extras";
@@ -34,7 +34,7 @@ import { appUrl, shareLink } from "@/lib/share";
  */
 
 /** Los mismos temas que al publicar un Spot, así la pestaña «Spots» de una comunidad enseña los de su tema. */
-const TOPICS = [["Música", Music], ["Comida", Utensils], ["Planes", Trophy], ["Opiniones", MessageCircle], ["¿Qué está pasando?", Flame], ["Algo que contar", Sparkles]] as const;
+const TOPICS = [["Música", Music], ["Comida", Utensils], ["Planes", Trophy], ["Opiniones", Volume2], ["¿Qué está pasando?", Flame], ["Algo que contar", Sparkles]] as const;
 const topicIcon = (t: string) => TOPICS.find(([n]) => n === t)?.[1] ?? Users;
 const topicImg = (t: string) => ({ "Música": stage, "Comida": festival, "Planes": beach, "Opiniones": sevilleNight, "¿Qué está pasando?": festival, "Algo que contar": valenciaSunset } as Record<string, string>)[t] ?? sevilleNight;
 

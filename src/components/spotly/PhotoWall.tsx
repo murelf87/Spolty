@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { BottomSheet, Chip, Screen, StateCard, Trust } from "./kit";
 import { useApp } from "./app-context";
 import { useGate } from "./Voice";
-import { VoiceRow, VoiceThread } from "./VoiceThread";
+import { listenToVoices, threadGroups, VoiceRow, VoiceThread } from "./VoiceThread";
+import { useCurrentVoice } from "@/lib/voice/player";
 import { useThread } from "@/lib/voice/notes";
 import { sampleThread } from "@/lib/voice/samples";
 import { clockToMs } from "@/lib/voice/notes";
@@ -362,7 +363,7 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
   /* Responder abre el panel pegado al audio de la foto (como en el diseño), grabando. */
   const [reply, setReply] = useState(false);
   const [menu, setMenu] = useState(false);
-  const voices = useRef<HTMLDivElement | null>(null);
+  const section = useRef<HTMLDivElement | null>(null);
   /* Mensajes de voz de la foto: solo voz, con respuestas encadenadas. */
   const threadId = `photo:${p.id}`;
   const seed = useMemo(() => sampleThread(threadId, [
@@ -370,6 +371,10 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
     { key: "b", name: authors[(p.id + 3) % authors.length]!, img: imgs[(p.id + 4) % imgs.length], minsAgo: p.mins + 5, dur: "0:13", likes: 3, replyTo: "a", replyAt: "0:04" },
   ]), [threadId, p.id, p.mins]);
   const thread = useThread(threadId, seed);
+  /* El altavoz del audio de la foto escucha todas sus respuestas seguidas, en el orden en que se ven. */
+  const now = useCurrentVoice();
+  const voices = useMemo(() => threadGroups(thread).flatMap((g) => [g.root, ...g.replies]), [thread]);
+  const listening = !!now.id && voices.some((v) => v.id === now.id);
   const gate = useGate({ verified: true, online: true });
   const follows = following.includes(p.author);
   const clip = p.type !== "Fotos" ? videoFor(p.img) : undefined;
@@ -396,7 +401,7 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
             <Heart size={28} className={liked ? "text-accent" : "text-white"} fill={liked ? "currentColor" : "none"} />
             <span className="text-xs font-bold text-white">{demo || p.mine ? fmtN(p.likes + (liked ? 1 : 0)) : "Me gusta"}</span>
           </button>
-          <button onClick={() => voices.current?.scrollIntoView({ behavior: "smooth", block: "start" })} aria-label={`Escuchar los mensajes de voz (${thread.length})`} className="flex flex-col items-center gap-1">
+          <button onClick={() => section.current?.scrollIntoView({ behavior: "smooth", block: "start" })} aria-label={`Escuchar los mensajes de voz (${thread.length})`} className="flex flex-col items-center gap-1">
             <span className="grid h-[2.125rem] w-[2.125rem] place-items-center rounded-full border-2 border-white/80 bg-black/30 backdrop-blur-sm"><Volume2 size={17} className="text-white" /></span>
             <span className="text-xs font-bold text-white">{thread.length}</span>
           </button>
@@ -427,10 +432,10 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
         </div>
         <p className="mt-3 text-base font-bold">{p.caption}</p>
         {/* El audio de la foto arriba y, pegado a él, el panel para responder y los mensajes de voz. */}
-        <div ref={voices} className="mt-2 flex scroll-mt-4 flex-col gap-2">
+        <div ref={section} className="mt-2 flex scroll-mt-4 flex-col gap-2">
           <VoiceRow id={`${threadId}:audio`} author={{ name: p.author, avatar: p.mine ? undefined : p.img, mine: p.mine, verified: p.verified }} name={p.mine ? me.name : p.author} durationMs={clockToMs(p.dur)} peaks={seededPeaks(`${threadId}:audio`)}
             likes={{ count: demo || p.mine ? p.likes + (liked ? 1 : 0) : liked ? 1 : 0, liked, onToggle: () => setLiked(!liked) }}
-            replies={{ count: thread.length, onReply: () => setReply((r) => !r) }} onShare={share} onMore={() => setMenu(true)} />
+            listen={{ count: thread.length, active: listening, onListen: () => listenToVoices(voices, listening) }} onShare={share} onMore={() => setMenu(true)} />
           <VoiceThread threadId={threadId} seed={seed} root={{ name: p.mine ? me.name : p.author, author: { name: p.author, avatar: p.mine ? undefined : p.img, mine: p.mine }, atMs: 0, durationMs: clockToMs(p.dur) }}
             rootPointer composerOpen={reply} onComposerClose={() => setReply(false)} emptyText="Aún no hay mensajes de voz en esta foto. Responde con la tuya." />
         </div>
@@ -439,7 +444,7 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
 
       {/* Footer voz */}
       <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-3 border-t border-border bg-background/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
-        <button type="button" onClick={() => { setReply(true); voices.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className="spot-voice-send flex min-h-11 w-full items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold text-white transition active:scale-[0.98]"><Mic size={17} />Responder con tu voz</button>
+        <button type="button" onClick={() => { setReply(true); section.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }} className="spot-voice-send flex min-h-11 w-full items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold text-white transition active:scale-[0.98]"><Mic size={17} />Responder con tu voz</button>
       </div>
 
       {menu && <BottomSheet onClose={() => setMenu(false)} z={70}>{["Copiar enlace", "No me interesa", "Denunciar foto"].map((a) => <button key={a} className={"block w-full rounded-xl px-3 py-3 text-left text-sm hover:bg-secondary " + (a.startsWith("Den") ? "text-live" : "")} onClick={() => { setMenu(false); if (a === "Copiar enlace") share(); else toast(a === "Denunciar foto" ? "Gracias. Revisaremos esta foto." : "Verás menos fotos así"); }}>{a}</button>)}</BottomSheet>}

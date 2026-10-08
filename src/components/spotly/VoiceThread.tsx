@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { AlertCircle, AudioLines, CornerDownRight, FileAudio, Heart, Loader2, Mic, Pause, Play, RotateCcw, Send, Square, Trash2, X } from "lucide-react";
+import { AlertCircle, AudioLines, CornerDownRight, FileAudio, Heart, Loader2, Mic, Pause, Play, RotateCcw, Send, Trash2, Volume2, X } from "lucide-react";
 import { toast } from "sonner";
 import { AnonAvatar, MeAvatar, SignAsChip, useAnonAllowed } from "./Author";
 import { BottomSheet } from "./kit";
@@ -7,7 +7,7 @@ import { useGate } from "./Gate";
 import { addReport, useMe, useStore } from "@/lib/store";
 import { commerce } from "@/lib/spotlyConfig";
 import { formatClock, recorderErrorText, useVoiceRecorder, type VoiceClip } from "@/lib/voice/recorder";
-import { onVoiceError, playVoice, releaseVoice, seekVoice, stopAllVoices, toggleVoice, useVoicePlayback } from "@/lib/voice/player";
+import { onVoiceError, playVoice, playVoiceQueue, releaseVoice, seekVoice, stopAllVoices, toggleVoice, useCurrentVoice, useVoicePlayback, voicePosition } from "@/lib/voice/player";
 import { addVoiceNote, removeVoiceNote, retryVoiceNote, toggleVoiceLike, useThread, useThreadStatus, type ThreadNote, type VoiceNote } from "@/lib/voice/notes";
 import { api, cloudErrorText, cloudUid, db } from "@/lib/cloud";
 import { appUrl, shareLink, spotLink } from "@/lib/share";
@@ -22,10 +22,9 @@ import { appUrl, shareLink, spotLink } from "@/lib/share";
  * Todo es voz: no hay comentarios escritos. El micrófono solo aparece para grabar; para escuchar, play o altavoz.
  */
 
-/* ───────── Iconos del diseño (globo de respuestas, flecha de compartir y tres puntos), redibujados a su medida ───────── */
-function BubbleIcon({ size = 22 }: { size?: number }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinejoin="round" aria-hidden="true"><path d="M7.4 17.6h10.1a3.8 3.8 0 0 0 3.8-3.8V7.4a3.8 3.8 0 0 0-3.8-3.8h-11a3.8 3.8 0 0 0-3.8 3.8v13.4z" /></svg>;
-}
+/* ───────── Iconos del diseño (altavoz de las respuestas, flecha de compartir y tres puntos), a su medida ─────────
+   El globo de respuestas del diseño se cambió por un altavoz: en Spotly no hay bocadillos de chat escritos, y las
+   respuestas se escuchan. */
 function ShareArrowIcon({ size = 22 }: { size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinejoin="round" aria-hidden="true"><path d="M12.7 3.4 23 13.2l-10.3 9.8v-6.1c-5.2-.3-8.4 1.5-10.9 5.4.6-7.6 4.6-11.8 10.9-12.5z" /></svg>;
 }
@@ -161,11 +160,11 @@ const compact = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(".", 
  * Botón de la fila como en el diseño: me gusta y respuestas con la cifra debajo (el icono, algo por encima del centro);
  * compartir y opciones, sin cifra y centrados. Toda la columna mide 2,75 rem para que se pueda tocar bien.
  */
-function VoiceAction({ label, onClick, count, pressed, narrow = false, active = false, lift = "pb-1", children }: { label: string; onClick: () => void; count?: number | undefined; pressed?: boolean | undefined; narrow?: boolean; active?: boolean; lift?: string; children: ReactNode }) {
+function VoiceAction({ label, onClick, count, pressed, narrow = false, active = false, activeTone = "text-live", lift = "pb-1", children }: { label: string; onClick: () => void; count?: number | undefined; pressed?: boolean | undefined; narrow?: boolean; active?: boolean; activeTone?: string; lift?: string; children: ReactNode }) {
   const withCount = count !== undefined;
   return (
     <button type="button" onClick={onClick} aria-label={label} aria-pressed={pressed}
-      className={"flex h-11 shrink-0 flex-col items-center rounded-xl transition active:scale-95 " + (narrow ? "w-6 " : "w-[2.125rem] ") + (withCount ? "pt-[0.21875rem] " : "justify-center " + lift + " ") + (active ? "text-live" : "text-foreground/95 hover:text-foreground")}>
+      className={"flex h-11 shrink-0 flex-col items-center rounded-xl transition active:scale-95 " + (narrow ? "w-6 " : "w-[2.125rem] ") + (withCount ? "pt-[0.21875rem] " : "justify-center " + lift + " ") + (active ? activeTone : "text-foreground/95 hover:text-foreground")}>
       <span className="grid h-6 place-items-center">{children}</span>
       {withCount && <span className="mt-px h-3 whitespace-nowrap text-3xs leading-3 text-foreground/90">{compact(count)}</span>}
     </button>
@@ -175,7 +174,8 @@ function VoiceAction({ label, onClick, count, pressed, narrow = false, active = 
 export type VoiceRowProps = {
   id: string; author: VoiceNote["author"]; name: string; src?: string | undefined; durationMs: number; peaks: number[];
   likes?: { count: number; liked: boolean; onToggle: () => void } | undefined;
-  replies?: { count: number; onReply: (atMs: number) => void } | undefined;
+  /** Altavoz con el número de respuestas: las escucha seguidas (`active` mientras suena alguna de ellas). */
+  listen?: { count: number; active?: boolean | undefined; onListen: () => void } | undefined;
   onShare?: (() => void) | undefined; onMore?: (() => void) | undefined;
   /** Al empezar a escucharlo (p. ej., para contar la escucha de un Spot). */
   onPlay?: (() => void) | undefined;
@@ -184,10 +184,10 @@ export type VoiceRowProps = {
 };
 /**
  * La fila del diseño, para cualquier audio (un mensaje de voz o el audio original de un Spot o una foto): avatar con
- * aro, play, onda con los tiempos debajo, me gusta, respuestas, compartir y opciones; si es una respuesta,
- * «↳ En respuesta a este audio» debajo.
+ * aro, play, onda con los tiempos debajo, me gusta, altavoz con las respuestas (para escucharlas), compartir y
+ * opciones (responder con tu voz, borrar, denunciar); si es una respuesta, «↳ En respuesta a este audio» debajo.
  */
-export function VoiceRow({ id, author, name, src, durationMs, peaks, likes, replies, onShare, onMore, onPlay, answer, highlight = false, compact = false, pending = false, note, footer }: VoiceRowProps) {
+export function VoiceRow({ id, author, name, src, durationMs, peaks, likes, listen, onShare, onMore, onPlay, answer, highlight = false, compact = false, pending = false, note, footer }: VoiceRowProps) {
   const pb = useVoicePlayback(id);
   /* El total es el medido al grabar (los WebM del navegador no siempre traen duración): así no cambia al escuchar. */
   const total = durationMs || (pb.active ? pb.durationMs : 0);
@@ -207,7 +207,7 @@ export function VoiceRow({ id, author, name, src, durationMs, peaks, likes, repl
           <p className="mt-px flex h-3.5 items-center justify-between text-[0.65rem] leading-none tabular-nums text-foreground/90"><span>{formatClock(pb.active ? pb.positionMs : 0)}</span><span>{formatClock(total)}</span></p>
         </div>
         {likes && <VoiceAction label={`Me gusta (${likes.count})`} pressed={likes.liked} active={likes.liked} onClick={likes.onToggle} count={likes.count}><Heart size={21} strokeWidth={1.6} fill={likes.liked ? "currentColor" : "none"} /></VoiceAction>}
-        {replies && <VoiceAction label={`Responder con tu voz (${replies.count} respuestas)`} onClick={() => replies.onReply(pb.active ? pb.positionMs : 0)} count={replies.count}><BubbleIcon /></VoiceAction>}
+        {listen && <VoiceAction label={`${listen.active ? "Parar" : "Escuchar"} las respuestas de voz (${listen.count})`} pressed={!!listen.active} active={!!listen.active} activeTone="text-[var(--wave-head)]" onClick={listen.onListen} count={listen.count}><Volume2 size={22} strokeWidth={1.6} /></VoiceAction>}
         {onShare && <VoiceAction label="Compartir" onClick={onShare}><ShareArrowIcon /></VoiceAction>}
         {onMore && <VoiceAction label={`Opciones de la voz de ${name}`} onClick={onMore} narrow lift="pb-0.5"><DotsIcon /></VoiceAction>}
       </div>
@@ -222,8 +222,10 @@ export function VoiceRow({ id, author, name, src, durationMs, peaks, likes, repl
  * Un mensaje de voz con el diseño de Spotly. `answersRoot`: responde al audio de arriba (el del Spot o la foto), así
  * que lleva «↳ En respuesta a este audio»; si responde a otra voz, a quién responde y en qué segundo.
  */
-export function VoiceItem({ note, onReply, onMore, parentName, answersRoot = false, highlight = false, compact = false, right, social = true }: {
-  note: ThreadNote; onReply?: ((atMs: number) => void) | undefined; onMore?: (() => void) | undefined; parentName?: string | undefined; answersRoot?: boolean; highlight?: boolean; compact?: boolean;
+export function VoiceItem({ note, listen, onMore, parentName, answersRoot = false, highlight = false, compact = false, right, social = true }: {
+  note: ThreadNote; onMore?: (() => void) | undefined; parentName?: string | undefined; answersRoot?: boolean; highlight?: boolean; compact?: boolean;
+  /** Escuchar sus respuestas (en una conversación); sin esto, el altavoz avisa de cuántas tiene. */
+  listen?: VoiceRowProps["listen"];
   /** Etiqueta pequeña bajo la fila (p. ej., «Presentación» o «Audio-flyer»). */
   right?: ReactNode;
   /** false: un audio suelto (audio-flyer, presentación…) sin me gusta ni compartir; solo play, onda y tiempos. */
@@ -245,7 +247,7 @@ export function VoiceItem({ note, onReply, onMore, parentName, answersRoot = fal
   return (
     <VoiceRow id={note.id} author={note.author} name={name} src={note.src} durationMs={note.durationMs} peaks={note.peaks} pending={note.pending}
       likes={social ? { count: likes, liked: !!note.liked, onToggle: () => toggleVoiceLike(note.id) } : undefined}
-      replies={social && onReply ? { count: note.replies, onReply } : undefined}
+      listen={social && listen ? listen : undefined}
       onShare={social && !privateThread ? () => void share() : undefined}
       onMore={social ? onMore : undefined}
       answer={answer} highlight={highlight} compact={compact} note={right}
@@ -339,7 +341,7 @@ export function VoiceComposer({ target, onSend, onClose, maxSeconds: maxProp, po
     else if (clip) toggleVoice(previewId, clip.url, clip.durationMs);
   };
   /* «×»: cancela la respuesta (si se puede cerrar) o descarta lo grabado. Mientras grabas no se ve, como en el diseño:
-     se para con el botón rosa (o se cierra tocando otra vez «Responder»). */
+     primero se para con el botón rosa. */
   const canCancel = !recording && rec.state !== "requesting" && (!!clip || !!onClose);
   const cancel = () => { if (pb.active) stopAllVoices(); rec.cancel(); onClose?.(); };
   const time = clip ? formatClock(pb.active ? pb.positionMs : clip.durationMs) : formatClock(rec.elapsedMs);
@@ -403,11 +405,32 @@ function VoiceMenu({ note, name, onReply, onClose }: { note: ThreadNote; name: s
   );
 }
 
+/** Las voces de una conversación en el orden en que se ven: cada primera voz y, debajo, toda su conversación. */
+export function threadGroups(notes: ThreadNote[], order: "newest" | "oldest" = "newest") {
+  const byId = new Map(notes.map((n) => [n.id, n]));
+  const rootOf = (n: ThreadNote): ThreadNote => { let cur = n; const seen = new Set<string>(); while (cur.parentId && byId.has(cur.parentId) && !seen.has(cur.id)) { seen.add(cur.id); cur = byId.get(cur.parentId)!; } return cur; };
+  const map = new Map<string, ThreadNote[]>();
+  for (const n of notes) { const r = rootOf(n); if (r.id !== n.id) map.set(r.id, [...(map.get(r.id) ?? []), n]); }
+  return notes.filter((n) => !n.parentId || !byId.has(n.parentId)).sort((a, b) => (order === "oldest" ? a.createdAt - b.createdAt : b.createdAt - a.createdAt)).map((r) => ({ root: r, replies: (map.get(r.id) ?? []).sort((a, b) => a.createdAt - b.createdAt) }));
+}
+
+/**
+ * Escucha seguidas unas voces (las respuestas a un audio). Si ya está sonando alguna, para. Las de ejemplo no
+ * tienen audio: se avisa en vez de no hacer nada.
+ */
+export function listenToVoices(voices: { id: string; src?: string | undefined; durationMs: number }[], playing: boolean) {
+  if (playing) { stopAllVoices(); return; }
+  if (!voices.length) { toast("Aún no hay respuestas. Responde con tu voz desde ⋮."); return; }
+  const n = playVoiceQueue(voices);
+  if (!n) toast("Son voces de ejemplo: no tienen audio. Las de verdad se escuchan seguidas aquí.");
+}
+
 /**
  * Conversación de mensajes de voz con respuestas encadenadas. `root` es el audio original (el del Spot, la foto…):
- * si tiene audio, cada mensaje responde a él y lo dice («↳ En respuesta a este audio»). Cada voz tiene su propio
- * «Responder», que abre el panel justo debajo con el pico señalándola; `rootPointer` hace lo mismo con el audio de
- * arriba (el panel del audio original se abre pegado a él, a 0,3125 rem, como en el diseño).
+ * si tiene audio, cada mensaje responde a él y lo dice («↳ En respuesta a este audio»). El altavoz de cada voz
+ * escucha seguidas sus respuestas; «Responder con tu voz» (en ⋮) abre el panel justo debajo con el pico
+ * señalándola; `rootPointer` hace lo mismo con el audio de arriba (el panel del audio original se abre pegado a él,
+ * a 0,3125 rem, como en el diseño).
  */
 export function VoiceThread({ threadId, seed, root, emptyText = "Sé la primera voz de esta conversación.", composerOpen = false, onComposerClose, maxSeconds, freshId, order = "newest", allowAnon = true, rootPointer = false, closed = false, onSent }: {
   threadId: string; seed?: VoiceNote[] | undefined; root?: ReplyTarget | undefined; emptyText?: string; composerOpen?: boolean; onComposerClose?: (() => void) | undefined; maxSeconds?: number | undefined; freshId?: string | null | undefined;
@@ -421,6 +444,7 @@ export function VoiceThread({ threadId, seed, root, emptyText = "Sé la primera 
   const notes = useThread(threadId, seed);
   const nameOf = useVoiceName();
   const { demo } = useStore();
+  const now = useCurrentVoice();
   const [replyTo, setReplyTo] = useState<{ note: ThreadNote; atMs: number } | null>(null);
   const [rootOpen, setRootOpen] = useState(composerOpen && !closed);
   const [menu, setMenu] = useState<ThreadNote | null>(null);
@@ -431,13 +455,21 @@ export function VoiceThread({ threadId, seed, root, emptyText = "Sé la primera 
   useEffect(() => { if (!fresh) return; const t = window.setTimeout(() => setFresh(null), 2400); document.getElementById(`voz-${fresh}`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }); return () => window.clearTimeout(t); }, [fresh]);
 
   const byId = useMemo(() => new Map(notes.map((n) => [n.id, n])), [notes]);
-  /* Primeras voces (lo más nuevo arriba) y, debajo de cada una, toda su conversación en orden. */
-  const groups = useMemo(() => {
-    const rootOf = (n: ThreadNote): ThreadNote => { let cur = n; const seen = new Set<string>(); while (cur.parentId && byId.has(cur.parentId) && !seen.has(cur.id)) { seen.add(cur.id); cur = byId.get(cur.parentId)!; } return cur; };
+  const groups = useMemo(() => threadGroups(notes, order), [notes, order]);
+  /* Todas las respuestas que cuelgan de cada voz (directas y de las respuestas), en orden de llegada. */
+  const below = useMemo(() => {
     const map = new Map<string, ThreadNote[]>();
-    for (const n of notes) { const r = rootOf(n); if (r.id !== n.id) map.set(r.id, [...(map.get(r.id) ?? []), n]); }
-    return notes.filter((n) => !n.parentId || !byId.has(n.parentId)).sort((a, b) => (order === "oldest" ? a.createdAt - b.createdAt : b.createdAt - a.createdAt)).map((r) => ({ root: r, replies: (map.get(r.id) ?? []).sort((a, b) => a.createdAt - b.createdAt) }));
-  }, [notes, byId, order]);
+    for (const n of [...notes].sort((a, b) => a.createdAt - b.createdAt)) {
+      let cur = n.parentId ? byId.get(n.parentId) : undefined; const seen = new Set<string>();
+      while (cur && !seen.has(cur.id)) { seen.add(cur.id); map.set(cur.id, [...(map.get(cur.id) ?? []), n]); cur = cur.parentId ? byId.get(cur.parentId) : undefined; }
+    }
+    return map;
+  }, [notes, byId]);
+  const listenFor = (note: ThreadNote) => {
+    const voices = below.get(note.id) ?? [];
+    const active = !!now.id && voices.some((v) => v.id === now.id);
+    return { count: voices.length, active, onListen: () => listenToVoices(voices, active) };
+  };
   const answersRoot = !!root && root.durationMs > 0;
   const samples = !demo && notes.some((n) => n.sample);
 
@@ -453,10 +485,10 @@ export function VoiceThread({ threadId, seed, root, emptyText = "Sé la primera 
   const composerFor = (note: ThreadNote) => replyTo?.note.id === note.id && (
     <div className="-mt-[0.1875rem]"><VoiceComposer pointer autoFocus allowAnon={allowAnon} maxSeconds={maxSeconds} target={{ id: note.id, name: nameOf(note.author), author: note.author, atMs: replyTo.atMs, durationMs: note.durationMs }} onClose={() => setReplyTo(null)} onSend={(c, a) => publish(c, a, replyTo)} /></div>
   );
-  /* Responder abre el panel justo debajo de esa voz; volver a tocar lo cierra. Con las respuestas cerradas, se avisa. */
-  const replyHere = (note: ThreadNote) => (atMs: number) => {
+  /* «Responder con tu voz» (en ⋮) abre el panel justo debajo de esa voz, desde el segundo en que la escuchas. */
+  const replyHere = (note: ThreadNote) => {
     if (closed) { toast("Su autor ha cerrado las respuestas."); return; }
-    setRootOpen(false); onComposerClose?.(); setReplyTo((cur) => (cur?.note.id === note.id ? null : { note, atMs }));
+    setRootOpen(false); onComposerClose?.(); setReplyTo({ note, atMs: voicePosition(note.id) });
   };
 
   return (
@@ -468,20 +500,20 @@ export function VoiceThread({ threadId, seed, root, emptyText = "Sé la primera 
       {groups.length === 0 && !rootOpen && (status === "ready" || status === "local") && <div className="rounded-[0.9375rem] border border-dashed border-border p-6 text-center"><Mic className="mx-auto text-primary" size={28} /><p className="mt-2 text-sm text-muted-foreground">{emptyText}</p></div>}
       {groups.map(({ root: r, replies }) => (
         <div key={r.id} className="flex flex-col gap-2">
-          <VoiceItem note={r} answersRoot={answersRoot} highlight={fresh === r.id} onReply={replyHere(r)} onMore={() => setMenu(r)} />
+          <VoiceItem note={r} answersRoot={answersRoot} highlight={fresh === r.id} listen={listenFor(r)} onMore={() => setMenu(r)} />
           {composerFor(r)}
           {replies.map((n) => {
             const parent = n.parentId ? byId.get(n.parentId) : undefined;
             return (
               <div key={n.id} className="flex flex-col gap-2">
-                <VoiceItem note={n} highlight={fresh === n.id} parentName={parent ? nameOf(parent.author) : undefined} onReply={replyHere(n)} onMore={() => setMenu(n)} />
+                <VoiceItem note={n} highlight={fresh === n.id} parentName={parent ? nameOf(parent.author) : undefined} listen={listenFor(n)} onMore={() => setMenu(n)} />
                 {composerFor(n)}
               </div>
             );
           })}
         </div>
       ))}
-      {menu && <VoiceMenu note={menu} name={nameOf(menu.author)} onClose={() => setMenu(null)} onReply={() => replyHere(menu)(0)} />}
+      {menu && <VoiceMenu note={menu} name={nameOf(menu.author)} onClose={() => setMenu(null)} onReply={() => replyHere(menu)} />}
     </div>
   );
 }

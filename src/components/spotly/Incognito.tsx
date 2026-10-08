@@ -125,7 +125,6 @@ const incognitoSample = () => ({ ...sampleThread("incognito:alameda", [{ key: "v
 /** Spot incógnito en el feed. */
 export function IncognitoSpotCard() {
   const app = useApp();
-  const [reply, setReply] = useState(false);
   return (
     <article className="spot-feed-card mx-3 overflow-hidden rounded-xl bg-card">
       <button className="relative block aspect-[5/3] w-full" onClick={app.openIncognitoSpot} aria-label="Abrir Spot incógnito">
@@ -136,9 +135,8 @@ export function IncognitoSpotCard() {
         <span className="absolute inset-x-3 bottom-2 flex items-center gap-2 text-left"><span className="grid h-10 w-10 place-items-center rounded-full border border-accent bg-background/80"><Ghost size={18} className="text-accent" /></span><span><strong className="block text-sm">Persona anónima verificada</strong><small className="text-foreground/80">Identidad oculta públicamente · Hace 9 min</small></span></span>
       </button>
       <div className="px-3 pb-3 pt-2">
-        <VoiceItem note={incognitoSample()} onReply={() => setReply(true)} />
+        <VoiceItem note={incognitoSample()} />
       </div>
-      {reply && <VoiceReply name="esta persona" onClose={() => setReply(false)} />}
     </article>
   );
 }
@@ -159,7 +157,7 @@ export function IncognitoPublicProfile({ onClose }: { onClose: () => void }) {
       <h3 className="mb-2 mt-5 text-sm font-bold">Lo que NO se muestra</h3>
       <div className="grid grid-cols-2 gap-2">{["Nombre", "Avatar", "@usuario", "Seguidores", "Enlace al perfil", "Identidad pública"].map((x) => <p key={x} className="flex items-center gap-2 rounded-xl border border-border bg-card p-2.5 text-xs"><EyeOff size={13} className="text-accent" />{x}</p>)}</div>
       <div className="mt-5 overflow-hidden rounded-2xl border border-border"><img src={sevilleNight} alt="Foto del Spot" className="aspect-video w-full object-cover" /></div>
-      <div className="mt-3"><VoiceItem note={incognitoSample()} onReply={() => setReply(true)} /></div>
+      <div className="mt-3"><VoiceItem note={incognitoSample()} /></div>
       <p className="mt-2 text-xs text-muted-foreground">Ubicación: Zona Alameda (aproximada). Cierran la calle por un rodaje.</p>
       <div className="mt-4 grid grid-cols-2 gap-2">
         <Button onClick={() => setReply(true)}><Mic size={16} />Responder con voz</Button>

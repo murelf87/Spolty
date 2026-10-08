@@ -109,7 +109,7 @@ export function HotSpotView({ id, onBack }: { id: string; onBack: () => void }) 
 
       {/* Footer */}
       <div className="absolute inset-x-0 bottom-0 border-t border-border bg-background/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
-        <Button className="h-12 w-full rounded-full bg-spot-gradient text-base text-foreground" onClick={() => setReply(true)}><Mic size={18} />Responder hablando</Button>
+        <Button className="h-12 w-full rounded-full bg-spot-gradient text-base text-foreground" onClick={() => setReply(true)}><Mic size={18} />Responder con tu voz</Button>
       </div>
 
       {reply && <VoiceReply name={h.title} threadId={`hot:${h.id}`} onClose={() => setReply(false)} />}
