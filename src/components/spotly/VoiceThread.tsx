@@ -420,7 +420,7 @@ export function threadGroups(notes: ThreadNote[], order: "newest" | "oldest" = "
  */
 export function listenToVoices(voices: { id: string; src?: string | undefined; durationMs: number }[], playing: boolean) {
   if (playing) { stopAllVoices(); return; }
-  if (!voices.length) { toast("Aún no hay respuestas. Responde con tu voz desde ⋮."); return; }
+  if (!voices.length) { toast("Aún no hay respuestas a este audio."); return; }
   const n = playVoiceQueue(voices);
   if (!n) toast("Son voces de ejemplo: no tienen audio. Las de verdad se escuchan seguidas aquí.");
 }
