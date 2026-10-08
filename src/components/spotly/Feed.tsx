@@ -12,7 +12,8 @@ import { spotKeyOf } from "./SpotDetail";
 import { clockToMs, useThread } from "@/lib/voice/notes";
 import { formatClock, seededPeaks } from "@/lib/voice/recorder";
 import { playVoice, seekVoice, toggleVoice, useVoicePlayback } from "@/lib/voice/player";
-import { deleteSpot, useMySpots, type MySpot } from "@/lib/spots";
+import { deleteSpot, recordSpotView, setSpotReplies, toggleSpotLike, toggleSpotSaved, useCloudFeed, useMySpots, type MySpot } from "@/lib/spots";
+import { api, cloudErrorText, cloudUid, db, followId, isFollowingId, useCloud } from "@/lib/cloud";
 import { NowStrip } from "./NowStrip";
 import { HotSpotCard } from "./HotSpots";
 import { FlashOfferCard, SponsoredSpot, getBiz } from "./Local";
@@ -24,6 +25,8 @@ import { BoostedTag, IncognitoTag, Skeleton, StateCard, BottomSheet } from "./ki
 import { ContentState } from "./Safety";
 import { addReport, blockUser, toggleFollow, unblockUser, useNow, useStore, useMe } from "@/lib/store";
 import { campaignEligible, hotspots } from "@/lib/sampleData";
+import { spotData, type SpotData } from "./spotData";
+import { copySpotLink, networkShareUrl, shareLink, spotLink } from "@/lib/share";
 import valenciaSunset from "@/assets/valencia-sunset.jpg";
 import sevilleEvening from "@/assets/spotly-sevilla-noche-ref.jpg";
 import stagePhoto from "@/assets/spotly-live-stage.jpg";
@@ -261,23 +264,33 @@ const nets: Net[] = [
   { name: "Correo", hex: "#0A84FF", custom: <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg> },
 ];
 
-function ShareSheet({ s, onClose }: { s: SpotData; onClose: () => void }) {
+/** Compartir un Spot: en cada red con su enlace web (o la hoja nativa del móvil) y copiar el enlace. Los Spots de
+ *  ejemplo y los guardados solo en este dispositivo no tienen enlace público. */
+function ShareSheet({ s, who, onClose }: { s: SpotData; who: string; onClose: () => void }) {
+  const { demo } = useStore();
   const [sent, setSent] = useState<string[]>([]);
   const people = ["Laura","Carlos","Marta","Javi","Lucía"];
-  const act = (m: string) => { toast(m); onClose(); };
+  const url = s.cloud ? spotLink(s.id) : null;
+  const text = `«${s.text}» · ${who} en Spotly`;
+  const noLink = () => toast(s.cloud ? "Los enlaces funcionarán cuando la app esté publicada en su dirección web." : s.own ? "Este Spot está guardado solo en tu móvil: no tiene enlace público." : "Spot de ejemplo: no tiene enlace.");
+  const openNet = (n: Net) => {
+    if (!url) { noLink(); return; }
+    const target = networkShareUrl(n.name, url, text);
+    if (target?.startsWith("mailto:") || target?.startsWith("sms:")) { window.location.href = target; onClose(); return; }
+    if (target) { window.open(target, "_blank", "noopener,noreferrer"); onClose(); return; }
+    void shareLink({ title: "Spotly", text, url }).then((ok) => { if (ok) onClose(); });
+  };
   return <BottomSheet onClose={onClose} z={50}>
-    <div className="flex items-center gap-3 rounded-2xl bg-secondary p-2"><img src={s.img} alt="" className="h-14 w-14 rounded-xl object-cover"/><div className="min-w-0"><p className="text-sm font-semibold">Spot de {s.name}</p><p className="truncate text-xs text-muted-foreground">{s.text}</p></div></div>
-    <p className="mt-4 px-1 text-xs font-semibold text-muted-foreground">ENVIAR EN SPOTLY</p>
-    <div className="mt-2 flex gap-4 overflow-x-auto pb-1">{people.map(p=>{const on=sent.includes(p);return <button key={p} onClick={()=>{if(!on){setSent([...sent,p]);toast("Spot enviado a "+p)}}} className="flex w-14 shrink-0 flex-col items-center gap-1"><span className={"grid h-14 w-14 place-items-center rounded-full text-lg font-bold "+(on?"bg-primary text-primary-foreground":"bg-secondary")}>{on?<Check size={20}/>:p[0]}</span><span className="text-2xs">{on?"Enviado":p}</span></button>})}</div>
+    <div className="flex items-center gap-3 rounded-2xl bg-secondary p-2">{s.img ? <img src={s.img} alt="" className="h-14 w-14 rounded-xl object-cover"/> : <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-spot-gradient"><Mic size={22} /></span>}<div className="min-w-0"><p className="text-sm font-semibold">Spot de {who}</p><p className="truncate text-xs text-muted-foreground">{s.text}</p></div></div>
+    {demo && <><p className="mt-4 px-1 text-xs font-semibold text-muted-foreground">ENVIAR EN SPOTLY</p>
+    <div className="mt-2 flex gap-4 overflow-x-auto pb-1">{people.map(p=>{const on=sent.includes(p);return <button key={p} onClick={()=>{if(!on){setSent([...sent,p]);toast("Spot enviado a "+p)}}} className="flex w-14 shrink-0 flex-col items-center gap-1"><span className={"grid h-14 w-14 place-items-center rounded-full text-lg font-bold "+(on?"bg-primary text-primary-foreground":"bg-secondary")}>{on?<Check size={20}/>:p[0]}</span><span className="text-2xs">{on?"Enviado":p}</span></button>})}</div></>}
     <p className="mt-4 px-1 text-xs font-semibold text-muted-foreground">COMPARTIR FUERA</p>
-    <div className="mt-2 grid grid-cols-4 gap-y-3">{nets.map(n=><button key={n.name} onClick={()=>act(n.name==="Correo"?"Abriendo tu correo…":"Abriendo "+n.name+"…")} className="flex flex-col items-center gap-1 rounded-xl py-1 hover:bg-secondary"><span className="grid h-12 w-12 place-items-center rounded-full" style={{ background: n.hex, color: n.dark ? "#000000" : "#FFFFFF" }}>{n.custom ?? (n.icon ? <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current"><path d={n.icon.path}/></svg> : null)}</span><span className="text-2xs">{n.name}</span></button>)}
-      <button onClick={()=>act("Elige dónde compartir…")} className="flex flex-col items-center gap-1 rounded-xl py-1 hover:bg-secondary"><span className="grid h-12 w-12 place-items-center rounded-full bg-secondary text-foreground"><MoreHorizontal size={20}/></span><span className="text-2xs">Más</span></button></div>
-    <Button variant="secondary" className="mt-4 w-full" onClick={()=>act("Enlace del Spot copiado")}>Copiar enlace</Button>
+    <div className="mt-2 grid grid-cols-4 gap-y-3">{nets.map(n=><button key={n.name} onClick={()=>openNet(n)} className="flex flex-col items-center gap-1 rounded-xl py-1 hover:bg-secondary"><span className="grid h-12 w-12 place-items-center rounded-full" style={{ background: n.hex, color: n.dark ? "#000000" : "#FFFFFF" }}>{n.custom ?? (n.icon ? <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current"><path d={n.icon.path}/></svg> : null)}</span><span className="text-2xs">{n.name}</span></button>)}
+      <button onClick={()=>{ if (!url) { noLink(); return; } void shareLink({ title: "Spotly", text, url }).then((ok) => { if (ok) onClose(); }); }} className="flex flex-col items-center gap-1 rounded-xl py-1 hover:bg-secondary"><span className="grid h-12 w-12 place-items-center rounded-full bg-secondary text-foreground"><MoreHorizontal size={20}/></span><span className="text-2xs">Más</span></button></div>
+    <Button variant="secondary" className="mt-4 w-full" onClick={()=>{ if (!url) { noLink(); return; } void copySpotLink(s.id).then((ok) => { if (ok) onClose(); }); }}>Copiar enlace</Button>
   </BottomSheet>;
 }
 
-type SpotData = { id: string; name: string; handle?: string; city: string; province?: string; ago: string; img: string; tag: string; tagLive?: boolean; dist: string; text: string; dur: string; likes: number; replies?: number; shares?: number; hashtag?: string; tags?: string[]; verified?: boolean; boosted?: boolean; incognito?: boolean; own?: boolean;
-  /** Audio real (tus Spots); los de ejemplo no tienen. */ audio?: MySpot["audio"] | undefined; /** Vídeo real de tu Spot. */ video?: string | undefined };
 const spots: Record<string, SpotData> = {
   laura: { id: "laura", name: "Lucíaa", handle: "luciaa", city: "Marbella", province: "Málaga", ago: "Ahora", img: sevilleEvening, tag: "Está pasando", tagLive: true, dist: "320 m", text: "Chicos  no vais a creer con quién me he encontrado esta noche en Marbella... 👀🔥", dur: "0:14", likes: 1200, replies: 342, shares: 87, hashtag: "Cotilleo", tags: ["Marbella", "Vida nocturna", "Famosos"], verified: true },
   andrea: { id: "andrea", name: "andreaa.s", handle: "andreaas", city: "Madrid", province: "Madrid", ago: "12 min", img: stagePhoto, tag: "En directo", tagLive: true, dist: "2,1 km", text: "Lo que está pasando ahora mismo en Gran Vía… nadie se lo espera 😱", dur: "0:22", likes: 890, replies: 211, shares: 45, hashtag: "Madrid", tags: ["Madrid", "Centro", "Sorpresa"], verified: true },
@@ -291,10 +304,29 @@ type FeedTab = (typeof feedTabs)[number];
 function SpotMenu({ s, onClose, onStatus }: { s: SpotData; onClose: () => void; onStatus: (v: "ok" | "reported" | "deleted" | "hidden") => void }) {
   const app = useApp();
   const { following } = useStore();
+  useCloud();
   const [view, setView] = useState<"menu" | "report" | "sent">("menu");
   const [reason, setReason] = useState("");
-  const follows = following.includes(s.name);
-  const copy = () => { try { void navigator.clipboard?.writeText(`https://spotly.app/spot/${s.id}`); } catch { /* sin permiso de portapapeles */ } toast("Enlace copiado"); onClose(); };
+  const follows = s.cloud ? isFollowingId(s.authorId) : following.includes(s.name);
+  const copy = () => { void copySpotLink(s.id); onClose(); };
+  const follow = () => {
+    if (s.cloud && s.authorId) void followId(s.authorId, !follows).then((ok) => { if (ok) toast(follows ? `Has dejado de seguir a ${s.name}` : `Ahora sigues a ${s.name}`); });
+    else { toggleFollow(s.name); toast(follows ? `Has dejado de seguir a ${s.name}` : `Ahora sigues a ${s.name}`); }
+    onClose();
+  };
+  const blockAuthor = () => {
+    const uid = cloudUid();
+    if (s.cloud && s.authorId && uid) {
+      void api.block(db(), uid, s.authorId, true).then(() => { onStatus("hidden"); toast(`Has bloqueado a ${s.name}`); }).catch((e) => toast.error(cloudErrorText(e)));
+    } else { blockUser(s.incognito ? "Incógnito #4821" : s.name); if (s.cloud) onStatus("hidden"); toast(`Has bloqueado a ${s.incognito ? "este autor anónimo" : s.name}`); }
+    onClose();
+  };
+  const sendReport = () => {
+    const uid = cloudUid();
+    addReport(`Spot de ${s.incognito ? "autor anónimo" : s.name}`, reason);
+    if (s.cloud && uid) void api.report(db(), uid, "spot", s.id, reason).catch((e) => toast.error(cloudErrorText(e)));
+    onStatus("reported"); setView("sent");
+  };
   const row = "w-full rounded-xl px-4 py-3 text-left text-sm hover:bg-secondary";
   return <BottomSheet onClose={onClose} z={70}><div className="space-y-1">
     {view === "menu" && <>
@@ -303,23 +335,23 @@ function SpotMenu({ s, onClose, onStatus }: { s: SpotData; onClose: () => void; 
         <button className={row} onClick={copy}>Copiar enlace</button>
         <button className={row + " text-live"} onClick={() => { onStatus("deleted"); deleteSpot(s.id); toast("Spot eliminado"); onClose(); }}>Eliminar Spot</button>
       </> : <>
-        {!s.incognito && <button className={row} onClick={() => { toggleFollow(s.name); toast(follows ? `Has dejado de seguir a ${s.name}` : `Ahora sigues a ${s.name}`); onClose(); }}>{follows ? "Dejar de seguir" : "Seguir al autor"}</button>}
+        {!s.incognito && (!s.cloud || s.authorId) && <button className={row} onClick={follow}>{follows ? "Dejar de seguir" : "Seguir al autor"}</button>}
         <button className={row} onClick={() => { onStatus("hidden"); toast("Verás menos Spots así", { action: { label: "Deshacer", onClick: () => onStatus("ok") } }); onClose(); }}>No me interesa</button>
         <button className={row} onClick={copy}>Copiar enlace</button>
-        <button className={row} onClick={() => { blockUser(s.incognito ? "Incógnito #4821" : s.name); toast(`Has bloqueado a ${s.incognito ? "este autor anónimo" : s.name}`); onClose(); }}>Bloquear {s.incognito ? "autor anónimo" : "a " + s.name}</button>
+        <button className={row} onClick={blockAuthor}>Bloquear {s.incognito ? "autor anónimo" : "a " + s.name}</button>
         <button className={row + " text-live"} onClick={() => setView("report")}>Denunciar</button>
       </>}
       <Button variant="ghost" className="w-full" onClick={onClose}>Cancelar</Button></>}
     {view === "report" && <><h3 className="px-2 pb-1 text-lg font-bold">¿Por qué denuncias este Spot?</h3><p className="px-2 pb-2 text-xs text-muted-foreground">Tu denuncia es anónima. El autor no sabrá quién la envió.</p>
       {["Spam o engaño", "Acoso o insultos", "Contenido sexual", "Violencia o peligro", "Información falsa", "Suplantación de identidad"].map((r) => <button key={r} onClick={() => setReason(r)} className={"flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-sm " + (reason === r ? "bg-secondary text-foreground" : "hover:bg-secondary")}>{r}{reason === r && <Check size={16} className="text-primary" />}</button>)}
-      <div className="flex gap-2 pt-3"><Button variant="ghost" className="flex-1" onClick={() => setView("menu")}>Atrás</Button><Button className="flex-1 bg-live bg-none text-foreground hover:bg-live/90" disabled={!reason} onClick={() => { addReport(`Spot de ${s.incognito ? "autor anónimo" : s.name}`, reason); onStatus("reported"); setView("sent"); }}>Enviar denuncia</Button></div></>}
+      <div className="flex gap-2 pt-3"><Button variant="ghost" className="flex-1" onClick={() => setView("menu")}>Atrás</Button><Button className="flex-1 bg-live bg-none text-foreground hover:bg-live/90" disabled={!reason} onClick={sendReport}>Enviar denuncia</Button></div></>}
     {view === "sent" && <div className="flex flex-col items-center gap-3 py-6 text-center"><div className="grid h-16 w-16 place-items-center rounded-full bg-primary/15 text-primary"><Check size={30} /></div><h3 className="text-lg font-bold">Gracias por avisarnos</h3><p className="text-sm text-muted-foreground">Revisaremos "{reason}". Ya no verás este Spot. Sigue el estado en Bloqueos y denuncias.</p><Button className="mt-2 w-full" onClick={onClose}>Entendido</Button></div>}
   </div></BottomSheet>;
 }
 
 export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean }) {
   const { blocked, demo } = useStore();
-  const [liked, setLiked] = useState(false);
+  const [likedHere, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [reply, setReply] = useState(false);
   const [share, setShare] = useState(false);
@@ -336,10 +368,16 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
   const key = spotKeyOf(s);
   const audioId = `spot-audio:${key}`;
   const pb = useVoicePlayback(audioId);
-  const myReplies = useThread(`spot:${key}`).length;
-  const peaks = useMemo(() => s.audio?.peaks ?? seededPeaks(key, 40), [s.audio, key]);
+  /* En la nube el número de respuestas viene del servidor (no se abre la conversación de cada tarjeta del feed). */
+  const myReplies = useThread(s.cloud ? "" : `spot:${key}`).length;
+  const replyCount = s.cloud ? (s.replies ?? 0) : (s.replies ?? 0) + myReplies;
+  const liked = s.cloud ? !!s.liked : likedHere;
+  const likeCount = s.cloud ? s.likes : s.likes + (likedHere ? 1 : 0);
+  const like = () => { if (s.cloud) toggleSpotLike(s.id); else setLiked(!likedHere); };
+  const peaks = useMemo(() => (s.audio?.peaks.length ? s.audio.peaks : seededPeaks(key, 40)), [s.audio, key]);
   const totalMs = s.audio?.durationMs ?? clockToMs(s.dur);
-  const play = () => { if (!s.audio) { toast("Spot de ejemplo: no tiene audio. Los Spots grabados con tu voz se escuchan aquí."); return; } toggleVoice(audioId, s.audio.src, s.audio.durationMs); };
+  const play = () => { if (!s.audio) { toast("Spot de ejemplo: no tiene audio. Los Spots grabados con tu voz se escuchan aquí."); return; } if (s.cloud && !s.own && !pb.playing) recordSpotView(s.id); toggleVoice(audioId, s.audio.src, s.audio.durationMs); };
+  const authorPhoto = s.cloud ? s.avatar : s.img;
   if (status === "hidden") return null;
   if (status === "deleted") return <ContentState kind="deleted" who={s.name} />;
   if (status === "reported") return <ContentState kind="reported" who={s.name} onUndo={() => setStatus("ok")} />;
@@ -354,7 +392,7 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
         <div className="absolute inset-x-3 bottom-3 flex items-center gap-2">
           {s.incognito
             ? <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-black/50"><Ghost size={13} className="text-white" /></span>
-            : s.own ? <MeAvatar className="h-7 w-7 text-3xs ring-1 ring-white/60" /> : <img src={s.img} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-white/60" />}
+            : s.own ? <MeAvatar className="h-7 w-7 text-3xs ring-1 ring-white/60" /> : authorPhoto ? <img src={authorPhoto} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-white/60" /> : <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-spot-gradient text-3xs font-bold text-white ring-1 ring-white/60">{(s.name.replace("@", "")[0] ?? "?").toUpperCase()}</span>}
           <span className="min-w-0 flex-1">
             <span className="block text-xs font-bold text-white">{who}
               {s.verified && <svg viewBox="0 0 16 16" className="ml-1 inline h-3 w-3 fill-[#6366f1]"><circle cx="8" cy="8" r="8"/><path d="m5 8 2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
@@ -385,8 +423,8 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
       <div className="absolute left-3 top-4 flex items-start gap-2.5" style={{ zIndex: 2, right: "4rem" }}>
         {s.incognito
           ? <span className="mt-0.5 grid h-11 w-11 shrink-0 place-items-center rounded-full border-2 border-white/60 bg-black/50"><Ghost size={18} className="text-white" /></span>
-          : <button onClick={(e) => { e.stopPropagation(); if (!s.own) setAuthor(true); }} className="relative mt-0.5 shrink-0">
-              {s.own ? <span className="block rounded-full" style={{ boxShadow: "0 0 0 2.5px #a855f7, 0 0 0 4.5px #6366f1" }}><MeAvatar className="h-11 w-11 text-base" /></span> : <img src={s.img} alt="" className="h-11 w-11 rounded-full object-cover" style={{ boxShadow: "0 0 0 2.5px #a855f7, 0 0 0 4.5px #6366f1" }} />}
+          : <button onClick={(e) => { e.stopPropagation(); if (!s.own) setAuthor(true); }} aria-label={s.own ? "Tu foto" : `Ver el perfil de ${who}`} className="relative mt-0.5 shrink-0">
+              {s.own ? <span className="block rounded-full" style={{ boxShadow: "0 0 0 2.5px #a855f7, 0 0 0 4.5px #6366f1" }}><MeAvatar className="h-11 w-11 text-base" /></span> : authorPhoto ? <img src={authorPhoto} alt="" className="h-11 w-11 rounded-full object-cover" style={{ boxShadow: "0 0 0 2.5px #a855f7, 0 0 0 4.5px #6366f1" }} /> : <span className="grid h-11 w-11 place-items-center rounded-full bg-spot-gradient text-base font-bold text-white" style={{ boxShadow: "0 0 0 2.5px #a855f7, 0 0 0 4.5px #6366f1" }}>{(s.name.replace("@", "")[0] ?? "?").toUpperCase()}</span>}
             </button>}
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1 text-sm font-bold leading-snug text-white drop-shadow">
@@ -396,7 +434,7 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
           <p className="flex items-center gap-1 text-2xs text-white/75">
             <MapPin size={10} className="shrink-0" />{s.city}{s.province ? `, ${s.province}` : ""} · {s.ago}
             {/* Con una cuenta real, el contenido de muestra se rotula hasta que llegue el de la comunidad. */}
-            {!s.own && !demo && <span className="ml-1 rounded-full border border-white/40 px-1.5 text-4xs">ejemplo</span>}
+            {!s.own && !demo && !s.cloud && <span className="ml-1 rounded-full border border-white/40 px-1.5 text-4xs">ejemplo</span>}
           </p>
           {s.tagLive && <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-black/50 px-2.5 py-0.5 text-3xs font-bold text-white backdrop-blur-sm" style={{ border: "1px solid rgba(255,255,255,0.25)" }}>
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#a855f7]" />Está pasando
@@ -414,24 +452,24 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
 
       {/* Acciones laterales — derecha centro-abajo */}
       <div className="spot-card-actions absolute bottom-3 right-3 flex flex-col items-center gap-5" style={{ zIndex: 2 }}>
-        <button onClick={(e) => { e.stopPropagation(); setLiked(!liked); }} className="flex flex-col items-center gap-0.5">
+        <button onClick={(e) => { e.stopPropagation(); like(); }} aria-pressed={liked} aria-label={`Me gusta (${likeCount})`} className="flex flex-col items-center gap-0.5">
           <Heart size={30} className={liked ? "text-[#ef4444]" : "text-white"} fill={liked ? "currentColor" : "none"} style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.7))" }} />
-          <span className="text-2xs font-bold text-white drop-shadow">{fmt(s.likes + (liked ? 1 : 0))}</span>
+          <span className="text-2xs font-bold text-white drop-shadow">{fmt(likeCount)}</span>
         </button>
-        <button onClick={(e) => { e.stopPropagation(); setReply(true); }} className="flex flex-col items-center gap-0.5">
+        <button onClick={(e) => { e.stopPropagation(); if (s.repliesAllowed === false) toast("Su autor ha cerrado las respuestas de este Spot."); else setReply(true); }} aria-label={`Responder con tu voz (${replyCount} respuestas)`} className="flex flex-col items-center gap-0.5">
           <div className="grid h-[2.125rem] w-[2.125rem] place-items-center rounded-full border-2 border-white/80 bg-black/30 backdrop-blur-sm">
             <Mic size={17} className="text-white" />
           </div>
-          <span className="text-2xs font-bold text-white drop-shadow">{fmt((s.replies ?? 0) + myReplies)}</span>
+          <span className="text-2xs font-bold text-white drop-shadow">{fmt(replyCount)}</span>
         </button>
         <button onClick={(e) => { e.stopPropagation(); setShare(true); }} className="flex flex-col items-center gap-0.5">
           <div className="grid h-[2.125rem] w-[2.125rem] place-items-center">
             <svg viewBox="0 0 24 24" className="h-7 w-7 fill-none stroke-white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.7))" }}><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
           </div>
-          <span className="text-2xs font-bold text-white drop-shadow">{fmt(s.shares ?? 0)}</span>
+          <span className="text-2xs font-bold text-white drop-shadow">{s.cloud || s.own ? "Enviar" : fmt(s.shares ?? 0)}</span>
         </button>
-        <button onClick={(e) => { e.stopPropagation(); setSaved(!saved); toast(saved ? "Quitado de guardados" : "Guardado"); }} className="flex flex-col items-center gap-0.5">
-          <Bookmark size={28} className="text-white" fill={saved ? "currentColor" : "none"} style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.7))" }} />
+        <button onClick={(e) => { e.stopPropagation(); if (s.cloud) { const on = toggleSpotSaved(s.id); if (on !== null) toast(on ? "Guardado en tu perfil" : "Quitado de guardados"); } else { setSaved(!saved); toast(saved ? "Quitado de guardados" : "Guardado"); } }} aria-pressed={s.cloud ? !!s.saved : saved} className="flex flex-col items-center gap-0.5">
+          <Bookmark size={28} className="text-white" fill={(s.cloud ? s.saved : saved) ? "currentColor" : "none"} style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.7))" }} />
           <span className="text-2xs font-bold text-white drop-shadow">Guardar</span>
         </button>
       </div>
@@ -446,7 +484,7 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
         </button>
         <VoiceWave peaks={peaks} progress={pb.active && totalMs ? pb.positionMs / totalMs : 0} playhead={pb.active} className="h-7 flex-1" label={`Audio de ${who}`} onSeek={s.audio ? (r) => { const a = s.audio!; if (pb.active) seekVoice(audioId, r * a.durationMs); else playVoice(audioId, a.src, a.durationMs, r * a.durationMs); } : undefined} />
         <span className="shrink-0 text-xs font-medium tabular-nums text-white/70">{pb.active ? formatClock(pb.positionMs) : s.dur}</span>
-        <button onClick={() => setReply(true)} className="shrink-0 flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-white" style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
+        <button onClick={() => { if (s.repliesAllowed === false) toast("Su autor ha cerrado las respuestas de este Spot."); else setReply(true); }} className="shrink-0 flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-white" style={{ background: "linear-gradient(135deg,#7c3aed,#3b82f6)" }}>
           <Mic size={12} className="text-white" />Voz
         </button>
       </div>
@@ -467,19 +505,13 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
       <p className="mt-2 text-center text-2xs text-white/40">Desliza para ver el siguiente cotilleo <span className="text-white/60">↓</span></p>
     </div>
 
-    {reply && <VoiceReply name={who} threadId={`spot:${key}`} target={{ name: who, author: { name: s.name, avatar: s.img || undefined, anon: s.incognito, mine: s.own }, atMs: pb.active ? pb.positionMs : 0, durationMs: totalMs }} onClose={() => setReply(false)} />}
-    {share && <ShareSheet s={s} onClose={() => setShare(false)} />}
+    {reply && <VoiceReply name={who} threadId={`spot:${key}`} target={{ name: who, author: { id: s.authorId, name: s.name, avatar: authorPhoto || undefined, anon: s.incognito, mine: s.own }, atMs: pb.active ? pb.positionMs : 0, durationMs: totalMs }} onSent={() => { if (s.cloud) setSpotReplies(s.id, replyCount + 1); }} onClose={() => setReply(false)} />}
+    {share && <ShareSheet s={s} who={who} onClose={() => setShare(false)} />}
     {menu && <SpotMenu s={s} onClose={() => setMenu(false)} onStatus={setStatus} />}
-    {detail && <SpotDetail s={s} onClose={() => setDetail(false)} onAuthor={() => setAuthor(true)} />}
-    {author && <AuthorProfile name={s.name} onClose={() => setAuthor(false)} />}
+    {detail && <SpotDetail s={s} onClose={() => setDetail(false)} onAuthor={() => { if (!s.incognito && !s.own) setAuthor(true); }} />}
+    {author && <AuthorProfile name={s.name} id={s.cloud ? s.authorId : undefined} avatar={authorPhoto} onClose={() => setAuthor(false)} />}
   </article>;
 }
-
-/** Etiqueta del Spot según su tema. */
-const TOPIC_TAG: Record<string, string> = { "¿Qué está pasando?": "Cotilleo", Planes: "Planes", Música: "Música", Comida: "Comida", Opiniones: "Opinión", "Algo que contar": "Historia" };
-const agoOf = (t: number) => { const m = Math.max(0, Math.round((Date.now() - t) / 60000)); return m < 1 ? "Ahora" : m < 60 ? `${m} min` : m < 1440 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} d`; };
-/** Tu Spot en el formato del feed: título, voz real y tu foto o vídeo (sin foto, la tarjeta pinta tu onda). */
-const mineData = (m: MySpot, name = "Tú"): SpotData => ({ id: m.id, name, city: m.city, ago: agoOf(m.createdAt), img: m.media?.kind === "photo" ? m.media.src : "", video: m.media?.kind === "video" ? m.media.src : undefined, tag: m.happeningNow ? "Está pasando" : "Tuyo", tagLive: m.happeningNow, dist: "Aquí", text: m.title, dur: formatClock(m.audio.durationMs), likes: 0, replies: 0, shares: 0, hashtag: TOPIC_TAG[m.topic] ?? "Spot", tags: [m.city, m.zone].filter((x, i, a) => x && a.indexOf(x) === i), boosted: m.boosted, incognito: m.anon, own: true, audio: m.audio });
 
 /* Tabs de feed con iconos estilo diseño */
 const TAB_ICONS: Record<string, ReactNode> = {
@@ -489,20 +521,26 @@ const TAB_ICONS: Record<string, ReactNode> = {
   "España": <Flame size={12} className="shrink-0" />,
 };
 
-export function HomeView({ mine, onBell }: { mine: MineSpot; onBell: () => void }) {
+export function HomeView({ onBell }: { mine: MineSpot; onBell: () => void }) {
   const me = useMe();
   const app = useApp();
   const { bizCampaign, offline, following } = useStore();
+  const cloud = useCloud();
   const now = useNow();
   const [filter, setFilter] = useState<FeedTab>("Todo");
-  const [phase, setPhase] = useState<"ok" | "loading" | "error">("ok");
+  const [localPhase, setPhase] = useState<"ok" | "loading" | "error">("ok");
+  /* Con la nube, cada pestaña es una consulta real: Todo (lo último), Cerca (tu ciudad), Suscrito (a quien sigues) y
+     España (lo más escuchado de la semana), con scroll infinito. */
+  const feed = useCloudFeed(filter === "Cerca" ? { kind: "recent", city: me.city, enabled: cloud.on } : filter === "Suscrito" ? { kind: "recent", following: true, enabled: cloud.on } : filter === "España" ? { kind: "trending", enabled: cloud.on } : { kind: "recent", enabled: cloud.on });
   const load = (t: FeedTab) => {
     setFilter(t);
+    if (cloud.on) { if (t === filter) feed.refresh(); return; }
     if (offline) { setPhase("error"); return; }
     setPhase("loading");
     window.setTimeout(() => setPhase("ok"), 350);
   };
-  /* Tus Spots publicados (guardados con su voz) van primero en Todo, Cerca y España. */
+  const phase = cloud.on ? (feed.status === "error" && !feed.spots.length ? "error" : (feed.status === "loading" || feed.status === "idle") && !feed.spots.length ? "loading" : "ok") : localPhase;
+  /* Sin nube, tus Spots publicados (guardados con su voz) van primero en Todo, Cerca y España. */
   const mySpots = useMySpots();
   const carmenOn = !!bizCampaign && now > 0 && campaignEligible(bizCampaign, getBiz("carmen").distM, new Date(now));
   const sponsor = <SponsoredSpot key="sp" b={getBiz(carmenOn ? "carmen" : "trinche")} />;
@@ -516,8 +554,20 @@ export function HomeView({ mine, onBell }: { mine: MineSpot; onBell: () => void 
   };
 
   const spotItems = spotLists[filter];
-  const allCards: SpotData[] = filter === "Suscrito" ? spotItems : [...mySpots.map((m) => mineData(m, me.name)), ...spotItems];
+  /* En la nube, los ejemplos (rotulados) solo rellenan mientras haya pocos Spots reales. */
+  const real = cloud.on ? feed.spots.map((m) => spotData(m, me.name)) : [];
+  const allCards: SpotData[] = cloud.on ? [...real, ...(real.length < 5 && filter !== "Suscrito" && feed.status === "ready" && !feed.hasMore ? spotItems : [])]
+    : filter === "Suscrito" ? spotItems : [...mySpots.map((m) => spotData(m, me.name)), ...spotItems];
   const empty = filter === "Suscrito" && allCards.length === 0;
+  /* Scroll infinito: al acercarse al final se pide la siguiente página. */
+  const sentinel = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!cloud.on || !el || !feed.hasMore || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) feed.loadMore(); }, { rootMargin: "120% 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [cloud.on, feed, feed.hasMore, real.length]);
 
   /* Feed a pantalla completa: mientras Inicio está abierto el documento encaja por páginas y la cabecera fija
      publica su alto real, que las páginas restan para terminar justo encima de la barra inferior. */
@@ -578,7 +628,7 @@ export function HomeView({ mine, onBell }: { mine: MineSpot; onBell: () => void 
       )}
       {phase === "error" && (
         <div className="spot-feed-page grid place-items-center px-3">
-          <StateCard icon={WifiOff} tone="muted" title="No se pudo cargar el feed" text="Sin conexión." action="Reintentar" onAction={() => { if (offline) toast.error("Sigues sin conexión"); else load(filter); }} />
+          <StateCard icon={WifiOff} tone="muted" title="No se pudo cargar el feed" text="Sin conexión." action="Reintentar" onAction={() => { if (offline) toast.error("Sigues sin conexión"); else if (cloud.on) feed.refresh(); else load(filter); }} />
         </div>
       )}
       {phase === "ok" && (empty ? (
@@ -597,17 +647,20 @@ export function HomeView({ mine, onBell }: { mine: MineSpot; onBell: () => void 
               {/* Una página = un Spot: ocupa toda la pantalla y encaja al deslizar */}
               <section className="spot-feed-page" aria-label={`Spot de ${s.incognito ? "Anónimo" : s.own ? me.name : s.name}`}><SpotCard s={s} /></section>
               {/* Lo patrocinado y los Hot Spots también ocupan su propia página, sobre su foto difuminada */}
-              {i === 0 && <FeedInsert img={getBiz(carmenOn ? "carmen" : "trinche").img}>{sponsor}</FeedInsert>}
-              {i === 2 && <FeedInsert img={hotspots[0]!.img}><HotSpotCard h={hotspots[0]!} /></FeedInsert>}
+              {/* Lo patrocinado y los Hot Spots de ejemplo solo en la demostración y sin nube (nada de anuncios falsos con datos reales). */}
+              {!cloud.on && i === 0 && <FeedInsert img={getBiz(carmenOn ? "carmen" : "trinche").img}>{sponsor}</FeedInsert>}
+              {!cloud.on && i === 2 && <FeedInsert img={hotspots[0]!.img}><HotSpotCard h={hotspots[0]!} /></FeedInsert>}
               {i === 4 && <FeedInsert img={sevilleNightPhoto}><IncognitoSpotCard /></FeedInsert>}
+              {cloud.on && i === real.length - 1 && <div ref={sentinel} aria-hidden="true" />}
             </Fragment>
           ))}
+          {cloud.on && feed.hasMore && <div className="spot-feed-page bg-black" aria-busy="true"><Skeleton className="h-full rounded-none" /></div>}
           <div className="spot-feed-snap-start pt-3">
-            <PeopleStrip />
+            {!cloud.on && <PeopleStrip />}
             <FlashOfferCard />
             <p className="px-6 pb-2 pt-4 text-center text-2xs text-muted-foreground">
               <Flame size={12} className="mr-1 inline text-live" />Lo pagado se etiqueta "Impulsado" o "Patrocinado".
-              <button onClick={() => load(filter)} className="ml-2 inline-flex items-center gap-1 text-primary"><RefreshCw size={11} />Actualizar</button>
+              <button onClick={() => (cloud.on ? feed.refresh() : load(filter))} className="ml-2 inline-flex items-center gap-1 text-primary"><RefreshCw size={11} />Actualizar</button>
             </p>
           </div>
         </>

@@ -36,6 +36,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { VoiceErrorToasts } from "@/components/spotly/VoiceThread";
 import { stopAllVoices } from "@/lib/voice/player";
 import { loadVoiceNotes } from "@/lib/voice/notes";
+import { startCloud } from "@/lib/cloud";
+import { SharedLink } from "@/components/spotly/SharedLink";
 
 export const Route = createFileRoute("/")({
   head: () => ({ meta: [
@@ -77,8 +79,10 @@ export function Index() {
   useEffect(() => {
     loadMe(); // tu nombre y tu foto guardados en este dispositivo
     void loadVoiceNotes(); // tus voces guardadas en este dispositivo
+    const offCloud = startCloud(); // con sesión y la migración aplicada: Spots, voces, seguidores y chats en la nube
     registerSW();
-    const off = enableDragScroll();
+    const offDrag = enableDragScroll();
+    const off = () => { offDrag(); offCloud(); };
     const a = new URLSearchParams(window.location.search).get("accion");
     if (a === "crear") setCreating(true);
     if (a === "buscar") setSheet("buscar");
@@ -160,6 +164,7 @@ export function Index() {
         {!splash && welcome && <Welcome onEnter={() => { setWelcome(false); setOnb(true); }} onAuthenticated={() => setWelcome(false)} onSkipAll={() => { setWelcome(false); setOnb(false); setDemo(true); setIdentity("approved"); setIdTier("premium"); toast("Modo demostración: todo desbloqueado para que lo pruebes.", { duration: 4000, position: "top-center" }); }} />}
         {onb && <Onboarding onBack={() => { setOnb(false); setWelcome(true); }} onDone={() => { setOnb(false); void supabase.auth.updateUser({ data: { onboarded: true } }).catch(() => undefined); if (getState().identity !== "approved") setSheet("verificacion"); }} />}
         {recovery && <NewPassword mode="recovery" onDone={() => setRecovery(false)} />}
+        {!splash && !welcome && <SharedLink />}
         <OfflineBanner />
         <VoiceErrorToasts />
         <Toaster mobileOffset={{ top: "calc(env(safe-area-inset-top) + 0.625rem)", bottom: "calc(env(safe-area-inset-bottom) + 5.25rem)" }} />

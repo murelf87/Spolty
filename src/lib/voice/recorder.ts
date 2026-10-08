@@ -244,6 +244,14 @@ export function useVoiceRecorder({ maxSeconds = 30, minMs = 800 }: { maxSeconds?
     return c;
   }, [clip]);
 
+  /** Recupera una grabación entregada que no se pudo enviar (para reintentar sin volver a grabar). */
+  const restore = useCallback((c: VoiceClip) => {
+    if (!r.current.alive) return;
+    if (r.current.clipUrl && r.current.clipUrl !== c.url) URL.revokeObjectURL(r.current.clipUrl);
+    r.current.clipUrl = c.url;
+    setClip(c); setElapsed(c.durationMs); setLive([]); setState("recorded");
+  }, []);
+
   useEffect(() => {
     const s = r.current;
     s.alive = true;
@@ -255,7 +263,7 @@ export function useVoiceRecorder({ maxSeconds = 30, minMs = 800 }: { maxSeconds?
     };
   }, [release]);
 
-  return { state, elapsedMs, live, clip, error, maxMs, start, stop, cancel, discard, take, fromFile, supported: micSupported() };
+  return { state, elapsedMs, live, clip, error, maxMs, start, stop, cancel, discard, take, restore, fromFile, supported: micSupported() };
 }
 
 /** Mensaje claro para cada error de grabación. */

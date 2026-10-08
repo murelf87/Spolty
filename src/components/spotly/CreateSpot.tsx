@@ -17,10 +17,11 @@ import { formatClock, recorderErrorText, useVoiceRecorder } from "@/lib/voice/re
 import { stopAllVoices, toggleVoice, useVoicePlayback, playVoice } from "@/lib/voice/player";
 import { useCamera, VIDEO_MAX_MS } from "@/lib/camera";
 import { publishSpot } from "@/lib/spots";
-import { SignAs } from "./Author";
+import { cloudErrorText } from "@/lib/cloud";
+import { SignAs, useAnonAllowed } from "./Author";
 
 const opts = {
-  vis: ["Todos (público)", "Solo cerca (1 km)", "Solo seguidores"],
+  vis: ["Todos (público)", "Solo cerca (tu ciudad)", "Solo seguidores"],
   topic: ["¿Qué está pasando?", "Planes", "Música", "Comida", "Opiniones", "Algo que contar"],
   precision: locationPrecision.map((p) => p.label),
 };
@@ -36,7 +37,9 @@ type Media = { blob: Blob; url: string; kind: "photo" | "video" };
  */
 export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPublished: (m: NonNullable<MineSpot>) => void }) {
   const app = useApp();
-  const { incognito, credits } = useStore();
+  const { credits } = useStore();
+  const anonAllowed = useAnonAllowed();
+  const incognito = { active: anonAllowed.active };
   const me = useMe();
   /* Firma del Spot: tu nombre, o «Anónimo» con fantasma si tienes Incógnito (de pago) activo. */
   const [anon, setAnon] = useState(incognito.active);
@@ -109,21 +112,28 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
 
   const titleOk = title.trim().length >= 3;
   const zoneLabel = hidden ? "Ubicación oculta" : city;
-  const publish = () => {
+  /* Se publica con el audio aún en la grabadora: si la red falla, el Spot no se pierde y se puede reintentar. */
+  const publish = async () => {
     if (gatePub || publishing) return;
-    if (!rec.clip) { toast.error("Graba tu voz antes de publicar."); setStep(2); return; }
+    const clip = rec.clip;
+    if (!clip) { toast.error("Graba tu voz antes de publicar."); setStep(2); return; }
     if (!titleOk) { toast.error("Ponle un título de al menos 3 letras."); return; }
+    if (anon && sel.vis === 2) { toast.error("Un Spot anónimo no puede ser solo para tus seguidores: delataría quién eres."); return; }
     setPublishing(true);
     stopAllVoices();
-    const clip = rec.take();
-    if (!clip) { setPublishing(false); return; }
-    const spot = publishSpot({
-      title: title.trim().slice(0, TITLE_MAX), city: hidden ? me.city || city : city, zone: zoneLabel, topic: opts.topic[sel.topic]!, visibility: opts.vis[sel.vis]!,
-      precision: hidden ? "Oculta" : opts.precision[sel.precision]!, anon, boosted, happeningNow: live, repliesAllowed: replies,
-      clip, mediaFile: media?.blob, mediaKind: media?.kind,
-    });
-    setPublishing(false);
-    setPublished(spot);
+    try {
+      const spot = await publishSpot({
+        title: title.trim().slice(0, TITLE_MAX), city: hidden ? me.city || city : city, zone: hidden ? "" : zoneLabel, topic: opts.topic[sel.topic]!, visibility: opts.vis[sel.vis]!,
+        precision: hidden ? "Oculta" : opts.precision[sel.precision]!, anon, boosted, happeningNow: live, repliesAllowed: replies,
+        clip, mediaFile: media?.blob, mediaKind: media?.kind,
+      });
+      rec.take(); // el Spot se queda con el audio (no se libera al cerrar)
+      setPublished(spot);
+    } catch (e) {
+      toast.error(cloudErrorText(e));
+    } finally {
+      setPublishing(false);
+    }
   };
   const finish = () => { if (published) onPublished(published); onClose(); };
 
@@ -133,7 +143,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
     const list = [
       anon ? "Publicado como «Anónimo» 👻 · Incógnito verificado" : `Publicado con tu nombre: ${me.name}`,
       `«${published.title}» · ${formatClock(published.audio.durationMs)} de voz`,
-      sel.vis === 0 ? "En el feed Para todos y en Cerca de ti" : sel.vis === 1 ? "Solo para quien esté a menos de 1 km" : "Solo para tus seguidores",
+      sel.vis === 0 ? "En el feed Para todos y en Cerca de ti" : sel.vis === 1 ? "Solo para quien sea de tu ciudad" : "Solo para tus seguidores",
       "En " + zoneLabel,
       hidden || sel.precision === 2 ? "Sin ubicación en el mapa" : `En el mapa (${opts.precision[sel.precision]!.toLowerCase()})`,
       boosted ? "Impulsado: más distribución, sin visitas garantizadas" : "Publicar es gratis. Puedes impulsarlo más tarde",
@@ -319,7 +329,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
         <div className="mt-4 flex items-center justify-between rounded-xl bg-secondary/60 p-3 text-sm"><span>Coste de publicar</span><strong className="text-primary">Gratis</strong></div>
         {boosted && <p className="mt-1 text-2xs text-muted-foreground">Impulso ya pagado con tu saldo o método de pago. Saldo actual: 💎 {credits.toLocaleString("es-ES")} · listo para usar.</p>}
         {gatePub && <div className="mt-4">{gatePub}</div>}
-        <Button className="mt-4 w-full bg-spot-gradient text-foreground" disabled={!!gatePub || publishing || !titleOk} onClick={publish}>{publishing ? "Publicando…" : titleOk ? "PUBLICAR SPOT" : "Ponle un título para publicar"}</Button>
+        <Button className="mt-4 w-full bg-spot-gradient text-foreground" disabled={!!gatePub || publishing || !titleOk} onClick={() => void publish()}>{publishing ? <><Loader2 size={16} className="animate-spin" />Publicando…</> : titleOk ? "PUBLICAR SPOT" : "Ponle un título para publicar"}</Button>
         <p className="mt-2 text-center text-2xs text-muted-foreground">Publicar, ser descubierto y hacerte viral es gratis.</p>
       </>}
 

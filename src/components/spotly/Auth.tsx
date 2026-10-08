@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { auth as authCfg } from "@/lib/spotlyConfig";
+import { api, db } from "@/lib/cloud";
 import { Logo } from "./Logo";
 import { BottomSheet } from "./kit";
 
@@ -38,8 +39,10 @@ const strength = (p: string) => {
 export const passwordOk = (p: string) => passwordChecks(p).every((c) => c.ok);
 
 /** Traduce los errores del servidor a mensajes claros; nunca muestra el texto técnico. */
-function friendly(e: unknown): { msg: string; code: "creds" | "unconfirmed" | "exists" | "weak" | "rate" | "net" | "other" } {
+function friendly(e: unknown): { msg: string; code: "creds" | "unconfirmed" | "exists" | "weak" | "rate" | "net" | "user" | "other" } {
   const m = String((e as { message?: string } | null)?.message ?? e ?? "").toLowerCase();
+  /* El servidor crea tu perfil al registrarte: si falla es porque el usuario se acaba de coger. */
+  if (m.includes("database error saving new user") || m.includes("username_taken")) return { msg: "Ese nombre de usuario ya está cogido. Prueba otro.", code: "user" };
   if (m.includes("invalid login") || m.includes("invalid credentials")) return { msg: "Correo o contraseña incorrectos.", code: "creds" };
   if (m.includes("not confirmed")) return { msg: "Aún no has confirmado tu correo.", code: "unconfirmed" };
   if (m.includes("already registered") || m.includes("already been registered")) return { msg: "Ya existe una cuenta con ese correo. Inicia sesión o recupera tu contraseña.", code: "exists" };
@@ -218,6 +221,8 @@ export function AuthFlow({ initial, onBack, onDemo, onSignedIn }: { initial: "lo
     if (!terms || !age) { setErr("Acepta los términos y confirma tu edad para continuar."); return; }
     setBusy(true); setErr(null);
     try {
+      /* Los usuarios son públicos: se comprueba antes de crear la cuenta (si la nube aún no responde, decide el servidor). */
+      if (!(await api.usernameAvailable(db(), username).catch(() => true))) { setErr("Ese nombre de usuario ya está cogido. Prueba otro."); return; }
       const { data, error } = await supabase.auth.signUp({ email: email.trim(), password: pass, options: { emailRedirectTo: window.location.origin, data: { username, accepted_terms_at: new Date().toISOString(), min_age_confirmed: authCfg.minAge } } });
       if (error) { setErr(friendly(error).msg); return; }
       if (data.user && (data.user.identities?.length ?? 1) === 0) { setErr(friendly({ message: "already registered" }).msg); return; }

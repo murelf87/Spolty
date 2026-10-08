@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { StateCard } from "./kit";
 import { useApp } from "./app-context";
 import { setPerm, useStore } from "@/lib/store";
+import { useCloud } from "@/lib/cloud";
 
 /**
  * Puerta común para cualquier acción que exige cuenta verificada, micrófono,
@@ -11,8 +12,11 @@ import { setPerm, useStore } from "@/lib/store";
  */
 export function useGate(need: { verified?: boolean; mic?: boolean; camera?: boolean; location?: boolean; online?: boolean }) {
   const { identity, perms, offline } = useStore();
+  const cloud = useCloud();
   const app = useApp();
-  if (need.verified && identity !== "approved") {
+  /* Con una cuenta real en la nube basta con haber entrado (Apple, Google o correo): la verificación de identidad
+     es un paso aparte e ilustrativo hasta que se elija un proveedor (AGENTS.md). */
+  if (need.verified && identity !== "approved" && !cloud.on) {
     const pending = identity === "pending" || identity === "review";
     return <StateCard icon={pending ? ShieldAlert : BadgeCheck} tone={pending ? "premium" : "primary"} title={pending ? "Verificación en curso" : "Verifica tu identidad"} text={pending ? "Estamos revisando tu identidad. Mientras tanto puedes escuchar y explorar, pero no publicar ni responder." : "En Spotly todas las cuentas son de personas verificadas. Completa la verificación para publicar y responder."} action={pending ? "Ver estado" : "Verificarme"} onAction={() => app.open("verificacion")} />;
   }

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { BottomSheet, TopBar } from "./kit";
 import { IncognitoSheet } from "./Incognito";
 import { useMe, useStore } from "@/lib/store";
+import { useCloud } from "@/lib/cloud";
 import { eur, incognitoOptions } from "@/lib/spotlyConfig";
 
 /**
@@ -27,6 +28,17 @@ export function AnonAvatar({ className = "h-10 w-10", size = 18 }: { className?:
   return <span role="img" aria-label="Anónimo" className={"grid shrink-0 place-items-center rounded-full border border-accent/60 bg-accent/20 text-foreground " + className}><Ghost size={size} /></span>;
 }
 
+/**
+ * ¿Puedes publicar como «Anónimo» ahora? Con la nube lo decide el servidor (el Incógnito lo concede el pago, que se
+ * activará con App Store y Google Play); sin nube, el Incógnito de la demostración.
+ */
+export function useAnonAllowed() {
+  const { incognito } = useStore();
+  const cloud = useCloud();
+  return { active: cloud.on ? cloud.incognito : incognito.active, cloud: cloud.on };
+}
+const CLOUD_INCOGNITO_SOON = "Salir como «Anónimo» requiere Incógnito de pago activo en tu cuenta. Las compras se activarán con App Store y Google Play.";
+
 /** Precio más bajo del Incógnito, para anunciar «Anónimo · desde …». */
 const anonFrom = () => eur(Math.min(...incognitoOptions.map((o) => o.priceEur)));
 
@@ -36,10 +48,12 @@ const anonFrom = () => eur(Math.min(...incognitoOptions.map((o) => o.priceEur)))
  */
 export function SignAs({ anon, onChange, label = "Se publicará como" }: { anon: boolean; onChange: (v: boolean) => void; label?: string }) {
   const me = useMe();
-  const { incognito } = useStore();
+  const { active, cloud } = useAnonAllowed();
+  const incognito = { active };
   const [buy, setBuy] = useState(false);
   useEffect(() => { if (buy && incognito.active) { onChange(true); setBuy(false); } }, [buy, incognito.active, onChange]);
   useEffect(() => { if (!incognito.active && anon) onChange(false); }, [incognito.active, anon, onChange]);
+  const wantAnon = () => { if (cloud) toast(CLOUD_INCOGNITO_SOON); else setBuy(true); };
   return (
     <div className="rounded-2xl border border-border bg-card p-3 text-left">
       <div className="flex items-center gap-3">
@@ -48,7 +62,7 @@ export function SignAs({ anon, onChange, label = "Se publicará como" }: { anon:
           <small className="block truncate text-2xs text-muted-foreground">{label}</small>
           <strong className="block truncate text-sm">{anon ? "Anónimo" : me.name}</strong>
         </span>
-        <button type="button" aria-pressed={anon} onClick={() => (incognito.active ? onChange(!anon) : setBuy(true))}
+        <button type="button" aria-pressed={anon} onClick={() => (incognito.active ? onChange(!anon) : wantAnon())}
           className={"flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-bold " + (anon ? "border-accent/70 bg-accent/20 text-foreground" : "border-border text-foreground/85")}>
           <Ghost size={15} />{anon ? "Usar mi nombre" : incognito.active ? "Ir anónimo" : "Anónimo"}
         </button>
@@ -65,13 +79,14 @@ export function SignAs({ anon, onChange, label = "Se publicará como" }: { anon:
  */
 export function SignAsChip({ anon, onChange }: { anon: boolean; onChange: (v: boolean) => void }) {
   const me = useMe();
-  const { incognito } = useStore();
+  const { active, cloud } = useAnonAllowed();
+  const incognito = { active };
   const [buy, setBuy] = useState(false);
   useEffect(() => { if (buy && incognito.active) { onChange(true); setBuy(false); } }, [buy, incognito.active, onChange]);
   useEffect(() => { if (!incognito.active && anon) onChange(false); }, [incognito.active, anon, onChange]);
   return (
     <>
-      <button type="button" aria-pressed={anon} onClick={() => (incognito.active ? onChange(!anon) : setBuy(true))}
+      <button type="button" aria-pressed={anon} onClick={() => (incognito.active ? onChange(!anon) : cloud ? toast(CLOUD_INCOGNITO_SOON) : setBuy(true))}
         aria-label={anon ? "Se enviará como Anónimo. Tocar para usar tu nombre" : `Se enviará como ${me.name}. Tocar para ir anónimo`}
         className={"flex min-h-8 min-w-0 max-w-[60%] items-center gap-1.5 rounded-full border py-0.5 pl-0.5 pr-2.5 text-2xs font-semibold " + (anon ? "border-accent/70 bg-accent/15 text-foreground" : "border-border bg-secondary/60 text-foreground/85")}>
         {anon ? <AnonAvatar className="h-6 w-6" size={12} /> : <MeAvatar className="h-6 w-6 text-3xs" />}

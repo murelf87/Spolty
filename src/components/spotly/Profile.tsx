@@ -1,10 +1,11 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BadgeCheck, Bookmark, Calendar, Eye, Heart, Lock, MapPin, Store, Trash2, UserPlus, Users, Wallet as WalletIcon, Check, Crown, Grid3x3, Mic, Pencil, Settings, Waves, Image as ImageIcon, Video, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Shell, type Sheet } from "./Extras";
 import { BottomSheet, TopBar } from "./kit";
 import { MeAvatar, PhotoCropper, PhotoSourceSheet } from "./Author";
+import { Cover } from "./Cover";
 import { MediaViewer, type MediaItem } from "./MediaViewer";
 import { AuthorProfile, SpotDetail, type SpotInfo } from "./SpotDetail";
 import lauraPhoto from "@/assets/spotly-laura.jpg";
@@ -13,10 +14,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { sampleMedia, type SampleMedia } from "@/lib/media";
 import { saveMe, toggleFollow, useMe, useStore } from "@/lib/store";
 import { VoiceComposer, VoiceItem, VoiceThread } from "./VoiceThread";
-import { addVoiceNote, removeVoiceNote, useThread } from "@/lib/voice/notes";
+import { addVoiceNote, myThreadId, removeVoiceNote, useMyThreadId, useThread } from "@/lib/voice/notes";
 import { sampleThread } from "@/lib/voice/samples";
 import { formatClock } from "@/lib/voice/recorder";
-import { useMySpots, type MySpot } from "@/lib/spots";
+import { useMySpots, useSavedSpots, type MySpot } from "@/lib/spots";
+import { api, cloudErrorText, cloudUid, db, fileUrl, refreshProfile, useCloud } from "@/lib/cloud";
+import { CloudPeopleSheet } from "./CloudPeople";
+import { spotData } from "./spotData";
 
 /* Contenido del perfil (demo): cada miniatura abre su Spot, su foto o su vídeo. */
 type GridTab = "Spots" | "Fotos" | "Vídeos" | "Guardados";
@@ -56,13 +60,6 @@ function Bars({ on }: { on?: boolean }) {
 
 const COVER_PRESETS = [["neon", "Neón"], ["aurora", "Aurora"], ["atardecer", "Atardecer"], ["noche", "Noche"], ["ondas", "Ondas"]] as const;
 const DEMO_FOLLOWED = ["Laura", "Marta", "Ana"];
-
-/** Portada del perfil: tu foto o uno de los fondos de Spotly. */
-export function Cover({ cover, className = "" }: { cover?: string | null | undefined; className?: string }) {
-  if (cover && !cover.startsWith("preset:")) return <img src={cover} alt="" className={"object-cover " + className} />;
-  const name = cover?.slice(7) || "neon";
-  return <div aria-hidden="true" className={`spot-cover-${name} ` + className} />;
-}
 
 /** Recorta una foto a 16:9 (1280×720) para la portada. */
 async function coverFromFile(file: File): Promise<string> {
@@ -110,7 +107,8 @@ function CoverSheet({ onClose }: { onClose: () => void }) {
 /** Tu presentación de voz (en Spotly no hay biografía escrita). */
 function VoicePresentation() {
   const me = useMe();
-  const notes = useThread(PRESENTATION);
+  const thread = useMyThreadId("presentacion", PRESENTATION);
+  const notes = useThread(thread);
   const mine = notes.filter((n) => n.author.mine).sort((a, b) => b.createdAt - a.createdAt)[0];
   const [rec, setRec] = useState(false);
   return (
@@ -121,7 +119,7 @@ function VoicePresentation() {
             <span className="min-w-0"><strong className="block text-sm">Graba tu presentación de voz</strong><small className="text-xs text-muted-foreground">Quién eres y qué te gusta de {me.city}, en 30 segundos</small></span>
           </button>}
       {rec && <BottomSheet title="Tu presentación de voz" onClose={() => setRec(false)} z={75}>
-        <VoiceComposer autoFocus allowAnon={false} sendLabel="Guardar presentación" onClose={() => setRec(false)} onSend={(clip) => { notes.filter((n) => n.author.mine).forEach((n) => removeVoiceNote(n.id)); addVoiceNote({ threadId: PRESENTATION, clip }); setRec(false); toast.success("Presentación de voz guardada"); }} />
+        <VoiceComposer autoFocus allowAnon={false} sendLabel="Guardar presentación" onClose={() => setRec(false)} onSend={(clip) => { notes.filter((n) => n.author.mine).forEach((n) => removeVoiceNote(n.id)); addVoiceNote({ threadId: thread, clip }); setRec(false); toast.success("Presentación de voz guardada"); }} />
         {mine && <Button variant="ghost" className="mt-2 w-full text-live" onClick={() => { removeVoiceNote(mine.id); setRec(false); toast("Presentación eliminada"); }}><Trash2 size={16} />Eliminar mi presentación</Button>}
       </BottomSheet>}
     </section>
@@ -133,6 +131,7 @@ const PRESENTATION = "presentacion:yo";
 function SpotsSheet({ onClose, onOpen }: { onClose: () => void; onOpen: (s: MySpot) => void }) {
   const mySpots = useMySpots();
   const { demo } = useStore();
+  const cloud = useCloud();
   return (
     <BottomSheet title={`Tus Spots · ${mySpots.length + (demo ? grid.Spots.length : 0)}`} onClose={onClose} z={65}>
       {mySpots.length === 0 && !demo && <p className="py-8 text-center text-sm text-muted-foreground">Aún no has publicado ningún Spot. Pulsa el botón central para crear el primero.</p>}
@@ -152,7 +151,7 @@ function SpotsSheet({ onClose, onOpen }: { onClose: () => void; onOpen: (s: MySp
           </div>
         ))}
       </div>
-      <p className="mt-3 text-2xs text-muted-foreground">Las vistas son escuchas de otras personas. Mientras tus Spots se guardan solo en este dispositivo, cuentan 0.</p>
+      <p className="mt-3 text-2xs text-muted-foreground">{cloud.on ? "Las vistas son escuchas de otras personas: una por persona y día; las tuyas no cuentan." : "Las vistas son escuchas de otras personas. Mientras tus Spots se guardan solo en este dispositivo, cuentan 0."}</p>
     </BottomSheet>
   );
 }
@@ -164,14 +163,19 @@ function SpotThumb({ s, className = "" }: { s: MySpot; className?: string }) {
   return <span className={"flex shrink-0 items-center justify-center gap-[0.125rem] bg-spot-surface px-1.5 " + className} aria-hidden="true">{s.audio.peaks.filter((_, i) => i % 4 === 0).map((h, i) => <i key={i} className="w-[0.1875rem] rounded-full bg-spot-gradient" style={{ height: `${Math.round(h * 70)}%` }} />)}</span>;
 }
 
-const mySpotInfo = (s: MySpot, name: string): SpotInfo => ({ id: s.id, name, city: s.city, ago: "poco", text: s.title, img: s.media?.kind === "photo" ? s.media.src : "", dur: formatClock(s.audio.durationMs), dist: s.zone, incognito: s.anon, own: true, audio: s.audio });
+const mySpotInfo = (s: MySpot, name: string): SpotInfo => spotData(s, name);
 
 export function ProfileView({ onOpen, accountEmail }: { onOpen: (s: Sheet) => void; accountEmail: string | null }) {
   const [tab, setTab] = useState("Spots");
   const [edit, setEdit] = useState(false);
   const me = useMe();
   const { demo, following } = useStore();
+  const cloud = useCloud();
   const mySpots = useMySpots();
+  const saved = useSavedSpots(cloud.on && tab === "Guardados");
+  const wallThread = useMyThreadId("muro", `muro:${me.user}`);
+  const [cloudAuthor, setCloudAuthor] = useState<api.ProfileRow | null>(null);
+  useEffect(() => { void refreshProfile(); }, []);
   const [badgesOpen, setBadgesOpen] = useState(false);
   const [settings, setSettings] = useState(false);
   const [coverSheet, setCoverSheet] = useState(false);
@@ -183,8 +187,8 @@ export function ProfileView({ onOpen, accountEmail }: { onOpen: (s: Sheet) => vo
   const gridRef = useRef<HTMLDivElement | null>(null);
   const wallSeed = useMemo(() => (demo ? sampleThread(`muro:${me.user}`, [{ key: "1", name: "Laura", img: lauraPhoto, minsAgo: 5, dur: "0:18", likes: 12, verified: true }, { key: "2", name: "Carlos", img: sampleMedia[2]!.img, minsAgo: 20, dur: "0:32", likes: 8 }, { key: "3", name: "Marta", img: sampleMedia[3]!.img, minsAgo: 60, dur: "0:11", likes: 4, replyTo: "1", replyAt: "0:09" }]) : []), [demo, me.user]);
   if (badgesOpen) return <Badges onBack={() => setBadgesOpen(false)} />;
-  const followingCount = new Set([...(demo ? DEMO_FOLLOWED : []), ...following]).size;
-  const followersCount = demo ? people.length : 0;
+  const followingCount = cloud.on ? cloud.following.length : new Set([...(demo ? DEMO_FOLLOWED : []), ...following]).size;
+  const followersCount = cloud.on ? (cloud.profile?.followers ?? 0) : demo ? people.length : 0;
   const spotsCount = mySpots.length + (demo ? grid.Spots.length : 0);
   const fmtCount = (n: number) => (n >= 10000 ? likesLabel(n) : n.toLocaleString("es-ES"));
   const openItem = (t: GridTab, i: number) => {
@@ -195,7 +199,7 @@ export function ProfileView({ onOpen, accountEmail }: { onOpen: (s: Sheet) => vo
     else if (t === "Guardados") setSpot({ s: toSpot(m, i, savedAuthors[i]), author: savedAuthors[i] ?? null });
     else setSpot({ s: toSpot(m, i), author: null });
   };
-  const mine = tab === "Fotos" ? mySpots.filter((s) => s.media?.kind === "photo") : tab === "Vídeos" ? mySpots.filter((s) => s.media?.kind === "video") : tab === "Spots" ? mySpots : [];
+  const mine = tab === "Fotos" ? mySpots.filter((s) => s.media?.kind === "photo") : tab === "Vídeos" ? mySpots.filter((s) => s.media?.kind === "video") : tab === "Spots" ? mySpots : tab === "Guardados" && cloud.on ? saved.spots : [];
   const samples = demo && tab !== "Audio Wall" ? grid[tab as GridTab] : [];
 
   return (
@@ -242,9 +246,9 @@ export function ProfileView({ onOpen, accountEmail }: { onOpen: (s: Sheet) => vo
       {tab !== "Audio Wall" ? (
         <section className="grid grid-cols-3 gap-1 p-1">
           {mine.map((s) => (
-            <button key={s.id} onClick={() => setSpot({ s: mySpotInfo(s, me.name), author: null })} aria-label={`Abrir tu Spot: ${s.title}`} className="relative overflow-hidden rounded-md">
+            <button key={s.id} onClick={() => setSpot({ s: mySpotInfo(s, me.name), author: null })} aria-label={`Abrir ${s.cloud && !s.cloud.mine ? "el" : "tu"} Spot: ${s.title}`} className="relative overflow-hidden rounded-md">
               <SpotThumb s={s} className="aspect-[3/4] w-full rounded-md" />
-              <span className="absolute bottom-1 left-1 flex items-center gap-0.5 text-3xs font-semibold text-white drop-shadow"><Eye size={10} />{s.views}</span>
+              <span className="absolute bottom-1 left-1 flex items-center gap-0.5 text-3xs font-semibold text-white drop-shadow">{s.cloud && !s.cloud.mine ? <><Heart size={10} fill="currentColor" className="text-live" />{likesLabel(s.cloud.likes)}</> : <><Eye size={10} />{s.views}</>}</span>
             </button>
           ))}
           {samples.map((m, i) => (
@@ -260,10 +264,10 @@ export function ProfileView({ onOpen, accountEmail }: { onOpen: (s: Sheet) => vo
         <section className="space-y-3 p-4">
           <p className="text-xs text-muted-foreground">Tus visitas te dejan mensajes de voz aquí y puedes responderles.</p>
           <Button variant="secondary" className="w-full rounded-lg border border-primary/50" onClick={() => onOpen("audio-wall")}><Mic size={17} className="text-primary" />Explorar Audio Wall en directo</Button>
-          <VoiceThread threadId={`muro:${me.user}`} seed={wallSeed} emptyText="Aún no te han dejado mensajes de voz." />
+          <VoiceThread threadId={wallThread} seed={wallSeed} emptyText="Aún no te han dejado mensajes de voz." />
         </section>
       )}
-      <div className="px-4 py-5"><Button variant="secondary" className="w-full" onClick={() => onOpen("verificacion")}><BadgeCheck size={16} className="text-primary" />Verificación · ver ejemplo</Button><Button variant="ghost" className="mt-2 w-full" onClick={() => setBadgesOpen(true)}>{badges.map(([l, I]) => <span key={l} className="flex items-center gap-1 text-3xs text-muted-foreground"><I size={11} className="text-primary" />{l}</span>)}</Button><div className="mt-3 grid grid-cols-3 gap-2">{([["wallet", "Wallet", WalletIcon], ["chats", "Chats de voz", Mic], ["local", "Panel Local", Store], ["comunidades", "Comunidades", Users], ["eventos", "Eventos", Calendar], ["privacidad", "Privacidad", Lock]] as [Sheet, string, typeof Mic][]).map(([k, l, I]) => <Button key={l} variant="secondary" onClick={() => onOpen(k)} className="flex h-16 flex-col gap-1 rounded-lg border border-border text-2xs"><I size={18} className="text-primary" />{l}</Button>)}</div></div>
+      <div className="px-4 py-5"><Button variant="secondary" className="w-full" onClick={() => onOpen("verificacion")}><BadgeCheck size={16} className="text-primary" />Verificación · ver ejemplo</Button>{demo && <Button variant="ghost" className="mt-2 w-full" onClick={() => setBadgesOpen(true)}>{badges.map(([l, I]) => <span key={l} className="flex items-center gap-1 text-3xs text-muted-foreground"><I size={11} className="text-primary" />{l}</span>)}</Button>}<div className="mt-3 grid grid-cols-3 gap-2">{([["wallet", "Wallet", WalletIcon], ["chats", "Chats de voz", Mic], ["local", "Panel Local", Store], ["comunidades", "Comunidades", Users], ["eventos", "Eventos", Calendar], ["privacidad", "Privacidad", Lock]] as [Sheet, string, typeof Mic][]).map(([k, l, I]) => <Button key={l} variant="secondary" onClick={() => onOpen(k)} className="flex h-16 flex-col gap-1 rounded-lg border border-border text-2xs"><I size={18} className="text-primary" />{l}</Button>)}</div></div>
       {edit && <EditProfile onClose={() => setEdit(false)} onCover={() => { setEdit(false); setCoverSheet(true); }} />}
       {coverSheet && <CoverSheet onClose={() => setCoverSheet(false)} />}
       {spotsSheet && <SpotsSheet onClose={() => setSpotsSheet(false)} onOpen={(s) => { setSpotsSheet(false); setSpot({ s: mySpotInfo(s, me.name), author: null }); }} />}
@@ -271,7 +275,10 @@ export function ProfileView({ onOpen, accountEmail }: { onOpen: (s: Sheet) => vo
       {viewer && <MediaViewer items={viewer.items} start={viewer.start} onClose={() => setViewer(null)} />}
       {spot && <SpotDetail s={spot.s} onClose={() => setSpot(null)} onAuthor={() => { if (spot.author) setAuthor(spot.author); else setSpot(null); }} />}
       {author && <AuthorProfile name={author} onClose={() => setAuthor(null)} />}
-      {list && <PeopleList kind={list} onSwitch={setList} onClose={() => setList(null)} onAuthor={(n) => { setList(null); setAuthor(n); }} />}
+      {cloudAuthor && <AuthorProfile name={cloudAuthor.display_name || cloudAuthor.username} id={cloudAuthor.id} avatar={fileUrl(cloudAuthor.avatar_path)} onClose={() => setCloudAuthor(null)} />}
+      {list && (cloud.on && cloud.uid
+        ? <CloudPeopleSheet userId={cloud.uid} kind={list} onSwitch={setList} onClose={() => { setList(null); void refreshProfile(); }} onOpen={(p) => { setList(null); setCloudAuthor(p); }} />
+        : <PeopleList kind={list} onSwitch={setList} onClose={() => setList(null)} onAuthor={(n) => { setList(null); setAuthor(n); }} />)}
     </main>
   );
 }
@@ -316,10 +323,22 @@ function PeopleList({ kind, onSwitch, onClose, onAuthor }: { kind: "Seguidores" 
 function EditProfile({ onClose, onCover }: { onClose: () => void; onCover: () => void }) {
   const me = useMe();
   const [v, setV] = useState(me);
+  const cloud = useCloud();
   const [source, setSource] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const save = () => {
-    saveMe({ ...me, name: v.name.trim() || me.name, user: v.user.trim().replace(/^@+/, "").replace(/\s+/g, ".") || me.user });
+  const [userErr, setUserErr] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  /* Con la nube el usuario es único y sigue las mismas reglas que al registrarse. */
+  const save = async () => {
+    const user = v.user.trim().replace(/^@+/, "").replace(/\s+/g, ".").toLowerCase() || me.user;
+    if (cloud.on && user !== me.user) {
+      if (!/^[a-z][a-z0-9_.]{2,19}$/.test(user)) { setUserErr("De 3 a 20 caracteres: minúsculas, números, punto o guion bajo. Debe empezar por letra."); return; }
+      setSaving(true);
+      const free = await api.usernameAvailable(db(), user).catch(() => true);
+      setSaving(false);
+      if (!free) { setUserErr("Ese nombre de usuario ya está cogido. Prueba otro."); return; }
+    }
+    saveMe({ ...me, name: v.name.trim().slice(0, 40) || me.name, user });
     toast.success("Perfil actualizado");
     onClose();
   };
@@ -327,7 +346,7 @@ function EditProfile({ onClose, onCover }: { onClose: () => void; onCover: () =>
   const setPhoto = (avatar: string | null) => { saveMe({ ...me, avatar }); setV((x) => ({ ...x, avatar })); };
   return (
     <div className="fixed inset-0 z-50 mx-auto flex max-w-[520px] flex-col bg-background">
-      <TopBar title="Editar perfil" onBack={onClose} close right={<Button size="sm" onClick={save}>Guardar</Button>} />
+      <TopBar title="Editar perfil" onBack={onClose} close right={<Button size="sm" disabled={saving} onClick={() => void save()}>Guardar</Button>} />
       <main className="flex-1 overflow-y-auto px-4 pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+0.75rem))] pt-5">
         <div className="flex flex-col items-center">
           <button type="button" onClick={() => setSource(true)} aria-label="Cambiar foto de perfil" className="relative rounded-full bg-spot-gradient p-[0.1875rem] shadow-glow">
@@ -338,7 +357,10 @@ function EditProfile({ onClose, onCover }: { onClose: () => void; onCover: () =>
         </div>
         {(["name", "user"] as const).map((k) => (
           <label key={k} className="mt-4 block text-xs text-muted-foreground">{k === "name" ? "Nombre" : "Usuario"}
-            <input value={v[k]} maxLength={30} onChange={(e) => setV({ ...v, [k]: e.target.value })} className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-3 text-sm text-foreground outline-none focus:border-primary" /></label>
+            <input value={v[k]} maxLength={k === "name" ? 40 : 20} autoCapitalize={k === "user" ? "none" : undefined} spellCheck={k === "user" ? false : undefined} aria-invalid={k === "user" && !!userErr}
+              onChange={(e) => { setV({ ...v, [k]: k === "user" ? e.target.value.toLowerCase().replace(/\s/g, "") : e.target.value }); if (k === "user") setUserErr(null); }}
+              className={"mt-1 w-full rounded-xl border bg-card px-3 py-3 text-sm text-foreground outline-none focus:border-primary " + (k === "user" && userErr ? "border-live" : "border-border")} />
+            {k === "user" && userErr && <span role="alert" className="mt-1 block text-2xs text-live">{userErr}</span>}</label>
         ))}
         <p className="mt-2 text-2xs text-muted-foreground">Tu nombre y tu foto aparecen en cada audio que envías. Solo con Incógnito (de pago) salen como «Anónimo». En Spotly no hay biografía escrita: preséntate con tu voz.</p>
         <button onClick={onCover} className="mt-5 flex w-full items-center gap-3 overflow-hidden rounded-2xl border border-border bg-card text-left"><Cover cover={me.cover} className="h-14 w-24 shrink-0" /><span className="flex-1 text-sm font-semibold">Portada del perfil</span><span className="pr-3 text-xs text-primary">Cambiar</span></button>
@@ -351,8 +373,51 @@ function EditProfile({ onClose, onCover }: { onClose: () => void; onCover: () =>
   );
 }
 
+/** Descarga un JSON con todos tus datos de la nube. */
+async function downloadMyData() {
+  const uid = cloudUid();
+  if (!uid) { toast("Entra con tu cuenta para descargar tus datos."); return; }
+  try {
+    const data = await api.exportMyData(db(), uid);
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `spotly-mis-datos-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    toast.success("Tus datos se han descargado");
+  } catch (e) { toast.error(cloudErrorText(e)); }
+}
+
+/** Eliminar la cuenta (exigido por App Store y Google Play): borra perfil, Spots, voces, seguidores y chats. */
+function DeleteAccount({ onClose }: { onClose: () => void }) {
+  const cloud = useCloud();
+  const [busy, setBusy] = useState(false);
+  const remove = async () => {
+    const uid = cloudUid();
+    if (!uid) return;
+    setBusy(true);
+    try {
+      const r = await api.deleteMyAccount(db(), uid);
+      await supabase.auth.signOut().catch(() => undefined);
+      toast.success(r === "deleted" ? "Tu cuenta y todo su contenido se han eliminado." : "Solicitud registrada: tu cuenta se eliminará en un máximo de 30 días.");
+      onClose();
+    } catch (e) { toast.error(cloudErrorText(e)); setBusy(false); }
+  };
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-6 backdrop-blur-sm" onClick={() => !busy && onClose()}>
+      <div className="w-full max-w-xs rounded-2xl border border-border bg-card p-5 text-center" onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-label="Eliminar cuenta">
+        <h3 className="font-bold">Eliminar cuenta</h3>
+        <p className="mt-1 text-sm text-muted-foreground">{cloud.on ? "Se borrarán tu perfil, tus Spots, tus voces, tus seguidores y tus chats. No se puede deshacer." : "Entra con tu cuenta para poder eliminarla. No se ha enviado ninguna solicitud."}</p>
+        {cloud.on && <Button className="mt-5 w-full bg-live bg-none text-primary-foreground" disabled={busy} onClick={() => void remove()}>{busy ? "Eliminando…" : "Eliminar para siempre"}</Button>}
+        <Button variant="ghost" className="mt-2 w-full" disabled={busy} onClick={onClose}>{cloud.on ? "Cancelar" : "Volver"}</Button>
+      </div>
+    </div>
+  );
+}
+
 function SettingsScreen({ onBack, onOpen, accountEmail }: { onBack: () => void; onOpen: (s: Sheet) => void; accountEmail: string | null }) {
   const queryClient = useQueryClient();
+  const cloud = useCloud();
   const [t, setT] = useState(() => ({ notif: true, auto: true, dark: typeof document === "undefined" || !document.documentElement.classList.contains("light") }));
   const [help, setHelp] = useState(false); const [out, setOut] = useState(false); const [del, setDel] = useState(false);
   const [n, setN] = useState(["Me gusta", "Respuestas de voz", "Seguidores"]); const [r, setR] = useState("5 km"); const [l, setL] = useState("Español");
@@ -380,14 +445,14 @@ function SettingsScreen({ onBack, onOpen, accountEmail }: { onBack: () => void; 
       </div>
       <p className="mb-1 mt-4 text-xs font-bold uppercase tracking-wider text-muted-foreground">Cuenta y datos</p>
       <div className="divide-y divide-border rounded-xl border border-border bg-card px-4">
-        <button onClick={() => toast.info("La descarga de datos aún no está disponible")} className="flex w-full justify-between py-3 text-sm">Descargar mis datos · próximamente<span className="text-muted-foreground">›</span></button>
+        <button onClick={() => void downloadMyData()} className="flex w-full justify-between py-3 text-sm">{cloud.on ? "Descargar mis datos" : "Descargar mis datos · con tu cuenta"}<span className="text-muted-foreground">›</span></button>
         <button onClick={() => toast.info("Pausar cuenta aún no está disponible")} className="flex w-full justify-between py-3 text-sm">Pausar cuenta · próximamente<span className="text-muted-foreground">›</span></button>
         <button onClick={() => setDel(true)} className="flex w-full justify-between py-3 text-sm text-live">Eliminar cuenta<span>›</span></button>
       </div>
       <p className="mt-4 text-center text-xs text-muted-foreground">{accountEmail ? `Sesión iniciada: ${accountEmail}` : "Explorando la demostración sin cuenta"}</p>
       <Button variant="outline" className="mt-2 w-full" onClick={() => setOut(true)}>{accountEmail ? "Cerrar sesión" : "Entrar con Apple o Google"}</Button>
       {help && <Help onBack={() => setHelp(false)} />}
-      {del && <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-6 backdrop-blur-sm" onClick={() => setDel(false)}><div className="w-full max-w-xs rounded-2xl border border-border bg-card p-5 text-center" onClick={e => e.stopPropagation()}><h3 className="font-bold">Eliminar cuenta</h3><p className="mt-1 text-sm text-muted-foreground">Esta opción aún no está disponible. No se ha enviado ninguna solicitud de eliminación.</p><Button className="mt-5 w-full bg-live bg-none text-primary-foreground" onClick={() => { setDel(false); }}>Volver</Button><Button variant="ghost" className="mt-2 w-full" onClick={() => setDel(false)}>Cancelar</Button></div></div>}
+      {del && <DeleteAccount onClose={() => setDel(false)} />}
       {out && <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-6 backdrop-blur-sm" onClick={() => setOut(false)}><div className="w-full max-w-xs rounded-2xl border border-border bg-card p-5 text-center" onClick={e => e.stopPropagation()}><h3 className="font-bold">{accountEmail ? "¿Cerrar sesión?" : "Entrar en Spotly"}</h3><p className="mt-1 text-sm text-muted-foreground">{accountEmail ? "Volverás a la pantalla de bienvenida." : "Podrás acceder con Apple o Google."}</p><Button className="mt-5 w-full" onClick={async () => { if (accountEmail) { await queryClient.cancelQueries(); queryClient.clear(); const { error } = await supabase.auth.signOut(); if (error) { toast.error("No se pudo cerrar sesión"); return; } } else window.location.reload(); setOut(false); }}>{accountEmail ? "Cerrar sesión" : "Ir al acceso"}</Button><Button variant="ghost" className="mt-2 w-full" onClick={() => setOut(false)}>Cancelar</Button></div></div>}
     </Shell>
   );
@@ -411,9 +476,9 @@ function Help({ onBack }: { onBack: () => void }) {
         {faqs.map(([q, a], i) => <div key={q}><button onClick={() => setOpen(open === i ? null : i)} className="flex w-full justify-between py-3 text-left text-sm font-medium">{q}<span className="text-primary">{open === i ? "−" : "+"}</span></button>{open === i && <p className="pb-3 text-sm text-muted-foreground">{a}</p>}</div>)}
       </div>
       <div className="mt-5 rounded-2xl border border-primary/30 bg-card p-4 text-center">
-        {sent ? <><Check className="mx-auto text-primary" size={32} /><p className="mt-2 font-bold">Mensaje de voz guardado</p><p className="text-sm text-muted-foreground">Queda en «soporte» con tu cuenta; el equipo lo escucha desde el panel de soporte cuando el servidor está conectado.</p></> : <>
+        {sent ? <><Check className="mx-auto text-primary" size={32} /><p className="mt-2 font-bold">{cloudUid() ? "Mensaje de voz enviado" : "Mensaje de voz guardado"}</p><p className="text-sm text-muted-foreground">{cloudUid() ? "Lo escucha el equipo de Spotly desde el panel de soporte. Solo lo oyen tú y el equipo." : "Queda guardado en este dispositivo; se enviará al equipo cuando entres con tu cuenta."}</p></> : <>
           <p className="font-bold">¿No encuentras la respuesta?</p><p className="mb-3 text-sm text-muted-foreground">Cuéntanos tu problema con tu voz</p>
-          <VoiceComposer allowAnon={false} sendLabel="Enviar a soporte" onSend={(clip) => { addVoiceNote({ threadId: "soporte", clip }); setSent(true); }} /></>}
+          <VoiceComposer allowAnon={false} sendLabel="Enviar a soporte" onSend={(clip) => { addVoiceNote({ threadId: myThreadId("soporte", "soporte"), clip }); setSent(true); }} /></>}
       </div>
     </Shell>
   );

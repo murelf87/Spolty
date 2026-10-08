@@ -68,11 +68,8 @@ let state: State = {
   bizAvailability: null,
   profilePromo: null,
   topNow: [],
-  blocked: ["Usuario_spam23", "Pedro R.", "Fiesta Promo SL"],
-  reports: [
-    { id: "r1", what: "Spot de @promo_gratis", reason: "Spam o engaño", status: "removed", when: "Hace 4 días" },
-    { id: "r2", what: "Audio de @anon_4821", reason: "Acoso o insultos", status: "review", when: "Ayer" },
-  ],
+  blocked: [],
+  reports: [],
   confirmed: [],
   following: [],
   incognitoNote: null,
@@ -86,7 +83,8 @@ export function setState(patch: Partial<State> | ((s: State) => Partial<State>))
   state = { ...state, ...(typeof patch === "function" ? patch(state) : patch) };
   listeners.forEach((l) => l());
 }
-const subscribe = (l: () => void) => (listeners.add(l), () => listeners.delete(l));
+const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l); }; };
+export const subscribeStore = subscribe;
 export function useStore() {
   return useSyncExternalStore(subscribe, getState, getState);
 }
@@ -134,7 +132,15 @@ export const setIdTier = (idTier: IdTier) => setState({ idTier });
 export const setIdentity = (identity: IdentityStatus) => setState({ identity });
 export const setPerm = (k: keyof State["perms"], v: boolean) => setState((s) => ({ perms: { ...s.perms, [k]: v } }));
 export const setOffline = (offline: boolean) => setState({ offline });
-export const setDemo = (demo: boolean) => setState({ demo });
+/* Bloqueos y denuncias de ejemplo: solo en el modo demostración (una cuenta real empieza sin ninguno). */
+const DEMO_BLOCKED = ["Usuario_spam23", "Pedro R.", "Fiesta Promo SL"];
+const DEMO_REPORTS: Report[] = [
+  { id: "r1", what: "Spot de @promo_gratis", reason: "Spam o engaño", status: "removed", when: "Hace 4 días" },
+  { id: "r2", what: "Audio de @anon_4821", reason: "Acoso o insultos", status: "review", when: "Ayer" },
+];
+export const setDemo = (demo: boolean) => setState((s) => demo
+  ? { demo, blocked: [...new Set([...s.blocked, ...DEMO_BLOCKED])], reports: [...s.reports.filter((r) => !DEMO_REPORTS.some((d) => d.id === r.id)), ...DEMO_REPORTS] }
+  : { demo, blocked: s.blocked.filter((b) => !DEMO_BLOCKED.includes(b)), reports: s.reports.filter((r) => !DEMO_REPORTS.some((d) => d.id === r.id)) });
 /** Una cuenta solo es plenamente operativa con identidad aprobada. */
 export const isVerified = () => state.identity === "approved";
 
@@ -166,10 +172,19 @@ export function loadMe() {
     setState((s) => ({ me: { ...s.me, ...saved, avatar: saved.avatar === "demo" || saved.avatar === undefined ? demoAvatar : saved.avatar } }));
   } catch { /* sin almacenamiento disponible: se queda el perfil de ejemplo */ }
 }
-export function saveMe(me: Me) {
+/** Guarda tu perfil en este dispositivo sin avisar a nadie (lo usa la nube al traer tu perfil). */
+export function saveMeQuiet(me: Me) {
   setState({ me });
   try { localStorage.setItem(ME_KEY, JSON.stringify({ ...me, avatar: me.avatar === demoAvatar ? "demo" : me.avatar })); }
   catch { /* sin espacio o sin permiso: el cambio dura hasta cerrar la app */ }
+}
+const meListeners = new Set<(next: Me, prev: Me) => void>();
+/** Avisa de cada cambio que hagas en tu perfil (la nube lo sube si hay sesión). */
+export function onMeSaved(fn: (next: Me, prev: Me) => void) { meListeners.add(fn); return () => { meListeners.delete(fn); }; }
+export function saveMe(me: Me) {
+  const prev = state.me;
+  saveMeQuiet(me);
+  meListeners.forEach((fn) => fn(me, prev));
 }
 export const DEMO_AVATAR = demoAvatar;
 /** Guarda tu ciudad o pueblo (onboarding, Crear Spot…). */

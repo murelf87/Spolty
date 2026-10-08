@@ -126,6 +126,7 @@ export default defineConfig({
   define: {
     "import.meta.env.VITE_SUPABASE_URL": JSON.stringify("https://preview.invalid"),
     "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify("preview"),
+    "import.meta.env.VITE_SPOTLY_CLOUD": JSON.stringify("off"),
   },
   build: { outDir: "../dist-mobile", emptyOutDir: true, chunkSizeWarningLimit: 4000 },
 });

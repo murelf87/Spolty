@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AudioLines, BadgeCheck, CornerDownRight, FileAudio, Heart, Loader2, MessageCircle, Mic, MoreVertical, Pause, Play, Send, Share2, Square, Trash2, X } from "lucide-react";
+import { AlertCircle, AudioLines, BadgeCheck, CornerDownRight, FileAudio, Heart, Loader2, MessageCircle, Mic, MoreVertical, Pause, Play, RotateCcw, Send, Share2, Square, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { AnonAvatar, MeAvatar, SignAsChip } from "./Author";
+import { AnonAvatar, MeAvatar, SignAsChip, useAnonAllowed } from "./Author";
 import { BottomSheet } from "./kit";
 import { useGate } from "./Gate";
 import { addReport, useMe, useStore } from "@/lib/store";
 import { commerce } from "@/lib/spotlyConfig";
 import { formatClock, recorderErrorText, useVoiceRecorder, type VoiceClip } from "@/lib/voice/recorder";
 import { onVoiceError, playVoice, releaseVoice, seekVoice, stopAllVoices, toggleVoice, useVoicePlayback } from "@/lib/voice/player";
-import { addVoiceNote, removeVoiceNote, toggleVoiceLike, useThread, type ThreadNote, type VoiceNote } from "@/lib/voice/notes";
+import { addVoiceNote, removeVoiceNote, retryVoiceNote, toggleVoiceLike, useThread, useThreadStatus, type ThreadNote, type VoiceNote } from "@/lib/voice/notes";
+import { api, cloudErrorText, cloudUid, db } from "@/lib/cloud";
+import { appUrl, shareLink, spotLink } from "@/lib/share";
 
 /**
  * Voz en toda la app con un mismo diseño:
@@ -76,9 +78,11 @@ export function VoiceItem({ note, onReply, onMore, parentName, highlight = false
   const total = pb.active && pb.durationMs ? pb.durationMs : note.durationMs;
   const progress = pb.active && total ? pb.positionMs / total : 0;
   const reply = () => onReply?.(pb.active ? pb.positionMs : 0);
+  /* Una voz se comparte con el enlace de la conversación donde está (el Spot); las de chats son privadas. */
   const share = async () => {
-    const url = `https://spotly.app/voz/${note.id}`;
-    try { if (navigator.share) { await navigator.share({ title: `Voz de ${name} en Spotly`, url }); return; } await navigator.clipboard?.writeText(url); toast("Enlace copiado"); } catch { toast("Enlace copiado"); }
+    const spot = note.threadId.startsWith("spot:") ? note.threadId.slice(5) : null;
+    if (note.threadId.startsWith("chat:") || note.threadId.startsWith("soporte:")) { toast("Las voces de un chat son privadas: no se comparten."); return; }
+    await shareLink({ title: `Voz de ${name} en Spotly`, url: spot && !note.sample ? spotLink(spot) : appUrl() });
   };
   return (
     <article id={`voz-${note.id}`} className={"spot-voice-card rounded-3xl p-3 transition-shadow " + (highlight ? "spot-voice-highlight " : "")} aria-label={`Voz de ${name}, ${formatClock(note.durationMs)}`}>
@@ -89,7 +93,7 @@ export function VoiceItem({ note, onReply, onMore, parentName, highlight = false
             <strong className="truncate text-sm">{name}</strong>
             {note.author.verified && !note.author.anon && <BadgeCheck size={14} className="shrink-0 text-primary" aria-label="Verificado" />}
             {note.author.mine && !note.author.anon && <span className="shrink-0 rounded-full bg-primary/15 px-1.5 text-4xs font-bold text-primary">TÚ</span>}
-            <span className="shrink-0 truncate text-2xs text-muted-foreground">· {rel(note.createdAt)}</span>
+            <span className="shrink-0 truncate text-2xs text-muted-foreground">· {note.pending ? <><Loader2 size={11} className="mr-0.5 inline animate-spin" />enviando…</> : note.failed ? <span className="text-live">no enviada</span> : rel(note.createdAt)}</span>
             {note.sample && <span className="ml-1 shrink-0 rounded-full border border-border px-1.5 text-4xs text-muted-foreground">ejemplo</span>}
             {onMore && <button type="button" onClick={onMore} aria-label={`Opciones de la voz de ${name}`} className="-mr-1 ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted-foreground hover:text-foreground"><MoreVertical size={17} /></button>}
           </div>
@@ -114,9 +118,22 @@ export function VoiceItem({ note, onReply, onMore, parentName, highlight = false
             {right && <span className="ml-auto">{right}</span>}
           </div>
           {note.parentId && <p className="mt-0.5 flex items-center gap-1.5 text-2xs text-muted-foreground"><CornerDownRight size={14} className="shrink-0" />{parentName ? <>En respuesta a <strong className="truncate font-semibold text-foreground/80">{parentName}</strong>{note.replyAtMs ? ` · ${formatClock(note.replyAtMs)}` : ""}</> : "En respuesta a este audio"}</p>}
+          {note.failed && <FailedNote id={note.id} />}
         </div>
       </div>
     </article>
+  );
+}
+
+/** Voz que no llegó a enviarse: reintentar sin volver a grabar, o descartarla. */
+export function FailedNote({ id, className = "" }: { id: string; className?: string }) {
+  return (
+    <div className={"mt-1.5 flex items-center gap-2 rounded-xl bg-live/10 px-2 py-1 text-2xs " + className}>
+      <AlertCircle size={14} className="shrink-0 text-live" />
+      <span className="min-w-0 flex-1 truncate text-live">No se pudo enviar</span>
+      <button type="button" onClick={() => retryVoiceNote(id)} className="flex min-h-8 items-center gap-1 rounded-full px-2 font-semibold text-primary"><RotateCcw size={13} />Reintentar</button>
+      <button type="button" onClick={() => removeVoiceNote(id)} className="flex min-h-8 items-center gap-1 rounded-full px-2 font-semibold text-muted-foreground"><Trash2 size={13} />Descartar</button>
+    </div>
   );
 }
 
@@ -127,25 +144,32 @@ export type ReplyTarget = { id?: string | undefined; name: string; author?: Voic
  * escucharte o enviar directamente. Nada se envía sin pulsar enviar y nunca un toque accidental (< 1 s).
  */
 export function VoiceComposer({ target, onSend, onClose, maxSeconds: maxProp, pointer = false, autoFocus = false, autoStart = false, allowAnon = true, sendLabel = "Enviar voz" }: {
-  target?: ReplyTarget | undefined; onSend: (clip: VoiceClip, anon: boolean) => void; onClose?: (() => void) | undefined; maxSeconds?: number | undefined; pointer?: boolean; autoFocus?: boolean; autoStart?: boolean; allowAnon?: boolean; sendLabel?: string;
+  /** Si devuelve una promesa, la grabación se conserva hasta que se resuelve; con `false` no se pierde (se puede reintentar). */
+  target?: ReplyTarget | undefined; onSend: (clip: VoiceClip, anon: boolean) => void | boolean | Promise<boolean | void>; onClose?: (() => void) | undefined; maxSeconds?: number | undefined; pointer?: boolean; autoFocus?: boolean; autoStart?: boolean; allowAnon?: boolean; sendLabel?: string;
 }) {
-  const { incognito } = useStore();
+  const anonAllowed = useAnonAllowed();
   const maxSeconds = maxProp ?? commerce.voiceMaxSeconds;
   const rec = useVoiceRecorder({ maxSeconds });
-  const [anon, setAnon] = useState(allowAnon && incognito.active);
+  const [anon, setAnon] = useState(allowAnon && anonAllowed.active);
   const [pendingSend, setPendingSend] = useState(false);
+  const [sending, setSending] = useState(false);
   const previewId = useRef(`preview-${Math.random().toString(36).slice(2)}`).current;
   const pb = useVoicePlayback(previewId);
   const file = useRef<HTMLInputElement | null>(null);
   const main = useRef<HTMLButtonElement | null>(null);
   const gate = useGate({ verified: true, online: true });
   const send = useCallback(() => {
+    if (sending) return;
     if (rec.state === "recording") { setPendingSend(true); rec.stop(); return; }
-    if (rec.state !== "recorded") return;
+    if (rec.state !== "recorded" || !rec.clip) return;
     if (pb.active) stopAllVoices();
+    /* La grabación se entrega antes de enviar (así no se libera si el panel se cierra al momento) y vuelve si el envío falla. */
     const clip = rec.take();
-    if (clip) onSend(clip, anon);
-  }, [anon, onSend, pb.active, rec]);
+    if (!clip) return;
+    const r = onSend(clip, anon);
+    if (r instanceof Promise) { setSending(true); void r.then((ok) => { if (ok === false) rec.restore(clip); }).finally(() => setSending(false)); }
+    else if (r === false) rec.restore(clip);
+  }, [anon, onSend, pb.active, rec, sending]);
   useEffect(() => { if (pendingSend && rec.state === "recorded") { setPendingSend(false); send(); } else if (pendingSend && rec.state === "idle") setPendingSend(false); }, [pendingSend, rec.state, send]);
   useEffect(() => { if (rec.error) toast.error(recorderErrorText(rec.error, maxSeconds)); }, [rec.error, maxSeconds]);
   useEffect(() => { if (autoFocus) main.current?.focus(); }, [autoFocus]);
@@ -191,8 +215,8 @@ export function VoiceComposer({ target, onSend, onClose, maxSeconds: maxProp, po
                       : <span key={i} className="spot-voice-bar" style={{ height: `${Math.round(Math.max(0.1, Math.min(1, v * 9)) * 100)}%`, background: `color-mix(in oklab, var(--wave-from) ${Math.round(100 - (i / 40) * 60)}%, var(--wave-to))` }} />)}</div>}
               </div>
               <span className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums" aria-live="polite">{time}</span>
-              <button type="button" onClick={send} disabled={!canSend} aria-label={sendLabel} className="spot-voice-send grid h-[3.25rem] w-[3.25rem] shrink-0 place-items-center rounded-full text-white transition active:scale-95 disabled:opacity-35">
-                {pendingSend ? <Loader2 size={22} className="animate-spin" /> : <Send size={22} className="-ml-0.5" />}
+              <button type="button" onClick={send} disabled={!canSend || sending} aria-label={sendLabel} className="spot-voice-send grid h-[3.25rem] w-[3.25rem] shrink-0 place-items-center rounded-full text-white transition active:scale-95 disabled:opacity-35">
+                {pendingSend || sending ? <Loader2 size={22} className="animate-spin" /> : <Send size={22} className="-ml-0.5" />}
               </button>
             </div>
             <div className="mt-2 flex min-h-8 items-center gap-2">
@@ -213,14 +237,21 @@ export function VoiceComposer({ target, onSend, onClose, maxSeconds: maxProp, po
   );
 }
 
-/** Opciones de una voz: responder, borrar (si es tuya) o denunciar. */
+/** Opciones de una voz: responder, borrar (si es tuya o te la dejaron en tu muro) o denunciar. */
 function VoiceMenu({ note, name, onReply, onClose }: { note: ThreadNote; name: string; onReply: () => void; onClose: () => void }) {
+  const uid = cloudUid();
+  const onMyWall = !!uid && note.threadId === `muro:${uid}` && !note.author.mine && !note.sample;
+  const reportIt = () => {
+    addReport(`Voz de ${name}`, "Denunciada desde una conversación de voz");
+    if (uid && note.serverLiked !== undefined) void api.report(db(), uid, "voice", note.id, "Denunciada desde una conversación").catch((e) => toast.error(cloudErrorText(e)));
+    toast("Gracias. Revisaremos esta voz.");
+    onClose();
+  };
   return (
     <BottomSheet title={`Voz de ${name}`} onClose={onClose} z={90}>
       <button onClick={() => { onClose(); onReply(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm hover:bg-secondary"><Mic size={18} className="text-primary" />Responder con tu voz</button>
-      {note.author.mine
-        ? <button onClick={() => { removeVoiceNote(note.id); toast("Voz eliminada"); onClose(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-live hover:bg-secondary"><Trash2 size={18} />Eliminar mi voz</button>
-        : <button onClick={() => { addReport(`Voz de ${name}`, "Denunciada desde una conversación de voz"); toast("Gracias. Revisaremos esta voz."); onClose(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-live hover:bg-secondary"><X size={18} />Denunciar esta voz</button>}
+      {(note.author.mine || onMyWall) && <button onClick={() => { removeVoiceNote(note.id); toast(note.author.mine ? "Voz eliminada" : "Voz quitada de tu muro"); onClose(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-live hover:bg-secondary"><Trash2 size={18} />{note.author.mine ? "Eliminar mi voz" : "Quitar de mi muro"}</button>}
+      {!note.author.mine && <button onClick={reportIt} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-live hover:bg-secondary"><X size={18} />Denunciar esta voz</button>}
     </BottomSheet>
   );
 }
@@ -252,9 +283,10 @@ export function VoiceThread({ threadId, seed, root, emptyText = "Sé la primera 
     return notes.filter((n) => !n.parentId || !byId.has(n.parentId)).sort((a, b) => b.createdAt - a.createdAt).map((r) => ({ root: r, replies: (map.get(r.id) ?? []).sort((a, b) => a.createdAt - b.createdAt) }));
   }, [notes, byId]);
 
+  const status = useThreadStatus(threadId);
   const publish = (clip: VoiceClip, anon: boolean, parent: { note: ThreadNote; atMs: number } | null) => {
     const n = addVoiceNote({ threadId, parentId: parent?.note.id ?? null, replyAtMs: parent?.atMs, clip, anon });
-    toast.success(anon ? "Voz enviada como «Anónimo»" : "Voz enviada");
+    if (!n.pending) toast.success(anon ? "Voz enviada como «Anónimo»" : "Voz enviada");
     setFresh(n.id);
     setReplyTo(null); setRootOpen(false); onComposerClose?.();
   };
@@ -265,7 +297,9 @@ export function VoiceThread({ threadId, seed, root, emptyText = "Sé la primera 
   return (
     <div className="space-y-3">
       {rootOpen && <VoiceComposer autoFocus maxSeconds={maxSeconds} target={root} onClose={() => { setRootOpen(false); onComposerClose?.(); }} onSend={(c, a) => publish(c, a, null)} />}
-      {groups.length === 0 && !rootOpen && <div className="rounded-3xl border border-dashed border-border p-6 text-center"><Mic className="mx-auto text-primary" size={28} /><p className="mt-2 text-sm text-muted-foreground">{emptyText}</p></div>}
+      {groups.length === 0 && !rootOpen && status === "loading" && <div className="grid place-items-center rounded-3xl border border-dashed border-border p-6" aria-busy="true"><Loader2 className="animate-spin text-primary" size={24} /></div>}
+      {groups.length === 0 && !rootOpen && status === "error" && <div className="rounded-3xl border border-dashed border-border p-6 text-center"><AlertCircle className="mx-auto text-live" size={26} /><p className="mt-2 text-sm text-muted-foreground">No se pudo cargar la conversación. Comprueba tu conexión.</p></div>}
+      {groups.length === 0 && !rootOpen && (status === "ready" || status === "local") && <div className="rounded-3xl border border-dashed border-border p-6 text-center"><Mic className="mx-auto text-primary" size={28} /><p className="mt-2 text-sm text-muted-foreground">{emptyText}</p></div>}
       {groups.map(({ root: r, replies }) => (
         <div key={r.id} className="space-y-2">
           <VoiceItem note={r} highlight={fresh === r.id} onReply={(atMs) => { setRootOpen(false); setReplyTo({ note: r, atMs }); }} onMore={() => setMenu(r)} />
