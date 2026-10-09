@@ -25,7 +25,7 @@ export function GrowCard() {
   return (
     <div className="mx-3 rounded-lg border border-primary/40 bg-card p-4">
       <p className="flex items-center gap-2 text-sm font-bold"><Users size={17} className="text-primary" />Haz que más personas descubran tu perfil</p>
-      <p className="mt-1 text-xs text-muted-foreground">Muestra tu perfil a más personas reales y verificadas de tu zona. Ellas deciden si te siguen o no.</p>
+      <p className="mt-1 text-xs text-muted-foreground">Muestra tu perfil a más personas de tu zona. Ellas deciden si te siguen o no.</p>
       <Button className="mt-3 w-full" onClick={() => app.open("promo-perfil")}>Promocionar mi perfil</Button>
     </div>
   );

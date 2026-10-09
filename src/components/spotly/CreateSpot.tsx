@@ -240,7 +240,7 @@ export function CreateSpot({ onClose, onPublished }: { onClose: () => void; onPu
           ))}
         </div>
 
-        <div className="mt-5"><Trust>Solo cuentas verificadas pueden publicar. Publicar y ser descubierto es gratis; el dinero solo compra más distribución.</Trust></div>
+        <div className="mt-5"><Trust>Publicar y ser descubierto es gratis; el dinero solo compra más distribución.</Trust></div>
       </>}
 
       {/* Cámara real */}

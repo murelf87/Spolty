@@ -81,7 +81,7 @@ export function BoostFlow({ onBack, onDone, preview }: { onBack: () => void; onD
       <div className="mt-1 flex justify-between text-2xs text-muted-foreground">{["Menos", "Normal", "Más", "Máxima"].map((x, i) => <span key={x} className={freq === i ? "font-bold text-foreground" : ""}>{x}</span>)}</div>
     </div>
     {[["Frecuencia estimada", `x${levels[freq]!.mult} veces más`], ["Duración", `${L.minutes || 30} minutos`], ["Zona", scope === 0 && area === 0 ? `Sevilla (${radii[radius]})` : areas[area]?.[0] ?? "Sevilla"], ["Presupuesto", eur(total)]].map(([k, v]) => <div key={k} className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 text-sm"><span className="text-muted-foreground">{k}</span><strong className="text-primary">{v}</strong></div>)}
-    <p className="rounded-xl border border-border bg-secondary p-3 text-2xs text-muted-foreground">Tu Spot se mostrará más veces a personas reales y verificadas. No garantizamos una posición fija, pero aumentamos considerablemente tus oportunidades de aparecer.</p>
+    <p className="rounded-xl border border-border bg-secondary p-3 text-2xs text-muted-foreground">Tu Spot se mostrará más veces a personas de tu zona. No garantizamos una posición fija, pero aumentamos considerablemente tus oportunidades de aparecer.</p>
   </Frame>;
 
   if (step === 3) return <Frame title="¿A quién quieres llegar?" onBack={back} cta={audienceFromOptions ? "Guardar público" : "Siguiente"} onCta={() => { setStep(audienceFromOptions ? 0 : 4); setAudienceFromOptions(false); }}>

@@ -14,7 +14,7 @@ import festival from "@/assets/spotly-sevilla-festival.jpg";
 import valencia from "@/assets/valencia-sunset.jpg";
 import { commerce } from "@/lib/spotlyConfig";
 
-type Tag = "HOT SPOT" | "EN DIRECTO" | "VIRAL" | "IMPULSADO" | "AHORA" | "TENDENCIA";
+type Tag = "HOT SPOT" | "EN DIRECTO" | "VIRAL" | "IMPULSADO" | "AHORA" | "TENDENCIA" | "EJEMPLO";
 type Tile = { key: string; title: string; sub: string; img: string | null; peaks?: number[] | undefined; tag: Tag; go: () => void };
 
 /**
@@ -38,11 +38,14 @@ export function NowStrip() {
     const d = spotData(m, me.name);
     return { key: m.id, title: m.title, sub: m.city, img: d.img || null, peaks: m.audio.peaks, tag: m.happeningNow && Date.now() - m.createdAt < 3 * 3600000 ? "AHORA" : i === 0 && m.views >= 50 ? "VIRAL" : "TENDENCIA", go: () => setOpen(d) };
   });
+  /* Ejemplos: con sus etiquetas («en directo», «impulsado», «viral») y cifras solo en la demostración; con una cuenta
+     real van marcados como ejemplo, sin aparentar directos, pagos ni éxito que no existen. */
+  const tag = (t: Tag): Tag => (demo ? t : "EJEMPLO");
   const samples: Tile[] = [
-    { key: "h1", title: "Concierto en calle Betis", sub: demo ? "A 420 m" : "Ejemplo", img: stage, tag: "HOT SPOT", go: () => app.openHot("h1") },
-    { key: "live", title: "Festival Sevilla", sub: demo ? "1,2K escuchando" : "Ejemplo", img: festival, tag: "EN DIRECTO", go: () => app.open("audio-wall") },
-    { key: "sala", title: "Sala X", sub: demo ? "A 1,1 km" : "Ejemplo", img: beach, tag: "IMPULSADO", go: () => app.openBiz("salax") },
-    { key: "viral", title: "Triana ahora", sub: demo ? "A 1,1 km" : "Ejemplo", img: stage, tag: "VIRAL", go: () => app.openPhotoWall("Sevilla") },
+    { key: "h1", title: "Concierto en calle Betis", sub: demo ? "A 420 m" : "Sevilla", img: stage, tag: tag("HOT SPOT"), go: () => app.openHot("h1") },
+    { key: "live", title: "Festival Sevilla", sub: demo ? "1,2K escuchando" : "Sevilla", img: festival, tag: tag("EN DIRECTO"), go: () => app.open("audio-wall") },
+    { key: "sala", title: "Sala X", sub: demo ? "A 1,1 km" : "Sevilla", img: beach, tag: tag("IMPULSADO"), go: () => app.openBiz("salax") },
+    { key: "viral", title: "Triana ahora", sub: demo ? "A 1,1 km" : "Sevilla", img: stage, tag: tag("VIRAL"), go: () => app.openPhotoWall("Sevilla") },
   ];
   const tiles: Tile[] = [
     ...mine.map((t, i): Tile => ({ key: "mine" + i, title: t.title, sub: `Tuyo · ${fmtRemaining(t.endsAt - now)}`, img: valencia, tag: "IMPULSADO", go: () => app.openPhotoWall("Sevilla") })),
@@ -58,7 +61,7 @@ export function NowStrip() {
         <Button key={t.key} variant="ghost" onClick={t.go} aria-label={`${t.title}, ${t.tag.toLowerCase()}`} className="spot-now-tile relative aspect-[3/4] h-auto w-[calc((100%-1rem)/3)] min-w-0 shrink-0 overflow-hidden rounded-lg border p-0 text-left">
           {t.img ? <img src={t.img} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" /> : <span className="absolute inset-0 flex items-center justify-center gap-[0.125rem] bg-spot-surface px-2" aria-hidden="true">{(t.peaks?.length ? t.peaks : [0.3, 0.6, 0.9, 0.5, 0.7, 0.4]).filter((_, i) => i % 4 === 0).map((h, i) => <i key={i} className="w-[0.1875rem] rounded-full bg-spot-gradient" style={{ height: `${Math.round(h * 60)}%` }} />)}</span>}
           <span className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
-          <span className="absolute left-1 top-1">{t.tag === "IMPULSADO" ? <BoostedTag /> : <span className={"rounded px-1 py-0.5 text-4xs font-bold " + (t.tag === "VIRAL" || t.tag === "TENDENCIA" ? "bg-accent" : "bg-live")}>{t.tag}</span>}</span>
+          <span className="absolute left-1 top-1">{t.tag === "IMPULSADO" ? <BoostedTag /> : <span className={"rounded px-1 py-0.5 text-4xs font-bold " + (t.tag === "EJEMPLO" ? "bg-background/80 text-foreground" : t.tag === "VIRAL" || t.tag === "TENDENCIA" ? "bg-accent" : "bg-live")}>{t.tag}</span>}</span>
           <span className="absolute bottom-1 left-1 right-1 text-3xs font-semibold leading-tight"><span className="line-clamp-2">{t.title}</span><small className="mt-0.5 flex items-center gap-0.5 font-normal text-foreground/80"><MapPin size={10} className="shrink-0" /><span className="truncate">{t.sub}</span></small></span>
         </Button>))}</div>
       <p className="mt-1 text-3xs text-muted-foreground">Lo impulsado rota y se marca. Máx. {commerce.frequencyCapPerUserPerDay} veces por persona y día.</p>

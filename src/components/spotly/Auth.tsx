@@ -124,6 +124,12 @@ const LinkBtn = ({ children, ...p }: React.ButtonHTMLAttributes<HTMLButtonElemen
 function Social({ onDone, disabled }: { onDone: () => void; disabled?: boolean }) {
   const [busy, setBusy] = useState(false);
   const go = async (provider: "apple" | "google") => {
+    /* Dentro de la app nativa (Capacitor) la vuelta del inicio con Apple/Google necesita enlaces profundos que aún
+       no están configurados (docs/APPS_NATIVAS.md): mejor decirlo que dejar a la persona en una pantalla rota. */
+    if ((window as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.()) {
+      toast("En la app, de momento entra con tu correo. Apple y Google llegan con la versión de App Store y Google Play.");
+      return;
+    }
     setBusy(true);
     try {
       const r = await lovable.auth.signInWithOAuth(provider, { redirect_uri: window.location.origin });
@@ -284,7 +290,7 @@ export function AuthFlow({ initial, onBack, onDemo, onSignedIn }: { initial: "lo
   /* ——— Crear cuenta ——— */
   if (view === "register") return (
     <Shell onBack={onBack}>
-      <Head title="Crea tu cuenta" sub="Voces reales de personas verificadas, sin postureo." />
+      <Head title="Crea tu cuenta" sub="Voces reales de tu ciudad, sin postureo." />
       <form className="mt-6 space-y-4" noValidate onSubmit={(e) => { e.preventDefault(); void register(); }}>
         <Field id="username" label="Nombre de usuario" icon={AtSign} autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="tu_usuario" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s/g, ""))} onBlur={() => touch("username")} error={userErr} hint="Así te verán en Spotly. Podrás cambiarlo más adelante." maxLength={20} />
         <Field id="email" label="Correo electrónico" icon={Mail} type="email" inputMode="email" autoComplete="email" autoCapitalize="none" placeholder="nombre@correo.com" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => touch("email")} error={emailErr} />

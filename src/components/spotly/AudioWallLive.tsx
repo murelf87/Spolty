@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Headphones, MapPin, Mic, MicOff, Radio, Search, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TopBar } from "./kit";
+import { useStore } from "@/lib/store";
 import portraits from "@/assets/audio-wall-portraits.jpg";
 
 type Filter = "En directo" | "Cerca" | "Tendencias";
@@ -21,6 +22,7 @@ function Portrait({ person, className = "", onClick, selected = false }: { perso
 }
 
 export function AudioWallLive({ onBack }: { onBack: () => void }) {
+  const { demo } = useStore();
   const [filter, setFilter] = useState<Filter>("En directo");
   const [joined, setJoined] = useState(false);
   const [muted, setMuted] = useState(true);
@@ -51,7 +53,7 @@ export function AudioWallLive({ onBack }: { onBack: () => void }) {
         </div>
         <div className="audio-wall-room mt-2 flex shrink-0 items-center gap-3 rounded-2xl border border-primary/50 p-2.5">
           <Portrait person={room.image} className="h-[5.5rem] w-[4.75rem] shrink-0 rounded-xl border-0" onClick={() => setJoined(true)} selected={joined} />
-          <div className="min-w-0 flex-1"><p className="flex items-center gap-1.5 text-xs font-semibold"><Users size={14} className="text-primary" />{room.listeners.toLocaleString("es-ES")} escuchando</p><p className="mt-0.5 truncate text-xs text-muted-foreground">{room.title}</p>
+          <div className="min-w-0 flex-1"><p className="flex items-center gap-1.5 text-xs font-semibold"><Users size={14} className="text-primary" />{demo ? `${room.listeners.toLocaleString("es-ES")} escuchando` : "Sala de ejemplo"}</p><p className="mt-0.5 truncate text-xs text-muted-foreground">{room.title}</p>
             <Button onClick={() => setJoined(!joined)} className="mt-2 h-9 w-full rounded-full bg-spot-gradient font-bold text-foreground">{joined ? "Salir de la sala" : "Unirte"}</Button>
           </div>
         </div>

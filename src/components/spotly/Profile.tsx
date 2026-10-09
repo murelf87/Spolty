@@ -438,6 +438,16 @@ function SettingsScreen({ onBack, onOpen, accountEmail }: { onBack: () => void; 
         <button onClick={() => setDel(true)} className="flex w-full justify-between py-3 text-sm text-live">Eliminar cuenta<span>›</span></button>
       </div>
       <p className="mt-4 text-center text-xs text-muted-foreground">{accountEmail ? `Sesión iniciada: ${accountEmail}` : "Explorando la demostración sin cuenta"}</p>
+      {/* Dónde se guarda lo que haces: así se comprueba de un vistazo que la nube está activada (docs/ACTIVAR_NUBE.md). */}
+      {(() => {
+        const where = cloud.on ? "Tus Spots, voces y chats están en la nube: los verás igual en iPhone, Android y la web."
+          : !accountEmail ? null
+          : cloud.status === "checking" ? "Conectando con la nube de Spotly…"
+          : cloud.status === "missing" ? "La nube de Spotly aún no está activada: por ahora todo se guarda solo en este móvil."
+          : cloud.status === "error" ? "Sin conexión con la nube: se guarda en este móvil y se vuelve a intentar solo."
+          : null;
+        return where && <p className="mt-1 text-center text-2xs text-muted-foreground" role="status">{where}</p>;
+      })()}
       <Button variant="outline" className="mt-2 w-full" onClick={() => setOut(true)}>{accountEmail ? "Cerrar sesión" : "Entrar con Apple o Google"}</Button>
       {help && <Help onBack={() => setHelp(false)} />}
       {del && <DeleteAccount onClose={() => setDel(false)} />}

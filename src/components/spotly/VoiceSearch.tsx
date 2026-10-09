@@ -27,7 +27,7 @@ type SR = { start: () => void; stop: () => void; lang: string; interimResults: b
 /** Búsqueda principalmente por voz. La entrada escrita es accesoria. */
 export function VoiceSearch({ onBack }: { onBack: () => void }) {
   const app = useApp();
-  const { perms, bizCampaign, bizAvailability, following, offline } = useStore();
+  const { perms, bizCampaign, bizAvailability, following, offline, demo } = useStore();
   const now = useNow();
   const me = useMe();
   const cloud = useCloud();
@@ -115,13 +115,14 @@ export function VoiceSearch({ onBack }: { onBack: () => void }) {
       </div>}
       {kind === "Creadores" && !cloud.on && <div className="mt-3 space-y-2">
         <Chip active={onlyVerified} onClick={() => setOnlyVerified(!onlyVerified)}><BadgeCheck size={12} className="mr-1 inline" />Solo verificados</Chip>
-        {people.filter((p) => !onlyVerified || p.verified).map((p) => <div key={p.name} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3"><img src={p.img} alt="" className="h-11 w-11 rounded-full object-cover" /><span className="min-w-0 flex-1"><strong className="flex items-center gap-1 text-sm">{p.name}<BadgeCheck size={13} className="text-primary" /></strong><small className="text-muted-foreground">{p.note} · {p.dist}</small></span><Button size="sm" variant={following.includes(p.name) ? "secondary" : "default"} onClick={() => toggleFollow(p.name)}>{following.includes(p.name) ? "Siguiendo" : "Seguir"}</Button></div>)}
+        {people.filter((p) => !onlyVerified || p.verified).map((p) => <div key={p.name} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3"><img src={p.img} alt="" className="h-11 w-11 rounded-full object-cover" /><span className="min-w-0 flex-1"><strong className="flex items-center gap-1 text-sm">{p.name}{demo && <BadgeCheck size={13} className="text-primary" />}</strong><small className="text-muted-foreground">{p.note} · {p.dist}</small></span><Button size="sm" variant={following.includes(p.name) ? "secondary" : "default"} onClick={() => toggleFollow(p.name)}>{following.includes(p.name) ? "Siguiendo" : "Seguir"}</Button></div>)}
       </div>}
 
       {kind === "Lugares" && !q && <>
-        <h3 className="mb-2 mt-5 flex items-center gap-1.5 text-sm font-bold"><Flame size={15} className="text-live" />Tendencias en Sevilla</h3>
-        <div className="flex flex-wrap gap-2">{trends.map(([l, query, n], i) => <button key={l} onClick={() => run(query)} className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:border-primary"><span className="text-primary">{i + 1}</span>{l}<small className="font-normal text-muted-foreground">{n}</small></button>)}</div>
-        <p className="mt-1 text-3xs text-muted-foreground">Cifras de ejemplo. Las tendencias reales salen de búsquedas y actividad verificadas, no de pagos.</p>
+        {/* Las tendencias con su ranking y sus cifras solo existen en la demostración: con una cuenta real son ideas para buscar. */}
+        <h3 className="mb-2 mt-5 flex items-center gap-1.5 text-sm font-bold"><Flame size={15} className="text-live" />{demo ? `Tendencias en ${me.city || "Sevilla"}` : "Ideas para buscar"}</h3>
+        <div className="flex flex-wrap gap-2">{trends.map(([l, query, n], i) => <button key={l} onClick={() => run(query)} className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:border-primary">{demo && <span className="text-primary">{i + 1}</span>}{l}{demo && <small className="font-normal text-muted-foreground">{n}</small>}</button>)}</div>
+        {demo && <p className="mt-1 text-3xs text-muted-foreground">Cifras de ejemplo. Las tendencias reales salen de búsquedas y actividad verificadas, no de pagos.</p>}
         <h3 className="mb-2 mt-5 text-sm font-bold">Prueba a decir</h3>
         <div className="space-y-2">{examples.map((s) => <button key={s} onClick={() => run(s)} className="min-h-11 w-full rounded-xl border border-border bg-card p-3 text-left text-sm hover:border-primary">«{s}»</button>)}</div>
       </>}

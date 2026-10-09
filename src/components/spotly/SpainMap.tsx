@@ -165,6 +165,7 @@ export function SpainMap({ pins = spainCities, selected, onSelect, className, sh
 
 /** Lámina 5 · Mapa completo: mapa real por provincias (52), buscador de municipios (8.131) y tarjeta de lugar. */
 export function SpainScreen({ onBack }: { onBack: () => void }) {
+  const { demo } = useStore();
   const app = useApp();
   const [tab, setTab] = useState<"Mapa" | "Provincias" | "Municipios">("Mapa");
   const [sel, setSel] = useState<string | null>(null);
@@ -180,7 +181,7 @@ export function SpainScreen({ onBack }: { onBack: () => void }) {
         <p className="mt-2 text-center text-2xs text-muted-foreground">Toca una provincia (Ceuta, Melilla, Canarias y Baleares incluidas) o una ciudad activa.</p>
         {c && (
           <div className="mt-3 rounded-2xl border border-border bg-card p-3">
-            <div className="flex items-center gap-3"><img src={sevilla} alt="" className="h-14 w-14 rounded-xl object-cover" /><span className="min-w-0 flex-1"><strong className="block text-lg">{c.name}</strong><small className="block text-muted-foreground">{c.count} personas con actividad ahora · cifra de ejemplo</small></span></div>
+            <div className="flex items-center gap-3"><img src={sevilla} alt="" className="h-14 w-14 rounded-xl object-cover" /><span className="min-w-0 flex-1"><strong className="block text-lg">{c.name}</strong><small className="block text-muted-foreground">{demo ? `${c.count} personas con actividad ahora · cifra de ejemplo` : "Ciudad activa de ejemplo"}</small></span></div>
             <div className="mt-3 grid grid-cols-2 gap-2"><Button variant="secondary" onClick={() => go(c.name)}>Ver fotos</Button><Button onClick={() => { toast(`Mostrando ${c.name} en el mapa`); onBack(); app.goMap(); }}>Ver en mapa</Button></div>
           </div>
         )}

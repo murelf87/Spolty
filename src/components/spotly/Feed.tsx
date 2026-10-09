@@ -24,7 +24,8 @@ import { PeopleStrip } from "./PromoProfile";
 import { MeAvatar } from "./Author";
 import { BoostedTag, IncognitoTag, Skeleton, StateCard, BottomSheet } from "./kit";
 import { ContentState } from "./Safety";
-import { addReport, blockUser, toggleFollow, unblockUser, useNow, useStore, useMe } from "@/lib/store";
+import { addReport, blockUser, saveMyCity, toggleFollow, unblockUser, useNow, useStore, useMe } from "@/lib/store";
+import { PlaceBrowser } from "./Places";
 import { campaignEligible, hotspots } from "@/lib/sampleData";
 import { spotData, type SpotData } from "./spotData";
 import { copySpotLink, networkShareUrl, shareLink, spotLink } from "@/lib/share";
@@ -198,7 +199,7 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
             : s.own ? <MeAvatar className="h-7 w-7 text-3xs ring-1 ring-white/60" /> : authorPhoto ? <img src={authorPhoto} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-white/60" /> : <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-spot-gradient text-3xs font-bold text-white ring-1 ring-white/60">{(s.name.replace("@", "")[0] ?? "?").toUpperCase()}</span>}
           <span className="min-w-0 flex-1">
             <span className="block text-xs font-bold text-white">{who}
-              {s.verified && <svg viewBox="0 0 16 16" className="ml-1 inline h-3 w-3 fill-[#6366f1]"><circle cx="8" cy="8" r="8"/><path d="m5 8 2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
+              {s.verified && demo && <svg viewBox="0 0 16 16" className="ml-1 inline h-3 w-3 fill-[#6366f1]"><circle cx="8" cy="8" r="8"/><path d="m5 8 2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
               <span className="ml-1 text-3xs font-normal text-white/60">{s.city}{s.province ? `, ${s.province}` : ""} · {s.ago}</span>
             </span>
           </span>
@@ -232,14 +233,14 @@ export function SpotCard({ s, isNext = false }: { s: SpotData; isNext?: boolean 
         <div className="min-w-0 flex-1">
           <p className="flex items-center gap-1 text-sm font-bold leading-snug text-white drop-shadow">
             {who}
-            {s.verified && !s.incognito && <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 fill-[#818cf8]"><circle cx="8" cy="8" r="8"/><path d="m5 8 2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
+            {s.verified && demo && !s.incognito && <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0 fill-[#818cf8]"><circle cx="8" cy="8" r="8"/><path d="m5 8 2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>}
           </p>
           <p className="flex items-center gap-1 text-2xs text-white/75">
             <MapPin size={10} className="shrink-0" />{s.city}{s.province ? `, ${s.province}` : ""} · {s.ago}
             {/* Con una cuenta real, el contenido de muestra se rotula hasta que llegue el de la comunidad. */}
             {!s.own && !demo && !s.cloud && <span className="ml-1 rounded-full border border-white/40 px-1.5 text-4xs">ejemplo</span>}
           </p>
-          {s.tagLive && <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-black/50 px-2.5 py-0.5 text-3xs font-bold text-white backdrop-blur-sm" style={{ border: "1px solid rgba(255,255,255,0.25)" }}>
+          {s.tagLive && (s.cloud || s.own || demo) && <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-black/50 px-2.5 py-0.5 text-3xs font-bold text-white backdrop-blur-sm" style={{ border: "1px solid rgba(255,255,255,0.25)" }}>
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#a855f7]" />Está pasando
           </span>}
         </div>
@@ -337,6 +338,7 @@ export function HomeView({ onBell }: { mine: MineSpot; onBell: () => void }) {
   const cloud = useCloud();
   const now = useNow();
   const [filter, setFilter] = useState<FeedTab>("Todo");
+  const [zone, setZone] = useState(false);
   const [localPhase, setPhase] = useState<"ok" | "loading" | "error">("ok");
   /* Con la nube, cada pestaña es una consulta real: Todo (lo último), Cerca (tu ciudad), Suscrito (a quien sigues) y
      España (lo más escuchado de la semana), con scroll infinito. */
@@ -397,7 +399,7 @@ export function HomeView({ onBell }: { mine: MineSpot; onBell: () => void }) {
     <header ref={headerRef} className="sticky top-0 z-20 bg-background/95 px-3 pb-2 pt-[var(--safe-header)] backdrop-blur-md">
       <div className="grid grid-cols-[1fr_auto_1fr] items-center">
         <div className="flex min-w-0">
-          <Button variant="ghost" size="icon" aria-label="Tu ubicación" onClick={() => toast("Ubicación: Sevilla, España")}><MapPin size={19} /></Button>
+          <Button variant="ghost" size="icon" aria-label={`Tu zona: ${me.city}`} onClick={() => setZone(true)}><MapPin size={19} /></Button>
         </div>
         <Logo className="justify-self-center" />
         <div className="flex justify-end">
@@ -475,6 +477,11 @@ export function HomeView({ onBell }: { mine: MineSpot; onBell: () => void }) {
         </>
       ))}
     </main>
+    {/* Tu zona: la detecta el GPS al empezar y aquí se cambia; la usan «Cerca», el mapa y Crear Spot. */}
+    {zone && <BottomSheet title="Tu zona" onClose={() => setZone(false)}>
+      <p className="mb-3 text-sm text-muted-foreground">«Cerca» y el mapa te enseñan lo de <strong className="text-foreground">{me.city}</strong>. Elige otra ciudad o pueblo si quieres cambiarla.</p>
+      <PlaceBrowser allowProvince={false} selected={me.city} onPick={(n) => { saveMyCity(n); setZone(false); toast(`Tu zona ahora es ${n}`); }} />
+    </BottomSheet>}
   </>;
 }
 

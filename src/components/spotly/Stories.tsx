@@ -164,7 +164,7 @@ function StoryViewer({ groups, startGroup, onClose }: { groups: StoryGroup[]; st
           <p className="truncate text-sm font-bold leading-none text-white">{s.author.mine ? "Tu historia" : s.author.name}{s.sample && !demo && <span className="ml-1.5 rounded-full border border-white/40 px-1.5 text-4xs font-normal">ejemplo</span>}</p>
           <p className="text-2xs text-white/70">{s.place || "Spotly"} · {agoText(s.createdAt)}</p>
         </div>
-        {s.live && <span className="rounded-md bg-live px-2 py-0.5 text-3xs font-bold text-white">LIVE</span>}
+        {s.live && demo && <span className="rounded-md bg-live px-2 py-0.5 text-3xs font-bold text-white">LIVE</span>}
         {s.author.mine && <button onPointerDown={(e) => e.stopPropagation()} onClick={remove} aria-label="Eliminar tu historia" className="grid h-8 w-8 place-items-center rounded-full bg-black/40 text-white"><Trash2 size={16} /></button>}
         <button onPointerDown={(e) => e.stopPropagation()} onClick={onClose} aria-label="Cerrar" className="grid h-8 w-8 place-items-center rounded-full bg-black/40 text-white"><X size={18} /></button>
       </div>
@@ -328,6 +328,7 @@ function CreateStorySheet({ onClose }: { onClose: () => void }) {
 /* ───────── Tira de historias ───────── */
 export function StoriesStrip() {
   const { mine, groups } = useStoryGroups();
+  const { demo } = useStore();
   const [viewed, setViewed] = useState<string[]>([]);
   const [viewer, setViewer] = useState<{ groups: StoryGroup[]; start: number } | null>(null);
   const [creating, setCreating] = useState(false);
@@ -345,7 +346,8 @@ export function StoriesStrip() {
         </div>
         {groups.map((p, i) => {
           const seen = viewed.includes(p.key);
-          const live = p.items.some((x) => x.live);
+          /* «LIVE» solo en las historias de ejemplo de la demostración: no hay directos de verdad. */
+          const live = demo && p.items.some((x) => x.live);
           const cover = p.author.avatar ?? p.items[0]!.img;
           return (
             <button key={p.key} onClick={() => { setViewed((v) => [...v, p.key]); setViewer({ groups, start: i }); }} className="flex shrink-0 flex-col items-center gap-1.5" aria-label={`Historia de ${p.author.name}`}>

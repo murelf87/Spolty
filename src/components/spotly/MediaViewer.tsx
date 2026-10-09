@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import { ChevronLeft, ChevronRight, Heart, MapPin, Pause, Play, Share2, X } from "lucide-react";
 import { toast } from "sonner";
+import { useStore } from "@/lib/store";
 
 export type MediaItem = {
   kind: "foto" | "video";
@@ -21,6 +22,8 @@ const count = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace(".0",
  * barra para avanzar, Escape para cerrar. Los vídeos empiezan solos y en silencio, como en cualquier red social.
  */
 export function MediaViewer({ items, start = 0, onClose }: { items: MediaItem[]; start?: number; onClose: () => void }) {
+  /* Las fotos y vídeos de ejemplo solo enseñan «me gusta» inventados en la demostración. */
+  const { demo } = useStore();
   const [index, setIndex] = useState(Math.min(Math.max(start, 0), items.length - 1));
   const [liked, setLiked] = useState<number[]>([]);
   const [paused, setPaused] = useState(false);
@@ -120,7 +123,7 @@ export function MediaViewer({ items, start = 0, onClose }: { items: MediaItem[];
             <p className="mt-1 flex items-center gap-1 text-xs text-white/70"><MapPin size={12} />{item.place}</p>
           </div>
           <button onClick={() => setLiked(isLiked ? liked.filter((i) => i !== index) : [...liked, index])} aria-label="Me gusta" aria-pressed={isLiked} className="flex shrink-0 flex-col items-center gap-0.5 text-xs font-semibold">
-            <Heart size={24} className={isLiked ? "text-live" : ""} fill={isLiked ? "currentColor" : "none"} />{count(item.likes + (isLiked ? 1 : 0))}
+            <Heart size={24} className={isLiked ? "text-live" : ""} fill={isLiked ? "currentColor" : "none"} />{demo ? count(item.likes + (isLiked ? 1 : 0)) : null}
           </button>
         </div>
         {items.length > 1 && (

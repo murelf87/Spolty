@@ -30,7 +30,7 @@ export function ProfilePromo({ onBack }: { onBack: () => void }) {
     const p = promoIntensities.find((i) => i.id === profilePromo!.intensity)!;
     return (
       <Screen title="Resultados de tu promoción" sub={`Intensidad ${p.label.toLowerCase()} · termina en ${fmtRemaining(profilePromo!.endsAt - now)}`} onBack={onBack} z={55}>
-        <div className="rounded-2xl border border-primary/40 bg-primary/10 p-4 text-sm"><b>Tu perfil se está mostrando</b> a personas reales y verificadas de tu zona. Ellas deciden si te siguen.</div>
+        <div className="rounded-2xl border border-primary/40 bg-primary/10 p-4 text-sm"><b>Tu perfil se está mostrando</b> a personas de tu zona. Ellas deciden si te siguen.</div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">{[[Users, "3,2K", "Personas alcanzadas"], [Eye, "412", "Visitas al perfil"], [UserPlus, "38", "Nuevos seguidores"]].map(([I, v, l]) => { const Ic = I as typeof Eye; return <div key={String(l)} className="rounded-xl border border-border bg-card p-3"><Ic size={16} className="mx-auto text-primary" /><strong className="block text-lg">{String(v)}</strong><small className="text-3xs text-muted-foreground">{String(l)}</small></div>; })}</div>
         <p className="mt-2 text-2xs text-muted-foreground">Cifras de ejemplo. En producción solo se mostrarán métricas realmente medidas; los seguidores obtenidos son personas que decidieron seguirte.</p>
         <Button variant="outline" className="mt-4 w-full" onClick={() => { setProfilePromo(null); toast("Promoción detenida"); }}>Detener promoción</Button>
@@ -58,12 +58,12 @@ export function ProfilePromo({ onBack }: { onBack: () => void }) {
 }
 
 function PersonRow({ p, tag }: { p: (typeof people)[number]; tag?: string | undefined }) {
-  const { following } = useStore();
+  const { following, demo } = useStore();
   const on = following.includes(p.name);
   return (
     <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
       <img src={p.img} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-primary/40" />
-      <span className="min-w-0 flex-1"><strong className="flex items-center gap-1 text-sm">{p.name}{p.verified && <BadgeCheck size={13} className="text-primary" />}{tag && <SponsoredTag label={tag} />}</strong><small className="text-muted-foreground">{p.note} · {p.dist}</small></span>
+      <span className="min-w-0 flex-1"><strong className="flex items-center gap-1 text-sm">{p.name}{p.verified && demo && <BadgeCheck size={13} className="text-primary" />}{tag && <SponsoredTag label={tag} />}</strong><small className="text-muted-foreground">{p.note} · {p.dist}</small></span>
       <Button size="sm" variant={on ? "secondary" : "default"} className="min-h-9" onClick={() => { toggleFollow(p.name); toast(on ? `Has dejado de seguir a ${p.name}` : `Ahora sigues a ${p.name}`); }}>{on ? "Siguiendo" : "Seguir"}</Button>
     </div>
   );
@@ -85,7 +85,7 @@ export function SuggestedPeople({ onBack }: { onBack: () => void }) {
   );
   return (
     <Screen title="Personas sugeridas" sub={demo ? "Personas reales y verificadas" : "Personas de ejemplo"} onBack={onBack} z={55}>
-      {sections.map(([t, list], si) => <section key={t} className="mb-5"><h3 className="mb-2 text-sm font-bold">{t}</h3><div className="space-y-2">{si === 0 && mine && <div className="flex items-center gap-3 rounded-xl border border-accent/50 bg-accent/10 p-3"><span className="grid h-12 w-12 place-items-center rounded-full bg-spot-gradient font-bold">Tú</span><span className="flex-1"><strong className="flex items-center gap-2 text-sm">Tu perfil <SponsoredTag label="Promocionado" /></strong><small className="text-muted-foreground">Así te ven los demás</small></span></div>}{list.map((p, i) => <PersonRow key={p.name + si} p={p} tag={si === 0 && i === 1 ? "Promocionado" : undefined} />)}</div></section>)}
+      {sections.map(([t, list], si) => <section key={t} className="mb-5"><h3 className="mb-2 text-sm font-bold">{t}</h3><div className="space-y-2">{si === 0 && mine && <div className="flex items-center gap-3 rounded-xl border border-accent/50 bg-accent/10 p-3"><span className="grid h-12 w-12 place-items-center rounded-full bg-spot-gradient font-bold">Tú</span><span className="flex-1"><strong className="flex items-center gap-2 text-sm">Tu perfil <SponsoredTag label="Promocionado" /></strong><small className="text-muted-foreground">Así te ven los demás</small></span></div>}{list.map((p, i) => <PersonRow key={p.name + si} p={p} tag={demo && si === 0 && i === 1 ? "Promocionado" : undefined} />)}</div></section>)}
       <Trust>Las personas marcadas “Promocionado” han pagado por más exposición de perfil. Seguir es siempre una decisión tuya; nunca se generan follows automáticos.</Trust>
     </Screen>
   );
@@ -93,12 +93,12 @@ export function SuggestedPeople({ onBack }: { onBack: () => void }) {
 
 export function PeopleStrip() {
   const app = useApp();
-  const { following } = useStore();
+  const { following, demo } = useStore();
   const [profile, setProfile] = useState<string | null>(null);
   return (<>
     <section className="mx-3 rounded-xl border border-border bg-card p-3">
       <div className="mb-2 flex items-center justify-between"><h3 className="text-sm font-bold">Voces de tu ciudad</h3><button onClick={() => app.open("personas")} className="text-xs text-primary">Ver más ›</button></div>
-      <div className="flex gap-3 overflow-x-auto pb-1">{people.slice(0, 5).map((p, i) => <div key={p.name} className="flex w-24 shrink-0 flex-col items-center text-center"><button onClick={() => setProfile(p.name)} aria-label={`Ver perfil de ${p.name}`} className="flex flex-col items-center"><img src={p.img} alt="" className="h-16 w-16 rounded-full object-cover ring-2 ring-primary/50" /><strong className="mt-1 flex items-center gap-0.5 text-xs">{p.name}<BadgeCheck size={11} className="text-primary" /></strong></button>{i === 1 && <SponsoredTag label="Promocionado" />}<Button size="sm" variant={following.includes(p.name) ? "secondary" : "default"} className="mt-1 h-8 px-3 text-2xs" onClick={() => { toggleFollow(p.name); toast(following.includes(p.name) ? "Dejaste de seguir" : `Sigues a ${p.name}`); }}>{following.includes(p.name) ? "Siguiendo" : "Seguir"}</Button></div>)}</div>
+      <div className="flex gap-3 overflow-x-auto pb-1">{people.slice(0, 5).map((p, i) => <div key={p.name} className="flex w-24 shrink-0 flex-col items-center text-center"><button onClick={() => setProfile(p.name)} aria-label={`Ver perfil de ${p.name}`} className="flex flex-col items-center"><img src={p.img} alt="" className="h-16 w-16 rounded-full object-cover ring-2 ring-primary/50" /><strong className="mt-1 flex items-center gap-0.5 text-xs">{p.name}{demo && <BadgeCheck size={11} className="text-primary" />}</strong></button>{i === 1 && demo && <SponsoredTag label="Promocionado" />}<Button size="sm" variant={following.includes(p.name) ? "secondary" : "default"} className="mt-1 h-8 px-3 text-2xs" onClick={() => { toggleFollow(p.name); toast(following.includes(p.name) ? "Dejaste de seguir" : `Sigues a ${p.name}`); }}>{following.includes(p.name) ? "Siguiendo" : "Seguir"}</Button></div>)}</div>
     </section>
     {profile && <AuthorProfile name={profile} onClose={() => setProfile(null)} />}
   </>);

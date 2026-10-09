@@ -425,7 +425,7 @@ function PhotoDetail({ p, onClose, onMore }: { p: Photo; onClose: () => void; on
         <div className="flex items-center gap-3">
           <img src={p.img} alt="" className="h-11 w-11 rounded-full object-cover ring-2 ring-primary/50" />
           <span className="min-w-0 flex-1">
-            <strong className="flex items-center gap-1 text-sm">{p.mine ? "Tú" : p.author}{p.verified && <BadgeCheck size={14} className="text-primary" />}{!p.mine && !demo && <span className="ml-1 rounded-full border border-border px-1.5 text-4xs font-normal text-muted-foreground">ejemplo</span>}</strong>
+            <strong className="flex items-center gap-1 text-sm">{p.mine ? "Tú" : p.author}{p.verified && demo && <BadgeCheck size={14} className="text-primary" />}{!p.mine && !demo && <span className="ml-1 rounded-full border border-border px-1.5 text-4xs font-normal text-muted-foreground">ejemplo</span>}</strong>
             <span className="text-xs text-muted-foreground">{p.town} · {fmtKm(p.dist)} · hace {p.mins} min</span>
           </span>
           {!p.mine && <Button size="sm" variant={follows ? "secondary" : "default"} onClick={() => { toggleFollow(p.author); toast(follows ? `Dejaste de seguir a ${p.author}` : `Sigues a ${p.author}`); }}>{follows ? "Siguiendo" : "Seguir"}</Button>}

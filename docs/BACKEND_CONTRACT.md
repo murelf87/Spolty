@@ -1,81 +1,78 @@
-# Spotly — contrato de backend (frontend listo, datos simulados)
+# Spotly — contrato de backend
 
-El frontend funciona 100 % con estado local (`src/lib/store.ts`) y datos de muestra (`src/lib/sampleData.ts`).
-Todo lo comercial se lee de `src/lib/spotlyConfig.ts` (precios, duraciones, radios): **no hay importes en el código de las pantallas**.
-Para pasar a producción hay que sustituir cada función del store por una llamada a estas entidades. Nada de lo marcado como *demo* debe presentarse como real.
+Qué es real y qué sigue siendo demostración, y qué falta conectar. El esquema real está en
+`supabase/migrations/20261008140000_spotly_social.sql` (se activa con `docs/ACTIVAR_NUBE.md`) y el cliente en
+`src/lib/cloud/` (`api.ts` contiene todas las llamadas). Todo lo comercial se lee de `src/lib/spotlyConfig.ts`
+(precios, duraciones, radios): no hay importes en el código de las pantallas.
 
 ## Principios (no negociables)
-1. Cuentas solo de personas verificadas. Publicar, descubrir y viralizar es gratis.
-2. Pagar = más distribución, frecuencia, Top, promoción de perfil o anuncio local. **Nunca** compra seguidores, reputación, veracidad ni inmunidad de moderación.
-3. Incógnito: identidad pública oculta, identidad interna siempre conocida y moderable. Nunca se revela solo.
+1. Spotly es voz: el único texto libre es el título del Spot (y nombre, usuario, título de grupo, comunidad o evento).
+2. Publicar, descubrir y hacerse viral es gratis. Pagar = más distribución, frecuencia, promoción de perfil o anuncio
+   local. **Nunca** compra seguidores, reputación, veracidad ni inmunidad de moderación.
+3. Incógnito (de pago): identidad pública oculta, identidad interna siempre conocida y moderable. Lo concede el
+   servidor; nunca se revela solo.
+4. Nada inventado con una cuenta real: las cifras y distintivos de ejemplo solo existen en el modo demostración.
 
-## Entidades
-| Tabla | Campos clave | Pantalla que la usa |
-|---|---|---|
-| `profiles` | id, handle, city, verified_status (`none/pending/approved/rejected`), badges[] | Perfil, Personas |
-| `identity_sessions` | user_id, method, status, provider_ref, reviewed_at | Identity.tsx (*demo*: sin proveedor KYC) |
-| `spots` | id, author_id, audio_url, duration, topic, place_id, precision, visibility, incognito_session_id?, created_at | Feed, Crear, Hot Spots |
-| `spot_reactions` / `spot_confirmations` | spot_id, user_id | "Confirmo que está pasando" |
-| `follows` | follower_id, followee_id | Siguiendo |
-| `blocks` / `reports` | user_id, target, reason, status (`review/resolved/removed`) | Safety.tsx |
-| `incognito_sessions` | user_id, starts_at, ends_at?, duration (`15m/1h/6h/24h/7d/perm`), extended_count, price_credits | Incognito |
-| `wallets` / `credit_ledger` | user_id, balance; entry(type, credits, ref) | Credits, TxHistory |
-| `orders` | id, kind (`digital/local`), lines[], total_eur, credits_used, status | `Checkout` unificado |
-| `boosts` | spot_id, level (`x2/x5/x10`), radius, starts_at, ends_at, top_now | BoostFlow, "Ahora en Spotly" |
-| `profile_promos` | user_id, intensity, radius, ends_at, metrics{reached, visits, follows} | PromoProfile |
-| `business_profiles` | owner_id, name, category, address, hours, availability | Spotly Local |
-| `campaigns` | business_id, radius_km, schedule, days[], budget_eur, audio_url, status | Local, feed patrocinado |
-| `flash_offers` | business_id, text, ends_at, stock | FlashOfferCard |
-| `places` | id, name, kind (`city/town`), lat, lng, photo_count | PhotoWall, SpainMap |
-| `photos` | id, place_id, author_id, url, tags[], created_at, moderation_status | PhotoWall |
-| `chats` / `chat_messages` | members[], group?, message(kind: voice/gif/image/reaction, url, duration), read_at | VoiceChats |
-| `push_subscriptions` | user_id, platform (`ios/android/web`), token | PWA / Capacitor |
+## Cómo decide la app dónde guardar
+- **Nube**: con sesión iniciada, la migración aplicada (`api.probe`) y fuera del modo demostración.
+- **Dispositivo**: sin sesión, sin migración o sin conexión. Voces y Spots van a IndexedDB (`lib/voice/notes.ts`,
+  `lib/spots.ts`) con la misma interfaz; la vista previa y la PWA de prueba compilan con `VITE_SPOTLY_CLOUD=off`.
+- Ajustes muestra en qué modo estás («Tus Spots, voces y chats están en la nube…»).
 
-## Contratos de función (sustituir el store)
-- `getConfig(): SpotlyConfig` — precios/duraciones editables sin desplegar.
-- `createSpot(input): Spot` · `confirmHotSpot(spotId)` · `reportContent(target, reason)` · `blockUser(id)`.
-- `checkout(order): {status, receipt}` — pasarela (Stripe/Apple IAP/Google Play Billing). En iOS/Android los créditos digitales **deben** usar IAP de cada tienda.
-- `startIncognito(duration)` · `extendIncognito()` · `endIncognito()`.
-- `startBoost(spotId, level, radius)` · `startProfilePromo(intensity, radius)`.
-- `createCampaign(input)` → estado `review` hasta moderación; el feed solo muestra campañas `active` dentro de radio/horario/días.
-- `searchVoice(audio|text)` — transcripción en servidor; hoy es *demo* local.
-- Ajustes "Modo viaje", "Traducción de voz" y "Transcripción con IA" (Privacidad → *Vista previa*): solo guardan preferencia; requieren servicios de traducción/transcripción.
+## Implementado en la nube (tablas → pantallas)
+| Tablas y vistas | Pantallas |
+|---|---|
+| `profiles` / `profiles_public` (usuario único, nombre, ciudad, foto, portada) | Perfil, autor, personas, búsqueda |
+| `follows`, `blocks` (bloquear deja de seguir en ambos sentidos) | Seguidores, Siguiendo, seguridad |
+| `spots` / `spots_public`, `spot_likes`, `saved_spots`, `spot_views` (una vista por persona y día) | Inicio (Todo, Cerca, Suscrito, España), Spot, mapa, fotos, perfil |
+| `voice_notes` / `voice_notes_public` (encadenadas con `parent_id`), `voice_likes` | Mensajes de voz de Spots, fotos, perfil, grupos, comunidades y eventos |
+| `chats`, `chat_members`, `my_chats` | Chats de voz 1 a 1 y de grupo |
+| `stories` / `stories_public` (caducan a las 24 h) | Historias |
+| `communities` / `communities_public`, `community_members` | Comunidades (conversación en el hilo `group:<id>`) |
+| `events` / `events_public` (con audio-flyer), `event_attendees` | Eventos (conversación en el hilo `event:<id>`) |
+| `thread_events` (tiempo real sin datos personales) | Avisos en directo de cada conversación |
+| `reports`, `user_roles` (moderador) | Denunciar y moderar |
+| `incognito_sessions` (solo escribe el servidor) | Publicar y hablar como «Anónimo» |
+| `account_deletions` + `delete_my_account()` | Ajustes → Eliminar cuenta |
+| Almacenamiento `voces`, `media`, `perfiles` (públicos, rutas imposibles de adivinar) y `chats` (privado) | Audio, fotos, vídeos, foto y portada |
 
-## Etiquetado obligatorio en feed
-`Impulsado` (boost), `Patrocinado` (campaña local), `Promocionado` (perfil). Nunca mezclarlos con contenido orgánico sin etiqueta.
+Funciones RPC: `open_direct_chat`, `create_group_chat`, `delete_voice_note`, `record_spot_view`, `ensure_my_profile`,
+`delete_my_account`. Avisos (`fetchActivity`): nuevos seguidores, voces en tus Spots y tu muro, notas en tus chats.
 
-## Publicación de apps
-### iOS / Android (Capacitor)
-`capacitor.config.ts` apunta ahora a la vista previa de Lovable (`server.url`) para desarrollo. **Para builds de tienda**: elimina el bloque `server`, ejecuta `npm run build`, `npx cap sync` y abre Xcode / Android Studio (`npx cap open ios|android`). Añadir permisos: `NSMicrophoneUsageDescription`, `NSCameraUsageDescription`, `NSLocationWhenInUseUsageDescription` (iOS) y `RECORD_AUDIO`, `CAMERA`, `ACCESS_COARSE_LOCATION` (Android).
-### Windows
-La app es instalable como PWA (Edge/Chrome → "Instalar Spotly"; ver Perfil → Instalar app). Para Microsoft Store: empaquetar con PWABuilder (MSIX) o un contenedor Tauri sobre la misma URL/build.
+Seguridad cubierta por `supabase/tests`: RLS de cada tabla, autores anónimos enmascarados en las vistas `*_public`,
+reglas de rutas del almacenamiento, límites de ritmo, bloqueos y borrado de cuenta.
+
+## Pendiente (hoy es demostración rotulada)
+| Función | Qué falta |
+|---|---|
+| Pagos y créditos: Impulsar, Promocionar perfil, Premium, Incógnito, wallet | Pasarela. En iOS/Android, compra integrada de Apple y Google Play Billing para contenido digital; webhook que escriba `incognito_sessions` y los impulsos. |
+| Spotly Local: negocios, campañas, ofertas flash, anuncios patrocinados | Tablas de negocio y campañas con moderación previa; el feed solo mostraría campañas activas dentro de radio, horario y días, con la etiqueta «Patrocinado». |
+| Audio en directo (Audio Wall, emitir un directo) | Transporte de audio en tiempo real (p. ej. WebRTC/SFU) y moderación de salas. |
+| Verificación de identidad (documento, selfie, teléfono, Creador) | Proveedor KYC con webhook (`approved/review/rejected/invalid/duplicate`). El selfie local (detector facial en el dispositivo) es solo un filtro inicial; no se guardan documentos ni se declara verificado a nadie. |
+| Notificaciones push | APNs/FCM y tabla de tokens por dispositivo. |
+| Búsqueda por voz | Transcripción en servidor (hoy la búsqueda por texto de títulos sí es real). |
+| Actividad por municipio, «personas cerca» con distancia | Coordenadas de los Spots (hoy solo ciudad o zona) y agregados por lugar. |
+| Traducción y transcripción de voz | Servicios externos; en Privacidad solo guardan la preferencia. |
+
+## Etiquetado obligatorio en el feed
+`Impulsado` (impulso), `Patrocinado` (campaña local), `Promocionado` (perfil). Nunca mezclados con contenido orgánico
+sin etiqueta. Con la nube activada no aparecen anuncios ni Hot Spots de ejemplo.
+
+## Acceso y cuentas (Lovable Cloud / Supabase Auth)
+- Correo y contraseña: `signUp` (metadatos `username`, `accepted_terms_at`, `min_age_confirmed`), código de 6 cifras
+  con `verifyOtp {type:"signup"}` (la plantilla «Confirm signup» debe incluir `{{ .Token }}`), `signInWithPassword`,
+  `resetPasswordForEmail`, `updateUser({password})`. Contraseña mínima de 8.
+- Apple y Google: OAuth gestionado por Lovable (`@lovable.dev/cloud-auth-js`) en la web. En las apps nativas falta
+  configurar enlaces profundos o los plugins nativos (`docs/APPS_NATIVAS.md`).
+- Al registrarse, `handle_new_user` crea el perfil con el usuario elegido (si ya existe, el registro falla y la app
+  pide otro); con Apple o Google se asigna uno provisional que se cambia en el perfil. `user_metadata.onboarded`
+  marca si ya se hizo la bienvenida.
+- Edad mínima (18) y resúmenes de términos y privacidad: borradores pendientes de revisión jurídica.
 
 ## Geografía (España)
-- Provincias (52, incl. Ceuta, Melilla, Canarias y Baleares): geometría IGN vía `es-atlas` (MIT). Municipios (8.131): INE vía `@doncicuto/es-municipalities` (MIT). Datos empaquetados en `src/data/es-*.json`; buscador offline en `src/lib/geo.ts`.
-- Las cifras de actividad por ciudad son DEMO hasta conectar `GET /v1/places/{id}/activity`.
+Provincias (52, con Ceuta, Melilla, Canarias y Baleares): geometría IGN vía `es-atlas` (MIT). Municipios (8.131): INE
+vía `@doncicuto/es-municipalities` (MIT). Datos empaquetados en `src/data/es-*.json`; buscador sin conexión en
+`src/lib/geo.ts`. La provincia se detecta del GPS en el propio móvil (`provinceAt`), sin geocodificación externa.
 
-## Chats de voz: presencia y escritura
-- `GET /v1/chats`, `GET /v1/chats/{id}/messages` (autor `me|them` para alinear burbujas).
-- Tiempo real (WebSocket/Realtime): eventos `presence` (`online|offline`, `lastSeen`) y `typing` (`start|stop`, TTL 5 s). La demo simula ambos con temporizadores.
-
-## Verificación de identidad
-- `POST /v1/identity/sessions { tier: basic|premium|creator, methods: [doc,selfie,phone,social,creator] }` → `{ sessionId }`; estado por webhook (`approved|review|rejected|invalid|duplicate`).
-- Asterisco público solo con `approved` y nivel ≠ `basic`; el distintivo Creador requiere revisión manual. La demo elige el resultado a mano y lo rotula DEMO; las fotos no salen del dispositivo.
-
-## Onboarding
-- Ubicación: `navigator.geolocation` (opcional, nunca bloquea). Ciudad: búsqueda local en `geo.ts`; «Usar mi ubicación actual» requiere geocodificación inversa en backend (DEMO: Sevilla).
-
-## Acceso y cuentas (Supabase Auth)
-- Correo + contraseña: `signUp` (metadata: `username`, `accepted_terms_at`, `min_age_confirmed`), `verifyOtp {type:"signup"}` (código de 6 cifras), `signInWithPassword`, `resetPasswordForEmail`, `updateUser({password})`. Apple/Google: OAuth.
-- Plantilla de correo «Confirm signup» debe incluir `{{ .Token }}` (código) además del enlace. Activar confirmación de correo y fijar longitud mínima de contraseña a 8 (igual que `auth.minPassword`).
-- Recuperación: el cliente escucha `PASSWORD_RECOVERY` y muestra la pantalla de nueva contraseña. Nunca se revela si un correo existe.
-- `user_metadata.onboarded` marca si ya se completó el onboarding.
-- Nombre de usuario único: crear `profiles(id uuid pk references auth.users, username text unique check (username ~ '^[a-z][a-z0-9_.]{2,19}$'))` con trigger `on auth.users insert` que copie `raw_user_meta_data->>'username'` y devuelva error si ya existe. La disponibilidad se valida al crear la cuenta (la UI no finge comprobarla antes).
-- Edad mínima y textos legales: `auth.minAge` (18) y resúmenes de términos/privacidad son BORRADOR; requieren revisión jurídica.
-
-## Verificación por niveles y prueba de vida
-- `basic` (gratis): SOLO selfie en tiempo real (persona real). Sin documento ni teléfono.
-- `premium` (de pago, precio en `verificationPricesEur`): documento + selfie + teléfono (SMS) y redes opcionales. Asterisco público.
-- `creator` (de pago): premium + revisión manual de creador.
-- El selfie usa la cámara real y un detector facial local (tiny face detector + 68 puntos, ~270 KB, sin enviar vídeo): una cara, encuadre, parpadeo y giro a ambos lados. Es un filtro inicial; la prueba de vida definitiva (anti-foto/pantalla/deepfake) debe hacerla un proveedor KYC en servidor. Si no hay detección automática, el selfie pasa a revisión manual.
-- Las vistas previas incrustadas (iframe) bloquean la cámara por política del navegador; en la app instalada (Capacitor: permiso `NSCameraUsageDescription` / `CAMERA`) o en la web directa funciona.
+## Publicación de apps
+iOS y Android con Capacitor: `docs/APPS_NATIVAS.md`. Web instalable (PWA): la versión publicada desde Lovable.

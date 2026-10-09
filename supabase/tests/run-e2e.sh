@@ -2,6 +2,7 @@
 # Prueba de extremo a extremo de la app real contra un Supabase local (dos personas, dos navegadores).
 #
 # Uso: PGHOST=… PGPORT=… PGUSER=postgres POSTGREST_BIN=/ruta/postgrest OUT_DIR=/ruta/capturas supabase/tests/run-e2e.sh
+#      (con E2E_APP_BUILD=app se prueba la web estática de las apps nativas en lugar del servidor de desarrollo)
 # Requisitos: Python 3 con Playwright y Chromium. Arranca PostgreSQL→PostgREST→fake-supabase y el servidor de
 # desarrollo de la app apuntando a ese Supabase, crea a Ana y Beto y ejecuta e2e_cloud.py.
 set -euo pipefail
@@ -38,6 +39,12 @@ for _ in $(seq 1 100); do curl -sf "http://127.0.0.1:${FAKE_PORT}/__health" > /d
 ANON=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['anonKey'])" "$KEYS_FILE")
 
 cd "$ROOT"
-VITE_SUPABASE_URL="http://127.0.0.1:${FAKE_PORT}" VITE_SUPABASE_PUBLISHABLE_KEY="$ANON" npx vite dev --port "$APP_PORT" --strictPort --host 127.0.0.1 > "$WORK/app.log" 2>&1 & APP_PID=$!
+if [ "${E2E_APP_BUILD:-}" = "app" ]; then
+  # La misma prueba contra la web estática de las apps nativas (vite.app.config.ts → dist-app, lo que empaqueta Capacitor).
+  VITE_SUPABASE_URL="http://127.0.0.1:${FAKE_PORT}" VITE_SUPABASE_PUBLISHABLE_KEY="$ANON" npx vite build -c vite.app.config.ts > "$WORK/app-build.log" 2>&1
+  python3 -m http.server "$APP_PORT" --bind 127.0.0.1 --directory "$ROOT/dist-app" > "$WORK/app.log" 2>&1 & APP_PID=$!
+else
+  VITE_SUPABASE_URL="http://127.0.0.1:${FAKE_PORT}" VITE_SUPABASE_PUBLISHABLE_KEY="$ANON" npx vite dev --port "$APP_PORT" --strictPort --host 127.0.0.1 > "$WORK/app.log" 2>&1 & APP_PID=$!
+fi
 for _ in $(seq 1 200); do curl -sf "http://127.0.0.1:${APP_PORT}/" > /dev/null 2>&1 && break; sleep 0.5; done
 python3 -I "$HERE/e2e_cloud.py" "http://127.0.0.1:${APP_PORT}/" "http://127.0.0.1:${FAKE_PORT}" "$KEYS_FILE" "$OUT"

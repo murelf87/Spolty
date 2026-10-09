@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ChevronLeft, BadgeCheck, Camera, Check, Heart, Layers, MapPin, Mic, Navigation, Play, SlidersHorizontal, UserPlus, X, Volume2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft, BadgeCheck, Camera, Check, Ghost, Heart, Layers, MapPin, Mic, Navigation, Play, Plus, SlidersHorizontal, UserPlus, X, Volume2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { Sheet } from "./Extras";
@@ -17,7 +17,10 @@ import { api, cloudUid, db, fileUrl, useCloud } from "@/lib/cloud";
 import { useMe } from "@/lib/store";
 import { FollowButton, PersonAvatar } from "./CloudPeople";
 import { CloudPeopleNearby } from "./PeopleNearby";
-import { AuthorProfile } from "./SpotDetail";
+import { AuthorProfile, SpotDetail } from "./SpotDetail";
+import { MeAvatar } from "./Author";
+import { spotData, type SpotData } from "./spotData";
+import { useCloudFeed } from "@/lib/spots";
 import { RealPhotos } from "./PhotoWall";
 import { VoiceThread } from "./VoiceThread";
 import { useApp } from "./app-context";
@@ -42,6 +45,8 @@ const people = [
 const places = [["Bar El Tremendo", "Tapas · 200 m", "Abierto"], ["Mercado de Triana", "Mercado · 650 m", "Abierto"], ["Sala X", "Música · 1,4 km", "Hoy concierto"]] as const;
 const geo: Record<string, string[]> = { Sevilla: ["Sevilla", "Carmona", "Dos Hermanas", "Utrera"], Valencia: ["Valencia", "Cullera", "Gandía", "Sagunto"], Madrid: ["Madrid", "Alcalá", "Getafe"] };
 const pins = [[24, 50, "accent", 36], [20, 30, "primary", 28], [72, 58, "primary", 30], [30, 66, "live", 26], [62, 24, "primary", 24]] as const;
+/* Huecos del radar para los Spots reales de tu ciudad: no son su sitio (Spotly nunca enseña dónde está nadie). */
+const SLOTS = [[26, 40], [72, 34], [22, 64], [76, 62], [50, 20], [52, 84]] as const;
 
 const ring = { accent: "border-accent", primary: "border-primary", live: "border-live" };
 const dot = { accent: "bg-accent", primary: "bg-primary", live: "bg-live" };
@@ -56,7 +61,7 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
   const [tab, setTab] = useState("Mapa");
   const [layer, setLayer] = useState<"Oscuro" | "Satélite">("Oscuro");
   const [prov, setProv] = useState("Sevilla");
-  const [town, setTown] = useState("Sevilla");
+  const [town, setTown] = useState(me.city || "Sevilla");
   const [picker, setPicker] = useState(false);
   const [filters, setFilters] = useState(false);
   const [photo, setPhoto] = useState<Photo | null>(null);
@@ -65,6 +70,12 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
   const [f, setF] = useState({ km: 5, when: "Ahora", only: [] as string[] });
   const [peopleFilter, setPeopleFilter] = useState<"Cerca" | "Nuevos" | "Verificados" | "Online">("Cerca");
   const [place, setPlace] = useState<number | null>(null);
+  /* Con tu cuenta y la nube, el mapa enseña los Spots recientes de verdad de la ciudad (sin posiciones exactas). */
+  const cloud = useCloud();
+  const real = cloud.on && !demo;
+  const cityFeed = useCloudFeed({ kind: "recent", city: town, enabled: real });
+  const near = useMemo(() => (real ? cityFeed.spots.slice(0, SLOTS.length).map((m) => spotData(m, me.name)) : []), [real, cityFeed.spots, me.name]);
+  const [openSpot, setOpenSpot] = useState<SpotData | null>(null);
   const km = (d: string) => d.includes("km") ? parseFloat(d.replace(",", ".")) : parseFloat(d) / 1000;
   const shownPhotos = photos.filter((p) => km(p.d) <= f.km && (!f.only.includes("Verificados") || ["Laura", "Sofía", "Carlos"].includes(p.u)));
   const shownPeople = people.filter((p) => km(p.d) <= f.km && (!f.only.includes("Verificados") || p.v) && (!f.only.includes("En directo") || p.live) && (peopleFilter !== "Verificados" || p.v) && (peopleFilter !== "Online" || p.live));
@@ -83,14 +94,22 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
           {layer === "Satélite" && <img src={imgs[3]} alt="Vista satélite" className="absolute inset-0 h-full w-full object-cover opacity-50" />}
            {layer === "Oscuro" && <div className="spot-neon-map absolute inset-0" aria-hidden="true"><svg viewBox="0 0 360 620" preserveAspectRatio="xMidYMid slice" className="h-full w-full"><g fill="none" stroke="var(--spot-blue)" strokeWidth="1" opacity=".45"><path d="M-30 82 75 95 143 135 264 134 390 205M-20 180 82 196 170 181 250 205 390 252M-20 286 99 272 181 308 253 301 390 335M-20 430 76 407 165 442 256 415 390 458M-20 531 96 497 187 517 278 503 390 550M34-20 47 112 31 220 56 330 30 460 62 650M126-20 114 115 136 242 111 363 142 476 127 650M231-20 218 100 241 235 213 361 247 485 233 650M330-20 311 125 330 235 309 368 337 495 322 650"/><path stroke="var(--spot-fuchsia)" opacity=".8" strokeWidth="1.6" d="M-20 125 86 143 153 153 236 169 390 222M-20 360 77 355 157 386 243 379 390 402M94-20 96 97 82 196 100 272 76 407 96 497 95 650M280-20 272 134 250 205 253 301 256 415 278 503 265 650"/></g><g fill="var(--spot-blue)" opacity=".7"><circle cx="82" cy="196" r="2"/><circle cx="253" cy="301" r="2"/><circle cx="76" cy="407" r="2"/></g></svg></div>}
           {[88, 64, 42, 22].map((s) => <div key={s} className="spot-radar absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ width: `${s}%`, aspectRatio: "1" }} />)}
-           {!mine && <button onClick={() => setPerson(people[0]!)} aria-label="Ver perfil de Laura" className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full border-2 border-accent shadow-glow"><img src={lauraPhoto} alt="Laura, perfil ilustrativo" className="h-full w-full object-cover" /></button>}
-           {pins.map(([x, y, c, s], i) => (
-              <Button key={i} variant="ghost" aria-label="Ver Spot" onClick={() => setPin(i)} className="absolute flex h-auto -translate-x-1/2 -translate-y-full flex-col items-center p-0" style={{ left: `${x}%`, top: `${y}%` }}><span className={`relative rounded-full border-2 ${ring[c]} ${pin === i ? "ring-2 ring-primary" : ""}`} style={{ width: s + 12, height: s + 12 }}><img src={i === 0 ? lauraPhoto : imgs[i]} alt="" className={`h-full w-full rounded-full object-cover ${i === 0 ? "spot-pulse" : ""}`} />{i < 2 && <BadgeCheck size={14} className="absolute -right-1 -top-1 rounded-full bg-background text-primary" aria-label="Autor verificado de ejemplo" />}</span><span className={`-mt-0.5 h-2 w-2 rotate-45 ${dot[c]}`} /></Button>
+           {real && !mine && <span className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"><span className="block rounded-full border-2 border-accent p-0.5 shadow-glow"><MeAvatar className="h-20 w-20 text-2xl" /></span><span className="mt-1 rounded-full bg-background/90 px-3 py-0.5 text-3xs font-bold">Tú</span></span>}
+           {real && near.map((n, i) => { const [x, y] = SLOTS[i]!; return (
+              <Button key={n.id} variant="ghost" aria-label={`Escuchar el Spot de ${n.name}: ${n.text}`} onClick={() => setOpenSpot(n)} className="absolute flex h-auto -translate-x-1/2 -translate-y-full flex-col items-center p-0" style={{ left: `${x}%`, top: `${y}%` }}>
+                <span className="grid h-11 w-11 place-items-center overflow-hidden rounded-full border-2 border-primary bg-card">{n.incognito ? <Ghost size={18} /> : n.own ? <MeAvatar className="h-full w-full text-sm" /> : n.avatar ? <img src={n.avatar} alt="" className="h-full w-full object-cover" /> : <span className="text-sm font-bold">{(n.name.replace("@", "")[0] ?? "?").toUpperCase()}</span>}</span>
+                <span className="-mt-0.5 h-2 w-2 rotate-45 bg-primary" />
+              </Button>
+           ); })}
+           {real && !mine && cityFeed.status === "ready" && near.length === 0 && <div className="absolute inset-x-6 top-[62%] rounded-xl border border-border bg-background/90 p-3 text-center backdrop-blur"><p className="text-xs text-muted-foreground">Aún no hay Spots recientes en {town}. Cuenta tú lo que pasa.</p><Button size="sm" className="mt-2" onClick={() => app.create()}><Plus size={14} />Crear Spot</Button></div>}
+           {!real && !mine && <button onClick={() => setPerson(people[0]!)} aria-label="Ver perfil de Laura" className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-full border-2 border-accent shadow-glow"><img src={lauraPhoto} alt="Laura, perfil ilustrativo" className="h-full w-full object-cover" /></button>}
+           {!real && pins.map(([x, y, c, s], i) => (
+              <Button key={i} variant="ghost" aria-label="Ver Spot" onClick={() => setPin(i)} className="absolute flex h-auto -translate-x-1/2 -translate-y-full flex-col items-center p-0" style={{ left: `${x}%`, top: `${y}%` }}><span className={`relative rounded-full border-2 ${ring[c]} ${pin === i ? "ring-2 ring-primary" : ""}`} style={{ width: s + 12, height: s + 12 }}><img src={i === 0 ? lauraPhoto : imgs[i]} alt="" className={`h-full w-full rounded-full object-cover ${i === 0 ? "spot-pulse" : ""}`} />{i < 2 && demo && <BadgeCheck size={14} className="absolute -right-1 -top-1 rounded-full bg-background text-primary" aria-label="Autor verificado de ejemplo" />}</span><span className={`-mt-0.5 h-2 w-2 rotate-45 ${dot[c]}`} /></Button>
           ))}
             {mine && <Button variant="ghost" aria-label="Tu Spot" onClick={() => toast("Tu Spot · recién publicado. Lo verás en Inicio y en tu perfil.")} className="absolute left-1/2 top-1/2 h-auto -translate-x-1/2 -translate-y-1/2 flex-col p-0"><span className="h-24 w-24 overflow-hidden rounded-full border-[3px] border-accent shadow-glow"><img src={valenciaSunset} alt="" className="h-full w-full object-cover" /></span><span className="mt-1 rounded-full bg-background/90 px-3 py-1 text-3xs font-bold text-foreground shadow-glow">TU SPOT</span></Button>}
           <div className="absolute right-3 top-3 flex flex-col gap-2">
             <Button size="icon" variant="secondary" aria-label="Cambiar capa" onClick={() => setLayer(layer === "Oscuro" ? "Satélite" : "Oscuro")}><Layers size={18} /></Button>
-            <Button size="icon" variant="secondary" aria-label="Mi ubicación" onClick={() => toast("Centrado en tu ubicación")}><Navigation size={18} /></Button>
+            <Button size="icon" variant="secondary" aria-label="Mi ubicación" onClick={() => toast(`Estás viendo ${town}`, { description: "Las posiciones del mapa son aproximadas: Spotly nunca enseña dónde está nadie." })}><Navigation size={18} /></Button>
           </div>
            <Button size="sm" variant="secondary" onClick={() => setFilters(true)} className="absolute left-3 top-3 h-7 rounded-full bg-background/80 px-2 text-3xs font-semibold backdrop-blur"><SlidersHorizontal size={12} className="text-primary" />{demo ? "8 en directo" : "Filtros"} · {layer}</Button>
            {pin !== null ? (
@@ -105,19 +124,22 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
           )}
         </section>
       )}
-       {tab === "Mapa" && <div className="mx-4 mt-2 grid grid-cols-5 gap-1">{imgs.slice(0,5).map((img,i) => <Button key={i} variant="ghost" onClick={() => setPin(i)} aria-label={`Spot cercano ${i+1}`} className="aspect-square h-auto overflow-hidden rounded-md p-0"><img src={img} alt="" className="h-full w-full object-cover" /></Button>)}</div>}
+       {tab === "Mapa" && real && near.length > 0 && <div className="mx-4 mt-2 grid grid-cols-5 gap-1">{near.slice(0, 5).map((n) => <Button key={n.id} variant="ghost" onClick={() => setOpenSpot(n)} aria-label={`Spot de ${n.name}: ${n.text}`} className="aspect-square h-auto overflow-hidden rounded-md p-0">{n.img ? <img src={n.img} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full w-full place-items-center bg-spot-surface"><Volume2 size={18} className="text-primary" /></span>}</Button>)}</div>}
+       {tab === "Mapa" && !real && <div className="mx-4 mt-2 grid grid-cols-5 gap-1">{imgs.slice(0,5).map((img,i) => <Button key={i} variant="ghost" onClick={() => setPin(i)} aria-label={`Spot cercano ${i+1}`} className="aspect-square h-auto overflow-hidden rounded-md p-0"><img src={img} alt="" className="h-full w-full object-cover" /></Button>)}</div>}
+       {tab === "Mapa" && (real ? <p className="mx-4 mt-1.5 text-3xs text-muted-foreground">Spots recientes de {town}. Las posiciones no son exactas: Spotly nunca enseña dónde está nadie.</p> : !demo && <p className="mx-4 mt-1.5 text-3xs text-muted-foreground">Mapa y Spots de ejemplo.</p>)}
        <div className="mx-4 mt-3 flex gap-2 overflow-x-auto">{([["ciudad", "Ciudades y pueblos"], ["comunidades", "Comunidades"], ["eventos", "Eventos"], ["buscar", "Buscar con voz"]] as [Sheet, string][]).map(([k, l]) => <Button key={l} size="sm" variant="secondary" onClick={() => onOpen(k)} className="shrink-0 rounded-full text-xs">{l}</Button>)}<Button size="sm" variant="secondary" onClick={() => setPicker(true)} className="shrink-0 rounded-full text-xs">{town} ▾</Button></div>
 
       {tab === "Fotos" && (
         <section className="p-4">
           <div className="flex items-center justify-between"><p className="text-sm font-semibold">Fotos cerca de ti · {f.km} km</p><Button size="sm" onClick={() => app.create()}><Camera size={16} />Subir</Button></div>
           <div className="mt-3"><RealPhotos city={me.city} title={`En ${me.city}`} /></div>
+          {!demo && <p className="mt-3 text-2xs text-muted-foreground">Fotos de ejemplo</p>}
           <div className="mt-3 columns-2 gap-2">
             {shownPhotos.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">No hay fotos a {f.km} km. Amplía la distancia en Filtros.</p>}
             {shownPhotos.map((p) => { const i = photos.indexOf(p); return (
               <button key={p.t} onClick={() => setPhoto(p)} className="relative mb-2 block w-full overflow-hidden rounded-xl">
                 <img src={imgs[i % imgs.length]} alt={p.t} loading="lazy" className={`w-full object-cover ${i % 3 === 0 ? "aspect-[3/4]" : "aspect-square"}`} />
-                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/90 to-transparent p-2 text-left text-2xs"><strong className="block">{p.p}</strong>{p.d}{["Laura", "Sofía", "Carlos"].includes(p.u) && <BadgeCheck size={12} aria-label="Autor verificado de ejemplo" className="ml-1 inline text-primary" />}</span>
+                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background/90 to-transparent p-2 text-left text-2xs"><strong className="block">{p.p}</strong>{demo && p.d}{demo && ["Laura", "Sofía", "Carlos"].includes(p.u) && <BadgeCheck size={12} aria-label="Autor verificado de ejemplo" className="ml-1 inline text-primary" />}</span>
               </button>
             ); })}
           </div>
@@ -126,14 +148,14 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
 
       {tab === "Personas" && (
         <section className="space-y-3 p-4">
-          <div className="flex gap-1 overflow-x-auto">{(["Cerca", "Nuevos", "Verificados", "Online"] as const).map(x=><Button key={x} size="sm" variant={peopleFilter===x?"default":"secondary"} onClick={()=>setPeopleFilter(x)} className={peopleFilter===x?"spot-active-pill rounded-full text-xs":"rounded-full text-xs"}>{x === "Online" ? <><span className="h-2 w-2 shrink-0 rounded-full bg-online" aria-hidden="true" />En línea</> : x}</Button>)}</div>
+          <div className="flex gap-1 overflow-x-auto">{(demo ? ["Cerca", "Nuevos", "Verificados", "Online"] as const : ["Cerca", "Nuevos"] as const).map(x=><Button key={x} size="sm" variant={peopleFilter===x?"default":"secondary"} onClick={()=>setPeopleFilter(x)} className={peopleFilter===x?"spot-active-pill rounded-full text-xs":"rounded-full text-xs"}>{x === "Online" ? <><span className="h-2 w-2 shrink-0 rounded-full bg-online" aria-hidden="true" />En línea</> : x}</Button>)}</div>
           <CloudPeopleNearby />
-          <p className="text-2xs text-muted-foreground">Personas y distintivos de ejemplo</p>
+          {!demo && <p className="text-2xs text-muted-foreground">Personas de ejemplo</p>}
           {shownPeople.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">Nadie cumple estos filtros. Prueba a quitar alguno.</p>}
           {shownPeople.map((p) => (
             <button key={p.n} onClick={() => setPerson(p)} className="flex w-full items-center gap-3 rounded-xl border border-border bg-card p-3 text-left">
-              <div className="relative h-12 w-12 shrink-0 rounded-full bg-spot-gradient p-[0.125rem]"><img src={p.image} alt="" className="h-full w-full rounded-full object-cover"/>{p.live && <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card bg-live" />}</div>
-              <div className="flex-1"><p className="flex items-center gap-1 font-semibold">{p.n}{p.v && <BadgeCheck size={14} className="text-primary" />}</p><p className="text-xs text-muted-foreground">{p.d} · {p.i}</p></div>
+              <div className="relative h-12 w-12 shrink-0 rounded-full bg-spot-gradient p-[0.125rem]"><img src={p.image} alt="" className="h-full w-full rounded-full object-cover"/>{p.live && demo && <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card bg-live" />}</div>
+              <div className="flex-1"><p className="flex items-center gap-1 font-semibold">{p.n}{p.v && demo && <BadgeCheck size={14} className="text-primary" />}</p><p className="text-xs text-muted-foreground">{demo ? `${p.d} · ${p.i}` : p.i}</p></div>
               <span className="text-xs text-primary">Ver</span>
             </button>
           ))}
@@ -176,6 +198,7 @@ export function ExploreView({ onOpen, mine = false }: { onOpen: (s: Sheet) => vo
 
       {photo && <PhotoDetail p={photo} img={imgs[photos.indexOf(photo) % imgs.length]!} onBack={() => setPhoto(null)} />}
       {person && <PersonDetail p={person} onBack={() => setPerson(null)} />}
+      {openSpot && <SpotDetail s={openSpot} onClose={() => setOpenSpot(null)} onAuthor={() => setOpenSpot(null)} />}
       {place !== null && <Modal title={places[place]![0]} onClose={() => setPlace(null)}>
         <img src={imgs[place % imgs.length]} alt={places[place]![0]} className="aspect-video w-full rounded-xl object-cover" />
         <p className="mt-3 text-sm text-muted-foreground">{places[place]![1]} · <span className="text-primary">{places[place]![2]}</span></p>
@@ -247,6 +270,7 @@ function PhotoDetail({ p, img, onBack }: { p: Photo; img: string; onBack: () => 
 }
 
 function PersonDetail({ p, onBack }: { p: Person; onBack: () => void }) {
+  const { demo } = useStore();
   const [follow, setFollow] = useState(false);
   const [viewer, setViewer] = useState<number | null>(null);
   const [voice, setVoice] = useState(false);
@@ -256,9 +280,9 @@ function PersonDetail({ p, onBack }: { p: Person; onBack: () => void }) {
       <div className="bg-spot-surface px-4 pb-6 pt-[var(--safe-header)] text-center">
         <div className="text-left"><Button variant="ghost" size="icon" aria-label="Volver" onClick={onBack}><ChevronLeft size={24} /></Button></div>
         <div className="mx-auto h-24 w-24 rounded-full bg-spot-gradient p-[0.1875rem] shadow-glow"><img src={p.image} alt={p.n} className="h-full w-full rounded-full object-cover"/></div>
-        <h2 className="mt-3 flex items-center justify-center gap-1 text-xl font-bold">{p.n}{p.v && <BadgeCheck size={18} className="text-primary" />}</h2>
-        <p className="text-sm text-muted-foreground">A {p.d} · {p.i}</p>
-        {p.live && <p className="mt-1 text-xs text-live">● En directo ahora</p>}
+        <h2 className="mt-3 flex items-center justify-center gap-1 text-xl font-bold">{p.n}{p.v && demo && <BadgeCheck size={18} className="text-primary" />}</h2>
+        <p className="text-sm text-muted-foreground">A {p.d} · {p.i}{!demo && " · perfil de ejemplo"}</p>
+        {p.live && demo && <p className="mt-1 text-xs text-live">● En directo ahora</p>}
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Button variant={follow ? "secondary" : "default"} onClick={() => { setFollow(!follow); if (!follow) toast.success(`Sigues a ${p.n}`); }}>{follow ? <Check size={16} /> : <UserPlus size={16} />}{follow ? "Siguiendo" : "Seguir"}</Button>
           <Button variant="secondary" className="whitespace-nowrap px-3" onClick={() => setVoice(true)}><Mic size={16} />Mensaje de voz</Button>

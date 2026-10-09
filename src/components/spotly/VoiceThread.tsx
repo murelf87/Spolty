@@ -349,16 +349,17 @@ export function VoiceComposer({ target, onSend, onClose, maxSeconds: maxProp, po
   return (
     <div className="relative">
       {pointer && <VoicePointer />}
-      <div className="spot-voice-composer rounded-2xl py-[0.9375rem] pl-3 pr-3">
+      <div className="spot-voice-composer @container rounded-2xl py-[0.9375rem] pl-3 pr-3">
         {gate ? <div className="p-1">{gate}</div> : (
           <div className="flex items-center">
             {target && <>
               <TargetAvatar target={target} />
-              <div className="ml-2 shrink-0">
+              {/* En móviles muy estrechos (320 px) queda la foto con el pico: así la onda en vivo sigue teniendo sitio. */}
+              <div className="ml-2 shrink-0 @max-[20.5rem]:sr-only">
                 <p className="text-[0.65625rem] leading-4 text-foreground/90">Respondiendo a<span className="sr-only"> {target.name}</span></p>
                 <p className="mt-[0.1875rem] flex h-[1.125rem] items-center gap-1.5 text-[0.65625rem] leading-none tabular-nums text-muted-foreground"><AudioLines size={17} strokeWidth={1.8} className="shrink-0 text-foreground/80" />{target.durationMs > 0 ? `${formatClock(target.atMs)} / ${formatClock(target.durationMs)}` : <span className="max-w-[4.5rem] truncate">{target.name}</span>}</p>
               </div>
-              <span aria-hidden="true" className="mx-2.5 h-11 w-px shrink-0 bg-[var(--voice-divider)]" />
+              <span aria-hidden="true" className="mx-2.5 h-11 w-px shrink-0 bg-[var(--voice-divider)] @max-[20.5rem]:mx-2" />
             </>}
             <button ref={main} type="button" onClick={mainAction} disabled={rec.state === "requesting"}
               aria-label={rec.state === "idle" ? "Grabar con el micrófono" : recording ? "Parar y escuchar antes de enviar" : rec.state === "requesting" ? "Permite el micrófono" : pb.playing ? "Pausar la escucha" : "Escuchar tu grabación"}

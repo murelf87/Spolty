@@ -348,7 +348,7 @@ export function SpotDetail({ s: initial, onClose, onAuthor }: { s: SpotInfo; onC
                 {s.own ? <MeAvatar className="h-11 w-11 border-2 border-primary text-base" /> : authorPhoto ? <img src={authorPhoto} alt={s.name} className="h-11 w-11 rounded-full border-2 border-primary object-cover" /> : <PersonAvatar p={{ name: s.name }} className="h-11 w-11 border-2 border-primary text-base" />}
                 <div>
                   <div className="flex items-center gap-1 text-sm font-semibold">
-                    {shownName} {!s.cloud && !s.own && <span className="text-primary text-base">✓</span>}
+                    {shownName} {demo && !s.cloud && !s.own && <span className="text-primary text-base">✓</span>}
                     {sampleSpot && !demo && <span className="ml-1 rounded-full border border-border px-1.5 text-4xs font-normal text-muted-foreground">ejemplo</span>}
                   </div>
                   <div className="text-xs text-muted-foreground">{s.dist} · Hace {s.ago}</div>
@@ -550,11 +550,12 @@ function SampleAuthorProfile({ name, onClose }: { name: string; onClose: () => v
       </div>
       <div className="-mt-12 px-4 text-center">
         <img src={beach} alt="" className="relative mx-auto h-24 w-24 rounded-full border-4 border-background object-cover" />
-        <h2 className="mt-2 text-xl font-bold">{name} <span className="text-primary">✦</span></h2>
-        <p className="text-xs text-muted-foreground">Sevilla · Verificado{!demo && " · perfil de ejemplo"}</p>
+        <h2 className="mt-2 text-xl font-bold">{name}{demo && <span className="text-primary"> ✦</span>}</h2>
+        <p className="text-xs text-muted-foreground">Sevilla{demo ? " · Verificado" : " · perfil de ejemplo"}</p>
+        {/* Las cifras de un perfil de ejemplo solo se enseñan en la demostración. */}
         <div className="mt-4 grid grid-cols-3 rounded-2xl border border-border bg-card py-3 text-sm">
-          {[["128", "Spots"], [follow ? "4.822" : "4.821", "Seguidores"], ["312", "Siguiendo"]].map(([a, b]) => (
-            <div key={b} onClick={() => b === "Seguidores" && setList(true)} className={b === "Seguidores" ? "cursor-pointer" : ""}>
+          {(demo ? [["128", "Spots"], [follow ? "4.822" : "4.821", "Seguidores"], ["312", "Siguiendo"]] : [["·", "Spots"], ["·", "Seguidores"], ["·", "Siguiendo"]]).map(([a, b]) => (
+            <div key={b} onClick={() => demo && b === "Seguidores" && setList(true)} className={demo && b === "Seguidores" ? "cursor-pointer" : ""}>
               <strong className="block">{a}</strong><small className="text-muted-foreground">{b}</small>
             </div>
           ))}
